@@ -1,0 +1,20 @@
+{
+  "name": "aura-tech-monorepo",
+  "private": true,
+  "scripts": {
+    "infra": "docker compose up -d postgres minio minio-init",
+    "infra:stop": "docker compose stop postgres minio minio-init",
+    "infra:down": "docker compose down",
+    "seed": "cd apps/api && go run cmd/seeder/main.go",
+    "dev:api": "cd apps/api && go run cmd/server/main.go",
+    "dev:web": "cd apps/web && npm run dev",
+    "build:web": "cd apps/web && npm run build"
+  },
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

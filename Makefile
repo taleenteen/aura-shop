@@ -1,0 +1,42 @@
+.PHONY: infra infra-down dev-api dev-web seed-local up down logs seed psql reset
+
+# 1. Run only DB (PostgreSQL) and MinIO in Docker (for local development)
+infra:
+	docker compose up -d postgres minio minio-init
+
+infra-down:
+	docker compose stop postgres minio minio-init
+
+# 2. Run Backend API locally on host
+dev-api:
+	cd apps/api && go run cmd/server/main.go
+
+# 3. Run Frontend Web locally on host
+dev-web:
+	cd apps/web && npm run dev
+
+# 4. Run Seeder locally on host
+seed-local:
+	cd apps/api && go run cmd/seeder/main.go
+
+# Full Docker container execution
+up:
+	cp -n .env.example .env || true
+	docker compose up -d --build
+
+down:
+	docker compose down
+
+logs:
+	docker compose logs -f
+
+seed:
+	docker compose exec api go run cmd/seeder/main.go
+
+psql:
+	docker compose exec postgres psql -U aura_admin -d aura_ecommerce
+
+reset:
+	docker compose down -v
+	cp -n .env.example .env || true
+	docker compose up -d --build
