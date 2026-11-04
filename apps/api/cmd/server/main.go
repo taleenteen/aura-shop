@@ -165,6 +165,7 @@ func main() {
 		api.Route("/admin", func(adm chi.Router) {
 			adm.Use(appMiddleware.RequireAdmin)
 			adm.Get("/overview", adminHandler.GetOverview)
+			adm.Get("/orders", adminHandler.ListOrders)
 			adm.Post("/banners", adminHandler.CreateBanner)
 			adm.Post("/products", adminHandler.CreateProduct)
 			adm.Patch("/orders/{id}/status", adminHandler.UpdateOrderStatus)

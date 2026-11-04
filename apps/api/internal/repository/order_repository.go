@@ -28,6 +28,7 @@ type OrderRepository interface {
 	ReleaseExpiredReservations(ctx context.Context) (int64, error)
 	GetOrderByNumber(ctx context.Context, orderNumber string) (*models.Order, error)
 	GetOrderByID(ctx context.Context, id uuid.UUID) (*models.Order, error)
+	ListOrders(ctx context.Context, status string, page, limit int) ([]models.Order, int64, error)
 	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string]string) error
 	GetAdminOverview(ctx context.Context) (*dto.AdminOverviewStats, error)
 }
@@ -228,6 +229,39 @@ func (r *orderRepository) GetOrderByID(ctx context.Context, id uuid.UUID) (*mode
 		return nil, fmt.Errorf("failed to fetch order: %w", err)
 	}
 	return &order, nil
+}
+
+func (r *orderRepository) ListOrders(ctx context.Context, status string, page, limit int) ([]models.Order, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	query := r.db.WithContext(ctx).Model(&models.Order{})
+	if status != "" && status != "ALL" {
+		query = query.Where("status = ?", status)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count orders: %w", err)
+	}
+
+	var orders []models.Order
+	err := query.
+		Preload("Items").
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&orders).Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list orders: %w", err)
+	}
+
+	return orders, total, nil
 }
 
 func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string]string) error {

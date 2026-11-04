@@ -34,6 +34,11 @@ export interface User {
   updated_at: string;
 }
 
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
 export interface Category {
   id: string;
   slug: string;

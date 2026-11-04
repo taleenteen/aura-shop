@@ -92,6 +92,9 @@ func (s *interactionService) formatCartResponse(items []models.CartItem) *dto.Ca
 
 	for _, item := range items {
 		availableStock := item.Variant.StockQuantity - item.Variant.ReservedStock
+		if availableStock < 0 {
+			availableStock = 0
+		}
 		itemTotal := item.Variant.Price * int64(item.Quantity)
 
 		var productName, productSlug string

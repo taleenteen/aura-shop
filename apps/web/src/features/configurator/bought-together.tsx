@@ -66,9 +66,9 @@ export function BoughtTogether({ bundles = [] }: BoughtTogetherProps) {
             const discountedPrice = Math.round(
               accProduct.base_price * (1 - bundle.bundle_discount_pct / 100)
             );
+            const rawImages = accProduct.variants?.[0]?.images;
             const thumb =
-              (Array.isArray(accProduct.variants?.[0]?.images) &&
-                accProduct.variants[0].images[0]) ||
+              (Array.isArray(rawImages) ? rawImages[0] : typeof rawImages === "string" ? rawImages : "") ||
               "";
 
             return (

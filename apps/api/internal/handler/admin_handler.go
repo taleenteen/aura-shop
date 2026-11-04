@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
+	"strconv"
 
 	"aura-tech/api/internal/dto"
 	"aura-tech/api/internal/models"
@@ -30,6 +32,37 @@ func (h *AdminHandler) GetOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, http.StatusOK, overview, nil)
+}
+
+func (h *AdminHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
+	status := r.URL.Query().Get("status")
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+
+	orders, total, err := h.adminService.ListOrders(r.Context(), status, page, limit)
+	if err != nil {
+		response.InternalServerError(w, "failed to list orders: "+err.Error())
+		return
+	}
+
+	totalPages := 1
+	if limit > 0 {
+		totalPages = int(math.Ceil(float64(total) / float64(limit)))
+	}
+
+	meta := &response.Meta{
+		Page:       page,
+		Limit:      limit,
+		TotalItems: int(total),
+		TotalPages: totalPages,
+	}
+	response.Success(w, http.StatusOK, orders, meta)
 }
 
 func (h *AdminHandler) CreateBanner(w http.ResponseWriter, r *http.Request) {
