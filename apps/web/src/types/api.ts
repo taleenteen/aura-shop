@@ -276,6 +276,8 @@ export interface Order {
   installment_plan?: InstallmentPlanData | null;
   reservation_expires_at: string;
   items: OrderItem[];
+  /** Statuses an admin may move this order to. Present on admin listings; absent means none. */
+  allowed_transitions?: OrderStatus[];
   created_at: string;
   updated_at: string;
 }

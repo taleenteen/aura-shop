@@ -19,6 +19,27 @@ import type { Order, OrderStatus } from "@/types/api";
 
 type FilterStatus = "ALL" | "PENDING_PAYMENT" | "PAID_PROCESSING" | "SHIPPED" | "CANCELLED";
 
+const TRANSITION_LABELS: Record<OrderStatus, string> = {
+  PENDING_PAYMENT: "PENDING_PAYMENT",
+  PAID_PROCESSING: "PAID_PROCESSING (keep, save S/N only)",
+  SN_ASSIGNED: "SN_ASSIGNED",
+  SHIPPED: "SHIPPED (Enforces Non-Empty S/N)",
+  DELIVERED: "DELIVERED",
+  CANCELLED: "CANCELLED (returns stock to inventory)",
+};
+
+// Forward step pre-selected for each status. Cancelling is never pre-selected.
+const DEFAULT_NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
+  PAID_PROCESSING: "SHIPPED",
+  SN_ASSIGNED: "SHIPPED",
+  SHIPPED: "DELIVERED",
+};
+
+function defaultTargetFor(order: Order): OrderStatus | "" {
+  const next = DEFAULT_NEXT_STATUS[order.status];
+  return next && order.allowed_transitions?.includes(next) ? next : "";
+}
+
 export function OrderSNFulfillment() {
   const [filter, setFilter] = useState<FilterStatus>("ALL");
   const [orders, setOrders] = useState<Order[]>([]);
@@ -27,21 +48,24 @@ export function OrderSNFulfillment() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // Fulfillment form state
-  const [targetStatus, setTargetStatus] = useState<OrderStatus>("SHIPPED");
+  const [targetStatus, setTargetStatus] = useState<OrderStatus | "">("");
   const [serialNumbers, setSerialNumbers] = useState<Record<string, string>>({});
   const [isUpdating, setIsUpdating] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (): Promise<Order[]> => {
     setIsLoadingOrders(true);
     try {
       const queryStatus = filter === "ALL" ? "" : filter;
       const res = await apiClient<Order[]>(`/admin/orders?status=${queryStatus}&limit=25`);
-      setOrders(res.data || []);
-      setTotalOrders(res.meta?.total_items || (res.data || []).length);
+      const list = res.data || [];
+      setOrders(list);
+      setTotalOrders(res.meta?.total_items || list.length);
+      return list;
     } catch (err) {
       console.error("Failed to load admin orders:", err);
+      return [];
     } finally {
       setIsLoadingOrders(false);
     }
@@ -56,16 +80,7 @@ export function OrderSNFulfillment() {
     setSuccessMsg(null);
     setErrorMsg(null);
 
-    // Smart default for next state transition
-    if (order.status === "PENDING_PAYMENT") {
-      setTargetStatus("PAID_PROCESSING");
-    } else if (order.status === "PAID_PROCESSING") {
-      setTargetStatus("SHIPPED");
-    } else if (order.status === "SHIPPED") {
-      setTargetStatus("DELIVERED");
-    } else {
-      setTargetStatus(order.status);
-    }
+    setTargetStatus(defaultTargetFor(order));
 
     // Pre-populate any existing serial numbers
     const initialSNs: Record<string, string> = {};
@@ -86,7 +101,7 @@ export function OrderSNFulfillment() {
 
   const handleStatusSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedOrder) return;
+    if (!selectedOrder || !targetStatus) return;
 
     setIsUpdating(true);
     setSuccessMsg(null);
@@ -105,16 +120,18 @@ export function OrderSNFulfillment() {
       );
 
       setSuccessMsg(
-        `Order ${selectedOrder.order_number} transitioned to ${targetStatus} with warranty S/N recorded.`
+        `Order ${selectedOrder.order_number} is now ${targetStatus}.`
       );
 
-      // Refresh table to reflect change
-      await fetchOrders();
-
-      // Update selected order view
-      setSelectedOrder((prev) =>
-        prev ? { ...prev, status: targetStatus } : null
-      );
+      // Refresh the table, then re-select the order so its allowed transitions are current.
+      const refreshed = await fetchOrders();
+      const updated = refreshed.find((o) => o.id === selectedOrder.id) ?? {
+        ...selectedOrder,
+        status: targetStatus,
+        allowed_transitions: [],
+      };
+      setSelectedOrder(updated);
+      setTargetStatus(defaultTargetFor(updated));
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
       if (code === "SERIAL_NUMBER_REQUIRED") {
@@ -446,17 +463,32 @@ export function OrderSNFulfillment() {
                 <label className="block text-xs font-bold text-zinc-900 dark:text-white mb-1.5">
                   Fulfillment Status State Transition
                 </label>
-                <select
-                  value={targetStatus}
-                  onChange={(e) => setTargetStatus(e.target.value as OrderStatus)}
-                  className="w-full px-3 py-2.5 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="PENDING_PAYMENT">PENDING_PAYMENT</option>
-                  <option value="PAID_PROCESSING">PAID_PROCESSING</option>
-                  <option value="SHIPPED">SHIPPED (Enforces Non-Empty S/N)</option>
-                  <option value="DELIVERED">DELIVERED</option>
-                  <option value="CANCELLED">CANCELLED</option>
-                </select>
+                {selectedOrder.allowed_transitions?.length ? (
+                  <select
+                    value={targetStatus}
+                    onChange={(e) => setTargetStatus(e.target.value as OrderStatus | "")}
+                    className="w-full px-3 py-2.5 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="" disabled>
+                      Select new status…
+                    </option>
+                    {selectedOrder.allowed_transitions.map((status) => (
+                      <option key={status} value={status}>
+                        {TRANSITION_LABELS[status]}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-xs text-zinc-500">
+                    This order is {selectedOrder.status} and has no further fulfillment steps.
+                  </p>
+                )}
+                {selectedOrder.status === "PENDING_PAYMENT" && (
+                  <p className="mt-1.5 text-[11px] text-zinc-500">
+                    Awaiting customer payment. Payment is confirmed only through checkout, so the only
+                    admin action is cancelling, which releases the reserved stock.
+                  </p>
+                )}
               </div>
 
               {/* S/N Enforcement Notice */}
@@ -468,7 +500,7 @@ export function OrderSNFulfillment() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isUpdating}
+                disabled={isUpdating || !targetStatus}
                 className="w-full py-3 px-4 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 font-bold text-xs hover:opacity-90 shadow-md transition-opacity cursor-pointer flex items-center justify-center gap-2"
               >
                 {isUpdating ? (

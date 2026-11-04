@@ -72,3 +72,6 @@ desktop.ini
 # Testing & Coverage
 coverage/
 .nyc_output/
+
+# Verification runs (verify-aura skill)
+.verify-aura/

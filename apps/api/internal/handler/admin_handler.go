@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"math"
 	"net/http"
 	"strconv"
@@ -14,6 +15,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+)
+
+const (
+	defaultOrdersPageSize = 20
+	maxOrdersPageSize     = 100
 )
 
 type AdminHandler struct {
@@ -42,7 +48,10 @@ func (h *AdminHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		page = 1
 	}
 	if limit < 1 {
-		limit = 20
+		limit = defaultOrdersPageSize
+	}
+	if limit > maxOrdersPageSize {
+		limit = maxOrdersPageSize
 	}
 
 	orders, total, err := h.adminService.ListOrders(r.Context(), status, page, limit)
@@ -51,10 +60,7 @@ func (h *AdminHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	totalPages := 1
-	if limit > 0 {
-		totalPages = int(math.Ceil(float64(total) / float64(limit)))
-	}
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
 	meta := &response.Meta{
 		Page:       page,
@@ -116,11 +122,15 @@ func (h *AdminHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request)
 
 	err = h.adminService.UpdateOrderStatus(r.Context(), orderID, req)
 	if err != nil {
-		if err == repository.ErrSerialNumberRequired {
+		if errors.Is(err, repository.ErrSerialNumberRequired) {
 			response.Error(w, http.StatusBadRequest, "SERIAL_NUMBER_REQUIRED", "Serial number is required for all order items before marking as SHIPPED.")
 			return
 		}
-		if err == repository.ErrOrderNotFound {
+		if errors.Is(err, repository.ErrInvalidOrderTransition) {
+			response.Error(w, http.StatusConflict, "INVALID_ORDER_TRANSITION", err.Error())
+			return
+		}
+		if errors.Is(err, repository.ErrOrderNotFound) {
 			response.NotFound(w, "order not found")
 			return
 		}

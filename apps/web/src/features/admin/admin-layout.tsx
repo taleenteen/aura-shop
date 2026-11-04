@@ -14,6 +14,7 @@ export function AdminLayout() {
   const user = useAuthStore((state) => state.user);
   const setAuth = useAuthStore((state) => state.setAuth);
   const clearAuth = useAuthStore((state) => state.clearAuth);
+  const isRestoring = useAuthStore((state) => state.isRestoring);
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -77,6 +78,8 @@ export function AdminLayout() {
                 Sign Out
               </button>
             </div>
+          ) : isRestoring ? (
+            <span className="text-xs text-zinc-500">Restoring session…</span>
           ) : (
             <button
               type="button"
@@ -99,7 +102,7 @@ export function AdminLayout() {
         </div>
       </div>
 
-      {!isAdmin && (
+      {!isAdmin && !isRestoring && (
         <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />

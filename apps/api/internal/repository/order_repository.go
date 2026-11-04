@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	ErrReservationExpired    = errors.New("reservation lock has expired")
-	ErrOrderNotFound         = errors.New("order not found")
-	ErrSerialNumberRequired  = errors.New("serial number is required for all items before shipping")
+	ErrReservationExpired     = errors.New("reservation lock has expired")
+	ErrOrderNotFound          = errors.New("order not found")
+	ErrSerialNumberRequired   = errors.New("serial number is required for all items before shipping")
 	ErrInvalidOrderTransition = errors.New("invalid order status transition")
 )
 
@@ -98,7 +98,8 @@ func (r *orderRepository) CreateReservationAtomic(ctx context.Context, order *mo
 func (r *orderRepository) CommitReservationAndPay(ctx context.Context, orderNumber string, paymentMethod string, installmentJSON datatypes.JSON) (*models.Order, error) {
 	var order models.Order
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Preload("Items").First(&order, "order_number = ?", orderNumber).Error; err != nil {
+		// Lock the order row so an admin cancel cannot interleave with payment.
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Preload("Items").First(&order, "order_number = ?", orderNumber).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrOrderNotFound
 			}
@@ -232,12 +233,7 @@ func (r *orderRepository) GetOrderByID(ctx context.Context, id uuid.UUID) (*mode
 }
 
 func (r *orderRepository) ListOrders(ctx context.Context, status string, page, limit int) ([]models.Order, int64, error) {
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 100 {
-		limit = 20
-	}
+	// page and limit are validated by the handler, which also reports them in the response meta.
 	offset := (page - 1) * limit
 
 	query := r.db.WithContext(ctx).Model(&models.Order{})
@@ -261,17 +257,32 @@ func (r *orderRepository) ListOrders(ctx context.Context, status string, page, l
 		return nil, 0, fmt.Errorf("failed to list orders: %w", err)
 	}
 
+	for i := range orders {
+		orders[i].AllowedTransitions = models.AdminOrderTransitions(orders[i].Status)
+	}
+
 	return orders, total, nil
 }
 
 func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string]string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var order models.Order
-		if err := tx.Preload("Items").First(&order, "id = ?", orderID).Error; err != nil {
+		// Lock the order row so a concurrent checkout payment or cancel sees the final status.
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Preload("Items").First(&order, "id = ?", orderID).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrOrderNotFound
 			}
 			return err
+		}
+
+		if !models.CanAdminTransitionOrder(order.Status, newStatus) {
+			return fmt.Errorf("%w: %s -> %s", ErrInvalidOrderTransition, order.Status, newStatus)
+		}
+
+		if newStatus == models.OrderStatusCancelled {
+			if err := releaseOrderStock(tx, order.ID); err != nil {
+				return err
+			}
 		}
 
 		// Apply Serial Numbers if provided
@@ -315,6 +326,36 @@ func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UU
 
 		return nil
 	})
+}
+
+// releaseOrderStock returns a cancelled order's stock: ACTIVE reservations give back their
+// reserved units, COMMITTED ones (already deducted at payment) are added back to physical stock.
+func releaseOrderStock(tx *gorm.DB, orderID uuid.UUID) error {
+	var reservations []models.StockReservation
+	if err := tx.Where("order_id = ? AND status IN ?", orderID, []string{"ACTIVE", "COMMITTED"}).Find(&reservations).Error; err != nil {
+		return fmt.Errorf("failed to load reservations: %w", err)
+	}
+
+	for _, res := range reservations {
+		var variant models.ProductVariant
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, "id = ?", res.VariantID).Error; err != nil {
+			return fmt.Errorf("variant %s not found: %w", res.VariantID, err)
+		}
+
+		updates := map[string]interface{}{}
+		if res.Status == "ACTIVE" {
+			updates["reserved_stock"] = max(variant.ReservedStock-res.Quantity, 0)
+		} else {
+			updates["stock_quantity"] = variant.StockQuantity + res.Quantity
+		}
+		if err := tx.Model(&variant).Updates(updates).Error; err != nil {
+			return fmt.Errorf("failed to restore stock for variant %s: %w", variant.ID, err)
+		}
+		if err := tx.Model(&res).Update("status", "RELEASED").Error; err != nil {
+			return fmt.Errorf("failed to release reservation %s: %w", res.ID, err)
+		}
+	}
+	return nil
 }
 
 func (r *orderRepository) GetAdminOverview(ctx context.Context) (*dto.AdminOverviewStats, error) {
