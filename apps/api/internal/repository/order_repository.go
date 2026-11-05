@@ -343,40 +343,89 @@ func releaseOrderStock(tx *gorm.DB, orderID uuid.UUID) error {
 	return nil
 }
 
+// storeZone is the business's local time (Thailand has no DST), used to bucket orders by day.
+var storeZone = time.FixedZone("ICT", 7*60*60)
+
+// unpaidStatuses never count toward revenue.
+var unpaidStatuses = []string{models.OrderStatusPendingPayment, models.OrderStatusCancelled}
+
 func (r *orderRepository) GetAdminOverview(ctx context.Context) (*dto.AdminOverviewStats, error) {
+	return r.adminOverviewAt(ctx, time.Now())
+}
+
+func (r *orderRepository) adminOverviewAt(ctx context.Context, now time.Time) (*dto.AdminOverviewStats, error) {
+	db := r.db.WithContext(ctx)
 	stats := &dto.AdminOverviewStats{
-		OrdersByStatus: make(map[string]int64),
-		LowStockAlerts: []dto.LowStockItem{},
+		OrdersByStatus:  make(map[string]int64),
+		DailyRevenue:    []dto.DailyRevenue{},
+		CategoryRevenue: []dto.CategoryRevenue{},
+		LowStockAlerts:  []dto.LowStockItem{},
 	}
 
-	// 1. Total Revenue in Satang for completed/paid orders
-	var revResult struct {
-		TotalRevenue int64
-	}
-	_ = r.db.WithContext(ctx).Model(&models.Order{}).
-		Where("status NOT IN (?)", []string{"PENDING_PAYMENT", "CANCELLED"}).
-		Select("COALESCE(SUM(grand_total), 0) as total_revenue").
-		Scan(&revResult).Error
-	stats.TotalRevenueSatang = revResult.TotalRevenue
-
-	// 2. Orders count by status
+	// 1. Orders by status, total orders.
 	var statusCounts []struct {
 		Status string
 		Count  int64
 	}
-	_ = r.db.WithContext(ctx).Model(&models.Order{}).
-		Select("status, count(*) as count").
-		Group("status").
-		Scan(&statusCounts).Error
-
-	var totalOrders int64
+	if err := db.Model(&models.Order{}).Select("status, count(*) AS count").Group("status").Scan(&statusCounts).Error; err != nil {
+		return nil, fmt.Errorf("failed to count orders by status: %w", err)
+	}
 	for _, sc := range statusCounts {
 		stats.OrdersByStatus[sc.Status] = sc.Count
-		totalOrders += sc.Count
+		stats.TotalOrdersCount += sc.Count
 	}
-	stats.TotalOrdersCount = totalOrders
 
-	// 3. Low stock alerts (where stock_quantity - reserved_stock <= 3)
+	// 2. Paid revenue: all time, last 30 days, and the 30 days before (for the trend).
+	today := time.Date(now.In(storeZone).Year(), now.In(storeZone).Month(), now.In(storeZone).Day(), 0, 0, 0, 0, storeZone)
+	since30 := today.AddDate(0, 0, -29)
+	since60 := since30.AddDate(0, 0, -30)
+	var rev struct {
+		Total, Paid, Last30, Prev30 int64
+	}
+	if err := db.Model(&models.Order{}).
+		Where("status NOT IN ?", unpaidStatuses).
+		Select(`COALESCE(SUM(grand_total), 0) AS total,
+			COUNT(*) AS paid,
+			COALESCE(SUM(grand_total) FILTER (WHERE created_at >= ?), 0) AS last30,
+			COALESCE(SUM(grand_total) FILTER (WHERE created_at >= ? AND created_at < ?), 0) AS prev30`,
+			since30, since60, since30).
+		Scan(&rev).Error; err != nil {
+		return nil, fmt.Errorf("failed to sum revenue: %w", err)
+	}
+	stats.TotalRevenueSatang, stats.PaidOrdersCount = rev.Total, rev.Paid
+	stats.Revenue30dSatang, stats.RevenuePrev30dSatang = rev.Last30, rev.Prev30
+
+	// 3. Daily paid revenue for the last 7 store-local days, zero-filled.
+	since7 := today.AddDate(0, 0, -6)
+	var days []struct {
+		Day     string
+		Revenue int64
+		Orders  int64
+	}
+	if err := db.Model(&models.Order{}).
+		Where("status NOT IN ? AND created_at >= ?", unpaidStatuses, since7).
+		Select("to_char(created_at AT TIME ZONE 'Asia/Bangkok', 'YYYY-MM-DD') AS day, SUM(grand_total) AS revenue, COUNT(*) AS orders").
+		Group("day").
+		Scan(&days).Error; err != nil {
+		return nil, fmt.Errorf("failed to bucket daily revenue: %w", err)
+	}
+	stats.DailyRevenue = fillDailyRevenue(since7, 7, days)
+
+	// 4. Paid line-item revenue by product category.
+	if err := db.Table("order_items AS oi").
+		Joins("JOIN orders o ON o.id = oi.order_id").
+		Joins("LEFT JOIN product_variants v ON v.id = oi.variant_id").
+		Joins("LEFT JOIN products p ON p.id = v.product_id").
+		Joins("LEFT JOIN categories c ON c.id = p.category_id").
+		Where("o.status NOT IN ?", unpaidStatuses).
+		Select("COALESCE(c.name, 'Uncategorized') AS category, SUM(oi.unit_price * oi.quantity) AS revenue_satang, SUM(oi.quantity) AS units").
+		Group("category").
+		Order("revenue_satang DESC").
+		Scan(&stats.CategoryRevenue).Error; err != nil {
+		return nil, fmt.Errorf("failed to sum category revenue: %w", err)
+	}
+
+	// 5. Low stock alerts (where stock_quantity - reserved_stock <= 3)
 	var lowStockVariants []struct {
 		VariantID      uuid.UUID
 		ProductID      uuid.UUID
@@ -388,26 +437,27 @@ func (r *orderRepository) GetAdminOverview(ctx context.Context) (*dto.AdminOverv
 		AvailableStock int
 	}
 
-	err := r.db.WithContext(ctx).Table("product_variants").
+	err := db.Table("product_variants").
 		Select("product_variants.id as variant_id, product_variants.product_id, products.name as product_name, product_variants.sku, product_variants.color_name, product_variants.stock_quantity, product_variants.reserved_stock, (product_variants.stock_quantity - product_variants.reserved_stock) as available_stock").
 		Joins("JOIN products ON products.id = product_variants.product_id").
 		Where("(product_variants.stock_quantity - product_variants.reserved_stock) <= 3").
 		Order("available_stock ASC").
 		Scan(&lowStockVariants).Error
 
-	if err == nil {
-		for _, v := range lowStockVariants {
-			stats.LowStockAlerts = append(stats.LowStockAlerts, dto.LowStockItem{
-				VariantID:      v.VariantID,
-				ProductID:      v.ProductID,
-				ProductName:    v.ProductName,
-				SKU:            v.SKU,
-				ColorName:      v.ColorName,
-				StockQuantity:  v.StockQuantity,
-				ReservedStock:  v.ReservedStock,
-				AvailableStock: v.AvailableStock,
-			})
-		}
+	if err != nil {
+		return nil, fmt.Errorf("failed to load low stock alerts: %w", err)
+	}
+	for _, v := range lowStockVariants {
+		stats.LowStockAlerts = append(stats.LowStockAlerts, dto.LowStockItem{
+			VariantID:      v.VariantID,
+			ProductID:      v.ProductID,
+			ProductName:    v.ProductName,
+			SKU:            v.SKU,
+			ColorName:      v.ColorName,
+			StockQuantity:  v.StockQuantity,
+			ReservedStock:  v.ReservedStock,
+			AvailableStock: v.AvailableStock,
+		})
 	}
 
 	return stats, nil
@@ -489,4 +539,26 @@ func allUnitsHaveSerials(items []models.OrderItem) bool {
 		}
 	}
 	return true
+}
+
+// fillDailyRevenue returns n consecutive days starting at from, using the matching row's
+// totals where one exists and zero otherwise.
+func fillDailyRevenue(from time.Time, n int, rows []struct {
+	Day     string
+	Revenue int64
+	Orders  int64
+}) []dto.DailyRevenue {
+	byDay := make(map[string]int, len(rows))
+	for i, row := range rows {
+		byDay[row.Day] = i
+	}
+	out := make([]dto.DailyRevenue, n)
+	for i := range out {
+		day := from.AddDate(0, 0, i).Format("2006-01-02")
+		out[i] = dto.DailyRevenue{Date: day}
+		if j, ok := byDay[day]; ok {
+			out[i].RevenueSatang, out[i].Orders = rows[j].Revenue, rows[j].Orders
+		}
+	}
+	return out
 }

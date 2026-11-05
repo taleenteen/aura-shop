@@ -328,9 +328,17 @@ export interface LowStockItem {
   available_stock: number;
 }
 
+/** Computed from orders; "paid" excludes PENDING_PAYMENT and CANCELLED. Amounts in satang. */
 export interface AdminOverviewStats {
   total_revenue_satang: number;
+  paid_orders_count: number;
   total_orders_count: number;
   orders_by_status: Record<string, number>;
+  revenue_30d_satang: number;
+  revenue_prev_30d_satang: number;
+  /** Last 7 days (Bangkok time), oldest first, zero-filled. */
+  daily_revenue: { date: string; revenue_satang: number; orders: number }[];
+  /** Paid line-item revenue per category, largest first. */
+  category_revenue: { category: string; revenue_satang: number; units: number }[];
   low_stock_alerts: LowStockItem[];
 }

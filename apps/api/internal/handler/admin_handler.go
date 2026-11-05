@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
@@ -34,6 +35,7 @@ func NewAdminHandler(adminService service.AdminService) *AdminHandler {
 func (h *AdminHandler) GetOverview(w http.ResponseWriter, r *http.Request) {
 	overview, err := h.adminService.GetOverview(r.Context())
 	if err != nil {
+		slog.Error("admin overview failed", "error", err)
 		response.InternalServerError(w, "failed to fetch admin overview")
 		return
 	}
