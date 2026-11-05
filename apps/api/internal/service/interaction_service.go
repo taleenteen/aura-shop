@@ -92,7 +92,8 @@ func (s *interactionService) formatCartResponse(items []models.CartItem) *dto.Ca
 
 	for _, item := range items {
 		availableStock := item.Variant.StockQuantity - item.Variant.ReservedStock
-		if availableStock < 0 {
+		if availableStock < 0 || (item.Variant.Product != nil && !item.Variant.Product.IsActive) {
+			// Taken off sale counts as unavailable, so the bag blocks checkout for it.
 			availableStock = 0
 		}
 		itemTotal := item.Variant.Price * int64(item.Quantity)

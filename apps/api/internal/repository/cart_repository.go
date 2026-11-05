@@ -14,6 +14,8 @@ import (
 var (
 	ErrInsufficientStock = errors.New("insufficient available stock")
 	ErrCartItemNotFound  = errors.New("cart item not found")
+	// ErrProductUnavailable means the product was taken off sale.
+	ErrProductUnavailable = errors.New("this product is no longer available")
 )
 
 type CartRepository interface {
@@ -64,6 +66,9 @@ func (r *cartRepository) AddToCart(ctx context.Context, userID *uuid.UUID, guest
 		var variant models.ProductVariant
 		if err := tx.First(&variant, "id = ?", variantID).Error; err != nil {
 			return fmt.Errorf("variant not found: %w", err)
+		}
+		if err := requireOnSale(tx, variant.ProductID); err != nil {
+			return err
 		}
 
 		available := variant.StockQuantity - variant.ReservedStock
@@ -228,5 +233,17 @@ func (r *cartRepository) MergeGuestCart(ctx context.Context, tx *gorm.DB, guestI
 		}
 	}
 
+	return nil
+}
+
+// requireOnSale fails with ErrProductUnavailable when the product has been taken off sale.
+func requireOnSale(tx *gorm.DB, productID uuid.UUID) error {
+	var active bool
+	if err := tx.Model(&models.Product{}).Select("is_active").Where("id = ?", productID).Scan(&active).Error; err != nil {
+		return fmt.Errorf("failed to check product status: %w", err)
+	}
+	if !active {
+		return ErrProductUnavailable
+	}
 	return nil
 }

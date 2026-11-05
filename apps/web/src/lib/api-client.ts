@@ -25,6 +25,9 @@ export function setAuthToken(token: string | null): void {
   }
 }
 
+/** Error thrown by apiClient; `fields` maps input paths (e.g. "variants.0.sku") to messages. */
+export type ApiRequestError = Error & { code?: string; fields?: Record<string, string> };
+
 export interface ApiClientResult<T> {
   data: T;
   meta: ApiMeta | null;
@@ -71,8 +74,9 @@ export async function apiClient<T>(
     const errorMsg =
       json.error?.message ||
       `Request failed with status ${response.status} (${json.error?.code || "UNKNOWN_ERROR"})`;
-    const err = new Error(errorMsg);
-    (err as unknown as { code?: string }).code = json.error?.code;
+    const err = new Error(errorMsg) as ApiRequestError;
+    err.code = json.error?.code;
+    err.fields = json.error?.fields;
     throw err;
   }
 
@@ -80,4 +84,27 @@ export async function apiClient<T>(
     data: json.data as T,
     meta: json.meta,
   };
+}
+
+/** Uploads one file as multipart "file" and returns the API's data payload. */
+export async function apiUpload<T>(endpoint: string, file: File): Promise<T> {
+  const body = new FormData();
+  body.append("file", file);
+  const headers = new Headers({ Accept: "application/json", "X-Guest-Session-ID": getGuestSessionId() });
+  const token = getAuthToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`${API_BASE_URL}${endpoint}`, { method: "POST", headers, body });
+  let json: ApiResponse<T>;
+  try {
+    json = await res.json();
+  } catch {
+    throw new Error(`Upload failed (HTTP ${res.status})`);
+  }
+  if (!res.ok || !json.success) {
+    const err = new Error(json.error?.message || `Upload failed (HTTP ${res.status})`) as ApiRequestError;
+    err.code = json.error?.code;
+    err.fields = json.error?.fields;
+    throw err;
+  }
+  return json.data as T;
 }

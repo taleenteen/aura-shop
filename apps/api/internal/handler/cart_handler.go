@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"aura-tech/api/internal/dto"
@@ -58,6 +59,10 @@ func (h *CartHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 
 	cart, err := h.interactionService.AddToCart(r.Context(), userID, guestID, req)
 	if err != nil {
+		if errors.Is(err, repository.ErrProductUnavailable) {
+			response.Conflict(w, "PRODUCT_UNAVAILABLE", "This product is no longer available.")
+			return
+		}
 		if err == repository.ErrInsufficientStock {
 			response.Conflict(w, "INSUFFICIENT_STOCK", "The requested quantity exceeds available stock.")
 			return

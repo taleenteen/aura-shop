@@ -284,10 +284,11 @@ export function AdminOverview() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Link
-                        to="/catalog"
+                        to="/admin"
+                        search={{ tab: "products", edit: item.product_id }}
                         className="inline-flex items-center gap-1 text-zinc-900 dark:text-white hover:underline font-semibold"
                       >
-                        <span>View</span>
+                        <span>Restock</span>
                         <ArrowUpRight className="w-3.5 h-3.5" />
                       </Link>
                     </td>

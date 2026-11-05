@@ -52,6 +52,9 @@ func (r *orderRepository) CreateReservationAtomic(ctx context.Context, order *mo
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, "id = ?", reservations[i].VariantID).Error; err != nil {
 				return fmt.Errorf("variant %s not found: %w", reservations[i].VariantID, err)
 			}
+			if err := requireOnSale(tx, variant.ProductID); err != nil {
+				return fmt.Errorf("%w: %s", err, variant.SKU)
+			}
 
 			available := variant.StockQuantity - variant.ReservedStock
 			if available < reservations[i].Quantity {
@@ -132,6 +135,10 @@ func (r *orderRepository) CommitReservationAndPay(ctx context.Context, orderNumb
 			newStock := variant.StockQuantity - res.Quantity
 			if newStock < 0 {
 				newStock = 0
+			}
+			orderID := order.ID
+			if err := recordMovement(tx, variant.ID, newStock-variant.StockQuantity, newStock, models.StockReasonSale, order.OrderNumber, nil, &orderID); err != nil {
+				return err
 			}
 			newReserved := variant.ReservedStock - res.Quantity
 			if newReserved < 0 {
@@ -332,7 +339,12 @@ func releaseOrderStock(tx *gorm.DB, orderID uuid.UUID) error {
 		if res.Status == "ACTIVE" {
 			updates["reserved_stock"] = max(variant.ReservedStock-res.Quantity, 0)
 		} else {
-			updates["stock_quantity"] = variant.StockQuantity + res.Quantity
+			restocked := variant.StockQuantity + res.Quantity
+			updates["stock_quantity"] = restocked
+			oid := orderID
+			if err := recordMovement(tx, variant.ID, res.Quantity, restocked, models.StockReasonCancelRestock, "", nil, &oid); err != nil {
+				return err
+			}
 		}
 		if err := tx.Model(&variant).Updates(updates).Error; err != nil {
 			return fmt.Errorf("failed to restore stock for variant %s: %w", variant.ID, err)

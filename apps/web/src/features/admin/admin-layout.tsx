@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutDashboard, Image as ImageIcon, Package, ArrowLeft, Shield, LogIn, CheckCircle2, AlertCircle } from "lucide-react";
+import { Boxes, LayoutDashboard, Image as ImageIcon, Package, ArrowLeft, Shield, LogIn, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { apiClient } from "@/lib/api-client";
 import { DEMO_MODE } from "@/lib/demo-mode";
@@ -10,10 +10,18 @@ import type { User } from "@/types/api";
 import { AdminOverview } from "./admin-overview";
 import { BannerManager } from "./banner-manager";
 import { OrderSNFulfillment } from "./order-sn-fulfillment";
+import { ProductsAdmin } from "./products/products-admin";
+
+const ADMIN_TABS = [
+  { id: "overview", label: "Overview & Low Stock", icon: LayoutDashboard },
+  { id: "products", label: "Products & Stock", icon: Boxes },
+  { id: "orders", label: "Order S/N Fulfillment", icon: Package },
+  { id: "banners", label: "Dynamic Banners", icon: ImageIcon },
+] as const;
+type AdminTab = (typeof ADMIN_TABS)[number]["id"];
 
 export function AdminLayout() {
   const location = useLocation();
-  const pathname = location.pathname;
   const user = useAuthStore((state) => state.user);
   const setAuth = useAuthStore((state) => state.setAuth);
   const isRestoring = useAuthStore((state) => state.isRestoring);
@@ -42,17 +50,19 @@ export function AdminLayout() {
   };
 
   const isAdmin = user?.role === "ADMIN";
+  const tabParam = (location.search as Record<string, unknown>).tab;
+  const activeTab: AdminTab = ADMIN_TABS.some((t) => t.id === tabParam) ? (tabParam as AdminTab) : "overview";
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="w-full min-w-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       {/* Top Admin Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 shrink-0 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center">
             <Shield className="w-5 h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <h1 className="text-2xl font-black tracking-tight text-zinc-950 dark:text-white">
                 Backoffice Operations Console
               </h1>
@@ -66,7 +76,7 @@ export function AdminLayout() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {isAdmin ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
@@ -135,51 +145,32 @@ export function AdminLayout() {
       {isAdmin && (
         <>
           {/* Navigation Sub-Tabs */}
-          <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3 overflow-x-auto">
-            <Link
-              to="/admin"
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                pathname === "/admin"
-                  ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                  : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              }`}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              <span>Overview & Low Stock</span>
-            </Link>
-
-            <Link
-              to="/admin"
-              search={{ tab: "banners" }}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                location.searchStr.includes("tab=banners")
-                  ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                  : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              }`}
-            >
-              <ImageIcon className="w-4 h-4" />
-              <span>Dynamic Banners</span>
-            </Link>
-
-            <Link
-              to="/admin"
-              search={{ tab: "orders" }}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                location.searchStr.includes("tab=orders")
-                  ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                  : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              }`}
-            >
-              <Package className="w-4 h-4" />
-              <span>Order S/N Fulfillment</span>
-            </Link>
-          </div>
+          <nav aria-label="Backoffice sections" className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3 overflow-x-auto">
+            {ADMIN_TABS.map((t) => (
+              <Link
+                key={t.id}
+                to="/admin"
+                search={t.id === "overview" ? {} : { tab: t.id }}
+                aria-current={activeTab === t.id ? "page" : undefined}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === t.id
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                    : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <t.icon className="w-4 h-4" />
+                <span>{t.label}</span>
+              </Link>
+            ))}
+          </nav>
 
           {/* Tab Switcher Content */}
           <div className="pt-2">
-            {location.searchStr.includes("tab=banners") ? (
+            {activeTab === "products" ? (
+              <ProductsAdmin />
+            ) : activeTab === "banners" ? (
               <BannerManager />
-            ) : location.searchStr.includes("tab=orders") ? (
+            ) : activeTab === "orders" ? (
               <OrderSNFulfillment />
             ) : (
               <AdminOverview />

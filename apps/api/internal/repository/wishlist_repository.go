@@ -30,7 +30,7 @@ func (r *wishlistRepository) GetWishlist(ctx context.Context, userID *uuid.UUID,
 	query := r.db.WithContext(ctx).
 		Preload("Product.Category").
 		Preload("Product.Brand").
-		Preload("Product.Variants").
+		Preload("Product.Variants", orderVariants).
 		Order("created_at DESC")
 
 	if userID != nil {

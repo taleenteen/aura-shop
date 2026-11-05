@@ -55,6 +55,10 @@ func (h *CheckoutHandler) Reserve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// If stock was insufficient, return 409 conflict
+		if errors.Is(err, repository.ErrProductUnavailable) {
+			response.Conflict(w, "PRODUCT_UNAVAILABLE", err.Error())
+			return
+		}
 		if strings.Contains(strings.ToLower(err.Error()), "insufficient stock") {
 			response.Conflict(w, "INSUFFICIENT_STOCK", err.Error())
 			return

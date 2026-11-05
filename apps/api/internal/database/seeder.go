@@ -751,8 +751,8 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 				existingVar.ColorHex = v.ColorHex
 				existingVar.Price = v.Price
 				existingVar.ComparePrice = v.ComparePrice
-				existingVar.StockQuantity = v.StockQuantity
-				existingVar.ReservedStock = v.ReservedStock
+				// Stock is managed in the admin and recorded in the stock ledger, and reserved
+				// units belong to live checkouts: re-seeding never overwrites either.
 				existingVar.Specs = v.Specs
 				existingVar.Images = v.Images
 				_ = db.Save(&existingVar)

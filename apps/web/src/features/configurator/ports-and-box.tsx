@@ -12,6 +12,9 @@ const BOX_ICONS: Record<string, typeof Laptop> = {
   Plug,
 };
 
+/** Icon names the "What's in the Box" list can render. */
+export const BOX_ICON_NAMES = Object.keys(BOX_ICONS);
+
 export function PortsAndBox({ portsDiagram, boxContents }: PortsAndBoxProps) {
   const hasPorts =
     portsDiagram &&

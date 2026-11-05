@@ -90,21 +90,6 @@ func (h *AdminHandler) CreateBanner(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusCreated, banner, nil)
 }
 
-func (h *AdminHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
-	var product models.Product
-	if err := json.NewDecoder(r.Body).Decode(&product); err != nil {
-		response.BadRequest(w, "invalid request body")
-		return
-	}
-
-	if err := h.adminService.CreateProduct(r.Context(), &product); err != nil {
-		response.InternalServerError(w, "failed to create product: "+err.Error())
-		return
-	}
-
-	response.Success(w, http.StatusCreated, product, nil)
-}
-
 func (h *AdminHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	orderID, err := uuid.Parse(idStr)

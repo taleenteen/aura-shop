@@ -19,7 +19,6 @@ type CatalogRepository interface {
 	GetProductsBySlugs(ctx context.Context, slugs []string) ([]models.Product, error)
 	FilterProducts(ctx context.Context, filter dto.CatalogFilter) ([]models.Product, int64, *dto.FacetCounts, error)
 	Search(ctx context.Context, query string, limit int) ([]models.Product, error)
-	CreateProductWithVariants(ctx context.Context, product *models.Product) error
 }
 
 type catalogRepository struct {
@@ -51,7 +50,7 @@ func (r *catalogRepository) GetProductBySlug(ctx context.Context, slug string) (
 	err := r.db.WithContext(ctx).
 		Preload("Category").
 		Preload("Brand").
-		Preload("Variants").
+		Preload("Variants", orderVariants).
 		Preload("AccessoryBundles.AccessoryProduct.Variants").
 		Preload("AccessoryBundles.AccessoryProduct.Brand").
 		Where("slug = ? AND is_active = ?", slug, true).
@@ -73,7 +72,7 @@ func (r *catalogRepository) GetProductsBySlugs(ctx context.Context, slugs []stri
 	err := r.db.WithContext(ctx).
 		Preload("Category").
 		Preload("Brand").
-		Preload("Variants").
+		Preload("Variants", orderVariants).
 		Where("slug IN (?) AND is_active = ?", slugs, true).
 		Find(&products).Error
 	if err != nil {
@@ -117,7 +116,7 @@ func (r *catalogRepository) FilterProducts(ctx context.Context, filter dto.Catal
 	err := query.
 		Preload("Category").
 		Preload("Brand").
-		Preload("Variants").
+		Preload("Variants", orderVariants).
 		Offset(offset).
 		Limit(limit).
 		Find(&products).Error
@@ -150,7 +149,7 @@ func (r *catalogRepository) Search(ctx context.Context, query string, limit int)
 		Distinct("products.*").
 		Preload("Category").
 		Preload("Brand").
-		Preload("Variants").
+		Preload("Variants", orderVariants).
 		Joins("LEFT JOIN product_variants ON product_variants.product_id = products.id").
 		Where("products.is_active = true AND ("+
 			"products.name ILIKE ? OR "+
@@ -167,13 +166,4 @@ func (r *catalogRepository) Search(ctx context.Context, query string, limit int)
 	}
 
 	return products, nil
-}
-
-func (r *catalogRepository) CreateProductWithVariants(ctx context.Context, product *models.Product) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(product).Error; err != nil {
-			return fmt.Errorf("failed to create product: %w", err)
-		}
-		return nil
-	})
 }

@@ -59,6 +59,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.StockReservation{},
 		&models.Order{},
 		&models.OrderItem{},
+		&models.StockMovement{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to auto-migrate schemas: %w", err)
@@ -68,6 +69,10 @@ func AutoMigrate(db *gorm.DB) error {
 
 	if err := normalizeGuestOwnership(db); err != nil {
 		return fmt.Errorf("failed to normalize cart/wishlist ownership: %w", err)
+	}
+
+	if err := OpenStockLedger(db); err != nil {
+		return fmt.Errorf("failed to open stock ledger: %w", err)
 	}
 
 	if err := backfillOrderItemSerials(db); err != nil {
@@ -108,6 +113,22 @@ func normalizeGuestOwnership(db *gorm.DB) error {
 		}
 		return nil
 	})
+}
+
+// OpenStockLedger gives every variant without ledger history an opening-balance entry equal to
+// its current stock, so the ledger always explains the number on hand. Idempotent.
+func OpenStockLedger(db *gorm.DB) error {
+	res := db.Exec(`INSERT INTO stock_movements (variant_id, delta, stock_after, reason, note, actor_email, created_at)
+		SELECT v.id, v.stock_quantity, v.stock_quantity, 'INITIAL', 'Opening balance', '', NOW()
+		FROM product_variants v
+		WHERE NOT EXISTS (SELECT 1 FROM stock_movements m WHERE m.variant_id = v.id)`)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected > 0 {
+		slog.Info("opened stock ledger for existing variants", "variants", res.RowsAffected)
+	}
+	return nil
 }
 
 // backfillOrderItemSerials copies the legacy single serial_number into the per-unit
