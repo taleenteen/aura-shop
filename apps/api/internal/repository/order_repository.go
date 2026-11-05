@@ -22,6 +22,7 @@ var (
 	ErrSerialNumberRequired   = errors.New("serial number is required for all items before shipping")
 	ErrInvalidOrderTransition = errors.New("invalid order status transition")
 	ErrInvalidSerialNumbers   = errors.New("invalid serial numbers")
+	ErrShipmentRequired       = errors.New("a carrier and tracking number are required to ship")
 )
 
 type OrderRepository interface {
@@ -32,7 +33,7 @@ type OrderRepository interface {
 	GetOrderByID(ctx context.Context, id uuid.UUID) (*models.Order, error)
 	ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error)
 	ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error)
-	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error
+	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string, shipment models.Shipment) error
 	CancelPendingOrder(ctx context.Context, orderNumber string) (*models.Order, error)
 	ListEmailsForOrder(ctx context.Context, orderID uuid.UUID) ([]models.EmailMessage, error)
 	GetAdminOverview(ctx context.Context) (*dto.AdminOverviewStats, error)
@@ -292,7 +293,7 @@ func (r *orderRepository) ListOrders(ctx context.Context, filter dto.OrderListFi
 	return orders, total, nil
 }
 
-func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error {
+func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string, shipment models.Shipment) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var order models.Order
 		// Lock the order row so a concurrent checkout payment or cancel sees the final status.
@@ -328,7 +329,21 @@ func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UU
 		}
 
 		previous := order.Status
-		if err := tx.Model(&order).Update("status", newStatus).Error; err != nil {
+		updates := map[string]interface{}{"status": newStatus}
+		now := time.Now()
+		if previous != newStatus {
+			switch newStatus {
+			case models.OrderStatusShipped:
+				carrier, tracking, err := normalizeShipment(shipment)
+				if err != nil {
+					return err
+				}
+				updates["carrier"], updates["tracking_number"], updates["shipped_at"] = carrier, tracking, now
+			case models.OrderStatusDelivered:
+				updates["delivered_at"] = now
+			}
+		}
+		if err := tx.Model(&order).Updates(updates).Error; err != nil {
 			return fmt.Errorf("failed to update order status: %w", err)
 		}
 

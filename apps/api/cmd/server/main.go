@@ -134,6 +134,10 @@ func main() {
 			auth.Post("/login", authHandler.Login)
 			auth.With(appMiddleware.RequireAuth).Get("/me", authHandler.Me)
 			auth.With(appMiddleware.RequireAuth).Patch("/me", authHandler.UpdateMe)
+			auth.With(appMiddleware.RequireAuth).Post("/change-password", authHandler.ChangePassword)
+			auth.Post("/forgot-password", authHandler.ForgotPassword)
+			auth.Post("/reset-password", authHandler.ResetPassword)
+			auth.Get("/emails/{id}", authHandler.GetAccountEmail)
 		})
 
 		// Signed-in customer account

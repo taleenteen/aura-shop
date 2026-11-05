@@ -232,6 +232,9 @@ type UpdateOrderStatusRequest struct {
 	Status string `json:"status"` // PENDING_PAYMENT, PAID_PROCESSING, SN_ASSIGNED, SHIPPED, DELIVERED, CANCELLED
 	// Order item ID -> one serial per unit. A blank entry keeps the saved serial for that unit.
 	SerialNumbers map[string][]string `json:"serial_numbers,omitempty"`
+	// Carrier (KERRY, FLASH, DHL) and tracking number; required when moving to SHIPPED.
+	Carrier        string `json:"carrier,omitempty"`
+	TrackingNumber string `json:"tracking_number,omitempty"`
 }
 
 // OrderLookupRequest finds an order by its number and the email it was placed with, for
@@ -239,4 +242,24 @@ type UpdateOrderStatusRequest struct {
 type OrderLookupRequest struct {
 	OrderNumber string `json:"order_number"`
 	Email       string `json:"email"`
+}
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+// ForgotPasswordResponse names the reset email so the storefront can open it. EmailID is
+// omitted when no link was sent; the storefront shows the same message either way.
+type ForgotPasswordResponse struct {
+	EmailID *uuid.UUID `json:"email_id,omitempty"`
+}
+
+type ResetPasswordRequest struct {
+	Token    string `json:"token"`
+	Password string `json:"password"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
 }

@@ -83,6 +83,11 @@ type Order struct {
 	// ViewerCanManage is true when the requester placed the order and may pay for or cancel it.
 	// Someone who opened it through an order lookup (number + email) can only read it.
 	ViewerCanManage bool `gorm:"-" json:"viewer_can_manage"`
+	// Shipment, recorded when the order moves to SHIPPED.
+	Carrier        string     `gorm:"type:varchar(20);not null;default:''" json:"carrier"`
+	TrackingNumber string     `gorm:"type:varchar(40);not null;default:''" json:"tracking_number"`
+	ShippedAt      *time.Time `json:"shipped_at"`
+	DeliveredAt    *time.Time `json:"delivered_at"`
 	CreatedAt            time.Time      `json:"created_at"`
 	UpdatedAt            time.Time      `json:"updated_at"`
 }
@@ -99,4 +104,17 @@ type OrderItem struct {
 	// One warranty serial per unit (index i = unit i+1). Every unit needs one before SHIPPED.
 	// Replaces the legacy single-value serial_number column, which is backfilled on migration.
 	SerialNumbers datatypes.JSONSlice[string] `gorm:"type:jsonb" json:"serial_numbers"`
+}
+
+// Carriers the store ships with, by code.
+var Carriers = map[string]string{
+	"KERRY": "Kerry Express",
+	"FLASH": "Flash Express",
+	"DHL":   "DHL Express",
+}
+
+// Shipment is what an admin records when handing an order to a carrier.
+type Shipment struct {
+	Carrier        string
+	TrackingNumber string
 }

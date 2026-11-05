@@ -115,6 +115,15 @@ func (h *AdminHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request)
 			response.Error(w, http.StatusBadRequest, "SERIAL_NUMBER_REQUIRED", "Serial number is required for all order items before marking as SHIPPED.")
 			return
 		}
+		if errors.Is(err, repository.ErrShipmentRequired) {
+			field := "tracking_number"
+			if strings.Contains(err.Error(), "carrier.") {
+				field = "carrier"
+			}
+			msg := strings.TrimPrefix(err.Error(), repository.ErrShipmentRequired.Error()+": ")
+			response.ValidationFailed(w, "Add the carrier and tracking number before marking as shipped.", map[string]string{field: msg})
+			return
+		}
 		if errors.Is(err, repository.ErrInvalidSerialNumbers) {
 			response.Error(w, http.StatusBadRequest, "INVALID_SERIAL_NUMBERS", err.Error())
 			return

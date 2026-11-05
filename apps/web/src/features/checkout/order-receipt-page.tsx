@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { ArrowRight, CheckCircle2, Clock, Inbox, Loader2, Mail, Package, ShieldCheck, ShoppingBag, Truck, XCircle, type LucideIcon } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { orderAccessHeaders } from "@/lib/order-access";
@@ -9,6 +9,8 @@ import type { EmailMessage, Order } from "@/types/api";
 import { STATUS_META, STEPS, STEP_REACHED, formatTime, isPayable } from "@/features/orders/order-status";
 import { CancelOrderButton } from "@/features/orders/cancel-order-button";
 import { EmailRow, EmailViewer } from "@/features/orders/email-viewer";
+import { ParcelTracking } from "@/features/orders/parcel-tracking";
+import { carrierName } from "@/features/orders/carriers";
 
 interface OrderReceiptPageProps {
   orderNumber: string;
@@ -32,6 +34,11 @@ export function OrderReceiptPage({ orderNumber }: OrderReceiptPageProps) {
   const [emails, setEmails] = useState<EmailMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [openEmail, setOpenEmail] = useState<EmailMessage | null>(null);
+  const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
+  const [trackOpen, setTrackOpen] = useState(search.track === "1");
+  useEffect(() => {
+    if (search.track === "1") setTrackOpen(true);
+  }, [search.track]);
   const setCartOpen = useUIStore((s) => s.setCartOpen);
 
   const loadEmails = useCallback(
@@ -211,6 +218,28 @@ export function OrderReceiptPage({ orderNumber }: OrderReceiptPageProps) {
           </ol>
         )}
 
+        {order.tracking_number && (
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <Truck className="w-5 h-5 text-indigo-500 shrink-0" aria-hidden />
+              <div className="min-w-0">
+                <p className="text-xs text-zinc-500">
+                  Shipped with {carrierName(order.carrier)}
+                  {order.shipped_at && ` on ${new Date(order.shipped_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}
+                </p>
+                <p className="font-mono font-bold text-sm text-zinc-950 dark:text-white tracking-wide truncate">{order.tracking_number}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTrackOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 cursor-pointer"
+            >
+              Track parcel
+            </button>
+          </div>
+        )}
+
         <div className="space-y-4">
           <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Items</h2>
           <div className="divide-y divide-zinc-200 dark:divide-zinc-800/80">
@@ -304,6 +333,7 @@ export function OrderReceiptPage({ orderNumber }: OrderReceiptPageProps) {
       </div>
 
       {openEmail && <EmailViewer email={openEmail} order={order} onClose={() => setOpenEmail(null)} />}
+      {trackOpen && order.tracking_number && <ParcelTracking order={order} onClose={() => setTrackOpen(false)} />}
     </div>
   );
 }

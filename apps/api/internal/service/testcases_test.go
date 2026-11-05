@@ -118,7 +118,7 @@ func (m *mockConcurrentOrderRepo) ListOrdersForUser(ctx context.Context, userID 
 	return nil, nil
 }
 
-func (m *mockConcurrentOrderRepo) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error {
+func (m *mockConcurrentOrderRepo) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string, shipment models.Shipment) error {
 	return nil
 }
 

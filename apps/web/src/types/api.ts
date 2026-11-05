@@ -285,6 +285,11 @@ export interface Order {
   allowed_transitions?: OrderStatus[];
   /** True when this browser or account placed the order and may pay for or cancel it. */
   viewer_can_manage?: boolean;
+  /** Carrier code (KERRY, FLASH, DHL) and tracking number, set when the order ships. */
+  carrier?: Carrier | "";
+  tracking_number?: string;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -416,18 +421,21 @@ export interface ProductInput {
   variants: VariantInput[];
 }
 
-export type EmailKind = "ORDER_CONFIRMED" | "ORDER_SHIPPED" | "ORDER_DELIVERED" | "ORDER_CANCELLED";
+export type EmailKind = "ORDER_CONFIRMED" | "ORDER_SHIPPED" | "ORDER_DELIVERED" | "ORDER_CANCELLED" | "PASSWORD_RESET";
 export type CancelReason = "customer" | "expired" | "store";
 
 /** An email sent to the customer about an order. */
 export interface EmailMessage {
   id: string;
-  order_id: string;
+  order_id?: string | null;
+  user_id?: string | null;
   kind: EmailKind;
   sender: string;
   recipient: string;
   subject: string;
   preheader: string;
-  data?: { reason?: CancelReason } | null;
+  data?: { reason?: CancelReason; token?: string; expires_minutes?: number } | null;
   sent_at: string;
 }
+
+export type Carrier = "KERRY" | "FLASH" | "DHL";

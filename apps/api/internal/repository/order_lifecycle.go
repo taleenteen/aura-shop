@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"aura-tech/api/internal/models"
@@ -116,4 +117,22 @@ func (r *orderRepository) ListEmailsForOrder(ctx context.Context, orderID uuid.U
 		return nil, fmt.Errorf("failed to list emails: %w", err)
 	}
 	return msgs, nil
+}
+
+// normalizeShipment validates the carrier and tracking number recorded when an order ships.
+func normalizeShipment(s models.Shipment) (string, string, error) {
+	carrier := strings.ToUpper(strings.TrimSpace(s.Carrier))
+	tracking := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(s.TrackingNumber), " ", ""))
+	if _, ok := models.Carriers[carrier]; !ok {
+		return "", "", fmt.Errorf("%w: Choose a carrier.", ErrShipmentRequired)
+	}
+	if len(tracking) < 6 || len(tracking) > 40 {
+		return "", "", fmt.Errorf("%w: Tracking number must be 6–40 characters.", ErrShipmentRequired)
+	}
+	for _, c := range tracking {
+		if !(c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-') {
+			return "", "", fmt.Errorf("%w: Use only letters, digits and dashes.", ErrShipmentRequired)
+		}
+	}
+	return carrier, tracking, nil
 }

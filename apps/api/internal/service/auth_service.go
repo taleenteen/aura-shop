@@ -30,6 +30,10 @@ type AuthService interface {
 	Login(ctx context.Context, req dto.LoginRequest, guestID *string) (*dto.AuthResponse, error)
 	GetProfile(ctx context.Context, userID uuid.UUID) (*dto.UserDTO, error)
 	UpdateProfile(ctx context.Context, userID uuid.UUID, req dto.UpdateProfileRequest) (*dto.UserDTO, error)
+	RequestPasswordReset(ctx context.Context, email string) (*uuid.UUID, error)
+	GetAccountEmail(ctx context.Context, id uuid.UUID) (*models.EmailMessage, error)
+	ResetPassword(ctx context.Context, token, password string, guestID *string) (*dto.AuthResponse, error)
+	ChangePassword(ctx context.Context, userID uuid.UUID, current, next string) error
 }
 
 type authService struct {

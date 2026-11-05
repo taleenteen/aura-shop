@@ -55,12 +55,12 @@ make dev-web                  # หน้าเว็บที่ http://localho
 - Checkout: จองสต็อก 15 นาที แล้วจ่ายด้วย PromptPay บัตรเครดิต หรือผ่อน 0% (จำลองทั้งหมด ไม่ตัดเงินจริง) กลับมาจ่ายต่อหรือยกเลิกได้ ใช้ที่อยู่ที่บันทึกไว้ได้
 - อีเมลแจ้งลูกค้า (ยืนยันการจ่าย จัดส่ง ส่งถึง ยกเลิก) เปิดอ่านได้ในหน้าคำสั่งซื้อ
 - ติดตามคำสั่งซื้อด้วยเลข order + อีเมล ที่ `/orders/lookup` สำหรับคนที่ซื้อแบบไม่ล็อกอิน
-- หน้าบัญชีผู้ใช้: ติดตามคำสั่งซื้อตามสถานะ และแก้ชื่อ เบอร์โทร ที่อยู่
+- หน้าบัญชีผู้ใช้: ติดตามคำสั่งซื้อตามสถานะ และแก้ชื่อ เบอร์โทร ที่อยู่ เปลี่ยนรหัสผ่าน และติดตามพัสดุ; ลืมรหัสผ่านรีเซ็ตผ่านอีเมลได้
 
 **หลังบ้าน (`/admin`)**
 - ภาพรวม: รายได้ แนวโน้ม 30 วัน ยอดรายวัน 7 วัน ยอดตามหมวด และสต็อกใกล้หมด
 - สินค้าและสต็อก: เพิ่ม/แก้สินค้า variant รูป และปรับสต็อกพร้อมบันทึกประวัติทุกครั้ง
-- จัดส่ง: เปลี่ยนสถานะคำสั่งซื้อตามขั้นตอนที่อนุญาต และบันทึก S/N รายเครื่อง
+- จัดส่ง: เปลี่ยนสถานะคำสั่งซื้อตามขั้นตอนที่อนุญาต บันทึก S/N รายเครื่อง และขนส่ง + เลขพัสดุตอนส่งของ
 - แบนเนอร์บนหน้าแรก
 
 ### คำสั่งที่ใช้บ่อย
@@ -127,12 +127,12 @@ On first start against an empty database the API creates the tables and loads sa
 - Checkout: 15-minute stock hold, then PromptPay, card or 0% instalments (all simulated; no money moves); resume or cancel unpaid orders; deliver to the saved address
 - Customer emails (payment confirmed, shipped, delivered, cancelled), readable on the order page
 - Order lookup by order number + email at `/orders/lookup` for guest checkouts
-- Account page: orders grouped by status, editable name, phone and address
+- Account page: orders grouped by status, editable name, phone and address, password change, parcel tracking; password reset by email
 
 **Backoffice (`/admin`)**
 - Overview: revenue, 30-day trend, last 7 days, revenue by category, low stock
 - Products & stock: create/edit products, variants and images; every stock change is recorded
-- Fulfilment: allowed status transitions only, one serial number per unit
+- Fulfilment: allowed status transitions only, one serial number per unit, carrier + tracking number on shipping
 - Home-page banners
 
 ### Common commands
