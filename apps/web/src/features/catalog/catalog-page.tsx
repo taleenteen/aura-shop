@@ -96,7 +96,7 @@ function FilterSidebarContent({
       </div>
 
       {/* Usage Persona Facets */}
-      {facets?.personas && (
+      {facets?.personas && facets.personas.length > 0 && (
         <div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-2.5">
             Usage Persona
@@ -133,7 +133,7 @@ function FilterSidebarContent({
       )}
 
       {/* Brand Facets */}
-      {facets?.brands && (
+      {facets?.brands && facets.brands.length > 0 && (
         <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
           <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-2.5">
             Hardware Brand
@@ -170,7 +170,7 @@ function FilterSidebarContent({
       )}
 
       {/* Processor Family Facets */}
-      {facets?.cpu_family && (
+      {facets?.cpu_family && facets.cpu_family.length > 0 && (
         <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
           <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-2.5">
             Processor Family
@@ -207,7 +207,7 @@ function FilterSidebarContent({
       )}
 
       {/* RAM Facets */}
-      {facets?.ram && (
+      {facets?.ram && facets.ram.length > 0 && (
         <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
           <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-2.5">
             Unified Memory (RAM)
@@ -239,7 +239,7 @@ function FilterSidebarContent({
       )}
 
       {/* Storage Facets */}
-      {facets?.storage && (
+      {facets?.storage && facets.storage.length > 0 && (
         <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
           <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-2.5">
             Storage (SSD)
@@ -328,6 +328,13 @@ export function CatalogPage() {
     (ram > 0 ? 1 : 0) +
     (storage > 0 ? 1 : 0) +
     (minPrice > 0 || maxPrice > 0 ? 1 : 0);
+
+  useEffect(() => {
+    if (!isMobileFilterOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setIsMobileFilterOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isMobileFilterOpen]);
 
   // Follow the URL: navbar links, footer links, back/forward and pasted links all change
   // it while this page stays mounted, so re-read the filters on every change.
@@ -568,14 +575,20 @@ export function CatalogPage() {
       {/* Mobile Filter Slide-over Sheet with Sticky Bottom Apply Bar */}
       <AnimatePresence>
         {isMobileFilterOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="fixed inset-0 z-50 lg:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Filter products"
+          >
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileFilterOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              aria-hidden
+              className="fixed inset-0 bg-zinc-950/40"
             />
 
             {/* Slide-over Content from Right */}
@@ -584,7 +597,7 @@ export function CatalogPage() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 250 }}
-              className="fixed inset-y-0 right-0 w-full max-w-md bg-white dark:bg-zinc-950 shadow-2xl flex flex-col justify-between z-50"
+              className="fixed inset-y-0 right-0 w-[86%] max-w-md bg-white dark:bg-zinc-950 shadow-2xl flex flex-col justify-between z-50"
             >
               {/* Sheet Header */}
               <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
@@ -597,6 +610,7 @@ export function CatalogPage() {
                 <button
                   type="button"
                   onClick={() => setIsMobileFilterOpen(false)}
+                  aria-label="Close filters"
                   className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-500 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
@@ -604,7 +618,7 @@ export function CatalogPage() {
               </div>
 
               {/* Scrollable Filters Content */}
-              <div className="flex-1 overflow-y-auto p-5">
+              <div className="flex-1 overflow-y-auto overscroll-contain p-5" data-lenis-prevent>
                 <FilterSidebarContent
                   facets={facets}
                   persona={persona}
@@ -639,7 +653,7 @@ export function CatalogPage() {
                   onClick={() => setIsMobileFilterOpen(false)}
                   className="flex-1 py-2.5 px-4 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-bold text-xs shadow-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span>Apply Filters ({totalItems} results)</span>
+                  <span>Show {totalItems} {totalItems === 1 ? "result" : "results"}</span>
                 </button>
               </div>
             </motion.div>
