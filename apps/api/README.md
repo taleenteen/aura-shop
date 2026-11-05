@@ -42,6 +42,7 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | ฟีเจอร์ | Endpoint | ตาราง |
 |---|---|---|
 | สมัคร / ล็อกอิน / โปรไฟล์ | `POST /auth/register`, `POST /auth/login`, `GET/PATCH /auth/me` | `users`, (`wishlists`, `cart_items` ตอนรวมของ guest) |
+| ลืมรหัสผ่าน / เปลี่ยนรหัสผ่าน | `POST /auth/forgot-password`, `GET /auth/emails/{id}`, `POST /auth/reset-password`, `POST /auth/change-password` | `users`, `password_reset_tokens`, `email_messages` |
 | แบนเนอร์หน้าแรก | `GET /banners` | `banners` |
 | หมวดและแบรนด์ | `GET /categories`, `GET /brands` | `categories`, `brands` |
 | รายการสินค้า + ตัวกรอง | `GET /catalog` | `products`, `product_variants`, `categories`, `brands` |
@@ -50,10 +51,11 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | ตะกร้า | `GET /cart`, `POST /cart/items`, `PATCH/DELETE /cart/items/{id}` | `cart_items`, `product_variants` |
 | จองสต็อก (15 นาที) | `POST /checkout/reserve` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `cart_items` |
 | ชำระเงิน | `POST /checkout/pay`, `GET /checkout/promptpay/{no}`, `GET /checkout/installments/{satang}` | `orders`, `stock_reservations`, `product_variants`, `stock_movements` |
-| ใบเสร็จ (เฉพาะเจ้าของหรือ admin) | `GET /orders/{orderNumber}` | `orders`, `order_items` |
+| หน้าคำสั่งซื้อ + อีเมล (เจ้าของ, admin หรือผู้ค้นด้วยเลข order + อีเมล) | `GET /orders/{orderNumber}`, `GET /orders/{orderNumber}/emails`, `POST /orders/lookup` | `orders`, `order_items`, `email_messages` |
+| ยกเลิกคำสั่งซื้อที่ยังไม่จ่าย (เจ้าของ) | `POST /orders/{orderNumber}/cancel` | `orders`, `stock_reservations`, `product_variants`, `cart_items`, `email_messages` |
 | คำสั่งซื้อของฉัน | `GET /account/orders` | `orders`, `order_items` |
 | แดชบอร์ด admin | `GET /admin/overview` | `orders`, `order_items`, `product_variants`, `products`, `categories` |
-| จัดการคำสั่งซื้อ | `GET /admin/orders`, `PATCH /admin/orders/{id}/status` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `stock_movements` |
+| จัดการคำสั่งซื้อ | `GET /admin/orders`, `PATCH /admin/orders/{id}/status` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `stock_movements`, `email_messages` | (ส่งของต้องระบุ `carrier` KERRY/FLASH/DHL และ `tracking_number`)
 | จัดการสินค้า | `GET/POST /admin/products`, `GET/PUT /admin/products/{id}`, `PATCH /admin/products/{id}/status` | `products`, `product_variants`, `stock_movements`, `cart_items` |
 | ปรับสต็อก + ประวัติ | `POST /admin/variants/{id}/stock-adjustments`, `GET /admin/variants/{id}/stock-movements` | `product_variants`, `stock_movements` |
 | อัปโหลดรูป | `POST /admin/uploads/images` | MinIO bucket `aura-assets` |
@@ -71,15 +73,20 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | `product_variants` | สี/สเปก, SKU, ราคา (สตางค์), รูป, `stock_quantity`, `reserved_stock` |
 | `product_accessory_bundles` | อุปกรณ์ที่แนะนำให้ซื้อคู่กัน |
 | `wishlists`, `cart_items` | รายการโปรดและตะกร้า (ของ user หรือ guest) |
-| `orders`, `order_items` | คำสั่งซื้อ, สถานะ, S/N รายเครื่อง (`serial_numbers`) |
+| `orders`, `order_items` | คำสั่งซื้อ, สถานะ, S/N รายเครื่อง (`serial_numbers`), ขนส่งและเลขพัสดุ (`carrier`, `tracking_number`, `shipped_at`, `delivered_at`) |
 | `stock_reservations` | สต็อกที่จองไว้ระหว่าง checkout (ACTIVE / COMMITTED / RELEASED) |
 | `stock_movements` | ประวัติการเปลี่ยนสต็อกทุกครั้ง: เหตุผล, จำนวน, ยอดหลังเปลี่ยน, ผู้ทำ, order |
+| `email_messages` | อีเมลถึงลูกค้าทุกฉบับ (ยืนยันการจ่าย, จัดส่ง, ส่งถึง, ยกเลิก) เขียนใน transaction เดียวกับการเปลี่ยนสถานะ order |
+| `password_reset_tokens` | ลิงก์รีเซ็ตรหัสผ่าน (เก็บ SHA-256 ของ token) ใช้ได้ครั้งเดียว หมดอายุ 30 นาที |
 | `banners` | แบนเนอร์หน้าแรก |
 
 ### กฎสำคัญ
 - **เงิน** เก็บเป็นสตางค์ (`int64`)
 - **สถานะ order** ที่ admin เปลี่ยนได้: `PENDING_PAYMENT → CANCELLED`, `PAID_PROCESSING → SN_ASSIGNED / SHIPPED / CANCELLED`, `SHIPPED → DELIVERED` การจ่ายเงินทำได้ผ่าน checkout เท่านั้น การยกเลิกคืนสต็อกให้อัตโนมัติ
 - **SHIPPED** ต้องมี S/N ครบทุกเครื่อง
+- **การจ่ายเงินและอีเมลเป็นการจำลองทั้งหมด** ไม่มีการตัดเงินหรือส่งอีเมลจริง QR PromptPay อยู่ในรูปแบบมาตรฐาน EMVCo แต่ชี้ไปที่หมายเลขที่ไม่มีบัญชี (สแกนแล้วโอนไม่ได้) บัตรที่ลงท้าย `0000` จะถูกปฏิเสธ อีเมลเก็บใน `email_messages` และแสดงในหน้าคำสั่งซื้อ
+- **order ที่ยังไม่จ่าย** ยกเลิกเองได้ หรือถูกยกเลิกเมื่อครบ 15 นาที ทั้งสองกรณีคืนสต็อกที่จองไว้และใส่สินค้ากลับลงตะกร้า
+- **ลืมรหัสผ่าน** ใช้ได้กับบัญชีลูกค้าเท่านั้น บัญชี admin รีเซ็ตผ่านหน้าร้านไม่ได้ (ป้องกันคนอื่นยึดบัญชี admin ตัวอย่าง เพราะอีเมลรีเซ็ตเปิดอ่านได้ในเว็บ)
 - **สต็อก** เปลี่ยนได้ผ่าน checkout, การยกเลิก order และการปรับสต็อกของ admin เท่านั้น ทุกครั้งเขียนลง `stock_movements`
 - สินค้าที่ปิดขายใส่ตะกร้าหรือ checkout ไม่ได้
 - error ตรวจข้อมูลตอบ `400 VALIDATION_FAILED` พร้อม `error.fields` แยกตามช่อง
@@ -133,6 +140,7 @@ go test ./...            # test
 | Feature | Endpoints | Tables |
 |---|---|---|
 | Register / sign in / profile | `POST /auth/register`, `POST /auth/login`, `GET/PATCH /auth/me` | `users` (+ `wishlists`, `cart_items` when merging a guest) |
+| Forgot / change password | `POST /auth/forgot-password`, `GET /auth/emails/{id}`, `POST /auth/reset-password`, `POST /auth/change-password` | `users`, `password_reset_tokens`, `email_messages` |
 | Home banners | `GET /banners` | `banners` |
 | Categories and brands | `GET /categories`, `GET /brands` | `categories`, `brands` |
 | Catalog + filters | `GET /catalog` | `products`, `product_variants`, `categories`, `brands` |
@@ -141,10 +149,11 @@ go test ./...            # test
 | Bag | `GET /cart`, `POST /cart/items`, `PATCH/DELETE /cart/items/{id}` | `cart_items`, `product_variants` |
 | Stock hold (15 min) | `POST /checkout/reserve` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `cart_items` |
 | Payment | `POST /checkout/pay`, `GET /checkout/promptpay/{no}`, `GET /checkout/installments/{satang}` | `orders`, `stock_reservations`, `product_variants`, `stock_movements` |
-| Receipt (owner or admin only) | `GET /orders/{orderNumber}` | `orders`, `order_items` |
+| Order page + emails (owner, admin, or anyone with order number + email) | `GET /orders/{orderNumber}`, `GET /orders/{orderNumber}/emails`, `POST /orders/lookup` | `orders`, `order_items`, `email_messages` |
+| Cancel an unpaid order (owner) | `POST /orders/{orderNumber}/cancel` | `orders`, `stock_reservations`, `product_variants`, `cart_items`, `email_messages` |
 | My orders | `GET /account/orders` | `orders`, `order_items` |
 | Admin dashboard | `GET /admin/overview` | `orders`, `order_items`, `product_variants`, `products`, `categories` |
-| Order fulfilment | `GET /admin/orders`, `PATCH /admin/orders/{id}/status` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `stock_movements` |
+| Order fulfilment | `GET /admin/orders`, `PATCH /admin/orders/{id}/status` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `stock_movements`, `email_messages` | (shipping needs `carrier` KERRY/FLASH/DHL and `tracking_number`)
 | Product management | `GET/POST /admin/products`, `GET/PUT /admin/products/{id}`, `PATCH /admin/products/{id}/status` | `products`, `product_variants`, `stock_movements`, `cart_items` |
 | Stock adjustment + history | `POST /admin/variants/{id}/stock-adjustments`, `GET /admin/variants/{id}/stock-movements` | `product_variants`, `stock_movements` |
 | Image upload | `POST /admin/uploads/images` | MinIO bucket `aura-assets` |
@@ -162,15 +171,20 @@ All paths are under `/api/v1` except `GET /health`; `/admin/*` requires an ADMIN
 | `product_variants` | Colour/spec, SKU, price (satang), images, `stock_quantity`, `reserved_stock` |
 | `product_accessory_bundles` | "Frequently bought together" pairs |
 | `wishlists`, `cart_items` | Wishlist and bag (user or guest) |
-| `orders`, `order_items` | Orders, status, per-unit serial numbers (`serial_numbers`) |
+| `orders`, `order_items` | Orders, status, per-unit serial numbers (`serial_numbers`), shipment (`carrier`, `tracking_number`, `shipped_at`, `delivered_at`) |
 | `stock_reservations` | Units held during checkout (ACTIVE / COMMITTED / RELEASED) |
 | `stock_movements` | Every stock change: reason, delta, balance after, who, which order |
+| `email_messages` | Every customer email (payment confirmed, shipped, delivered, cancelled), written in the same transaction as the order change |
+| `password_reset_tokens` | Password reset links (SHA-256 of the token only), single use, 30-minute expiry |
 | `banners` | Home-page banners |
 
 ### Key rules
 - **Money** is stored in satang (`int64`).
 - **Admin order transitions**: `PENDING_PAYMENT → CANCELLED`, `PAID_PROCESSING → SN_ASSIGNED / SHIPPED / CANCELLED`, `SHIPPED → DELIVERED`. Payment only happens through checkout; cancelling returns stock.
 - **SHIPPED** requires a serial number for every unit.
+- **Payments and emails are simulated.** No money moves and no mail is sent. The PromptPay QR is a valid EMVCo payload pointing at an unregistered proxy number (banking apps cannot complete it); cards ending in `0000` are declined. Emails are stored in `email_messages` and shown on the order page.
+- **Unpaid orders** can be cancelled by the customer, or are cancelled when the 15-minute hold ends; both release the held stock and put the items back in the bag.
+- **Password reset** works for customer accounts only; admin accounts cannot be reset from the storefront (the reset email is readable in the app, so this keeps anyone from taking over the demo admin)
 - **Stock** changes only through checkout, order cancellation and admin adjustments, each written to `stock_movements`.
 - Products taken off sale cannot be added to a bag or checked out.
 - Validation errors return `400 VALIDATION_FAILED` with per-field `error.fields`.

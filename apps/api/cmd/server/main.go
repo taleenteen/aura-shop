@@ -110,7 +110,7 @@ func main() {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Guest-Session-ID"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Guest-Session-ID", "X-Order-Email"},
 		ExposedHeaders:   []string{"Link", "X-Guest-Session-ID"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -134,6 +134,10 @@ func main() {
 			auth.Post("/login", authHandler.Login)
 			auth.With(appMiddleware.RequireAuth).Get("/me", authHandler.Me)
 			auth.With(appMiddleware.RequireAuth).Patch("/me", authHandler.UpdateMe)
+			auth.With(appMiddleware.RequireAuth).Post("/change-password", authHandler.ChangePassword)
+			auth.Post("/forgot-password", authHandler.ForgotPassword)
+			auth.Post("/reset-password", authHandler.ResetPassword)
+			auth.Get("/emails/{id}", authHandler.GetAccountEmail)
 		})
 
 		// Signed-in customer account
@@ -176,7 +180,10 @@ func main() {
 		})
 
 		// Orders
+		api.Post("/orders/lookup", checkoutHandler.LookupOrder)
 		api.Get("/orders/{orderNumber}", checkoutHandler.GetOrder)
+		api.Get("/orders/{orderNumber}/emails", checkoutHandler.ListOrderEmails)
+		api.Post("/orders/{orderNumber}/cancel", checkoutHandler.CancelOrder)
 
 		// Admin Backoffice (Protected by Admin Role)
 		api.Route("/admin", func(adm chi.Router) {

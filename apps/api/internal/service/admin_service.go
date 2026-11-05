@@ -45,5 +45,5 @@ func (s *adminService) CreateBanner(ctx context.Context, banner *models.Banner) 
 }
 
 func (s *adminService) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, req dto.UpdateOrderStatusRequest) error {
-	return s.orderRepo.UpdateOrderStatus(ctx, orderID, req.Status, req.SerialNumbers)
+	return s.orderRepo.UpdateOrderStatus(ctx, orderID, req.Status, req.SerialNumbers, models.Shipment{Carrier: req.Carrier, TrackingNumber: req.TrackingNumber})
 }

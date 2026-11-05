@@ -60,6 +60,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Order{},
 		&models.OrderItem{},
 		&models.StockMovement{},
+		&models.EmailMessage{},
+		&models.PasswordResetToken{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to auto-migrate schemas: %w", err)
@@ -77,6 +79,11 @@ func AutoMigrate(db *gorm.DB) error {
 
 	if err := backfillOrderItemSerials(db); err != nil {
 		return fmt.Errorf("failed to backfill order item serials: %w", err)
+	}
+
+	// email_messages.order_id was NOT NULL before account emails existed; GORM does not relax it.
+	if err := db.Exec(`ALTER TABLE email_messages ALTER COLUMN order_id DROP NOT NULL`).Error; err != nil {
+		return fmt.Errorf("failed to relax email_messages.order_id: %w", err)
 	}
 
 	if err := EnsureGINIndexes(db); err != nil {

@@ -20,7 +20,7 @@ npm run build        # build production ไปที่ dist/
 | ตัวแปร | ค่าเริ่มต้น | ใช้ทำอะไร |
 |---|---|---|
 | `VITE_API_BASE_URL` | `http://localhost:8080/api/v1` | ที่อยู่ API |
-| `VITE_DEMO_MODE` | ไม่ตั้ง | `true` = แสดงเครื่องมือสาธิต (ปุ่มล็อกอินบัญชีทดลอง, ปุ่มจำลองการจ่าย PromptPay, คำแนะนำบัตรถูกปฏิเสธ) ใน build production ตอน `npm run dev` แสดงเสมอ |
+| `VITE_DEMO_MODE` | ไม่ตั้ง | `true` = แสดงเครื่องมือสาธิต (ปุ่มล็อกอินบัญชีทดลองในหน้าล็อกอินและหลังบ้าน) ใน build production ตอน `npm run dev` แสดงเสมอ |
 
 ### หน้า (route)
 | Path | หน้า | ไฟล์ |
@@ -72,7 +72,7 @@ npm run build        # production build into dist/
 | Variable | Default | Purpose |
 |---|---|---|
 | `VITE_API_BASE_URL` | `http://localhost:8080/api/v1` | API location |
-| `VITE_DEMO_MODE` | unset | `true` shows demo helpers (demo-account buttons, PromptPay payment simulator, card-decline tip) in a production build; `npm run dev` always shows them |
+| `VITE_DEMO_MODE` | unset | `true` shows demo helpers (demo-account sign-in buttons on the sign-in modal and admin console) in a production build; `npm run dev` always shows them |
 
 ### Routes
 | Path | Page | Code |

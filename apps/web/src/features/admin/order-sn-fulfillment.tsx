@@ -13,9 +13,10 @@ import {
   ChevronRight,
   Barcode,
 } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, type ApiRequestError } from "@/lib/api-client";
 import { formatTHB } from "@/lib/currency";
-import type { Order, OrderStatus } from "@/types/api";
+import type { Carrier, Order, OrderStatus } from "@/types/api";
+import { CARRIERS, carrierName } from "@/features/orders/carriers";
 
 const PAGE_SIZE = 25;
 
@@ -70,6 +71,9 @@ export function OrderSNFulfillment() {
   // Fulfillment form state
   const [targetStatus, setTargetStatus] = useState<OrderStatus | "">("");
   const [serialNumbers, setSerialNumbers] = useState<Record<string, string[]>>({});
+  const [carrier, setCarrier] = useState<Carrier | "">("");
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [shipErrors, setShipErrors] = useState<Record<string, string>>({});
   const [isUpdating, setIsUpdating] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -109,6 +113,9 @@ export function OrderSNFulfillment() {
     setErrorMsg(null);
 
     setTargetStatus(defaultTargetFor(order));
+    setCarrier("");
+    setTrackingNumber("");
+    setShipErrors({});
 
     // One input per unit, pre-filled with any serials already recorded.
     const initialSNs: Record<string, string[]> = {};
@@ -136,6 +143,7 @@ export function OrderSNFulfillment() {
     setIsUpdating(true);
     setSuccessMsg(null);
     setErrorMsg(null);
+    setShipErrors({});
 
     try {
       await apiClient<{ message: string; status: string }>(
@@ -146,6 +154,7 @@ export function OrderSNFulfillment() {
             status: targetStatus,
             // Serials are only accepted before shipping; blanks keep what is already saved.
             ...(serialsEditable ? { serial_numbers: serialNumbers } : {}),
+            ...(targetStatus === "SHIPPED" ? { carrier, tracking_number: trackingNumber } : {}),
           }),
         }
       );
@@ -170,6 +179,7 @@ export function OrderSNFulfillment() {
           "ENFORCEMENT BLOCK: Serial Number (S/N) is mandatory for every item before moving to SHIPPED."
         );
       } else {
+        setShipErrors((err as ApiRequestError).fields ?? {});
         setErrorMsg((err as Error).message || "Failed to update order status");
       }
     } finally {
@@ -571,10 +581,56 @@ export function OrderSNFulfillment() {
                 )}
               </div>
 
+              {/* Shipment: required when handing the order to a carrier */}
+              {targetStatus === "SHIPPED" && selectedOrder.status !== "SHIPPED" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="ship-carrier" className="block text-xs font-bold text-zinc-900 dark:text-white mb-1.5">
+                      Carrier
+                    </label>
+                    <select
+                      id="ship-carrier"
+                      value={carrier}
+                      onChange={(e) => setCarrier(e.target.value as Carrier | "")}
+                      className="w-full px-3 py-2.5 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                    >
+                      <option value="" disabled>
+                        Choose…
+                      </option>
+                      {(Object.keys(CARRIERS) as Carrier[]).map((c) => (
+                        <option key={c} value={c}>
+                          {CARRIERS[c].name}
+                        </option>
+                      ))}
+                    </select>
+                    {shipErrors.carrier && <p className="mt-1 text-[11px] text-rose-600">{shipErrors.carrier}</p>}
+                  </div>
+                  <div>
+                    <label htmlFor="ship-tracking" className="block text-xs font-bold text-zinc-900 dark:text-white mb-1.5">
+                      Tracking number
+                    </label>
+                    <input
+                      id="ship-tracking"
+                      value={trackingNumber}
+                      onChange={(e) => setTrackingNumber(e.target.value.toUpperCase())}
+                      placeholder={carrier ? CARRIERS[carrier].example : "From the carrier's label"}
+                      className="w-full px-3 py-2.5 text-xs font-mono rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                    />
+                    {shipErrors.tracking_number && <p className="mt-1 text-[11px] text-rose-600">{shipErrors.tracking_number}</p>}
+                  </div>
+                </div>
+              )}
+              {selectedOrder.tracking_number && (
+                <p className="text-xs text-zinc-500">
+                  Shipped with {carrierName(selectedOrder.carrier)} •{" "}
+                  <span className="font-mono font-semibold text-zinc-900 dark:text-white">{selectedOrder.tracking_number}</span>
+                </p>
+              )}
+
               {/* S/N Enforcement Notice */}
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300">
                 ⚠️ <strong>Warehouse Rule:</strong> Marking an order as{" "}
-                <span className="font-bold">SHIPPED</span> without entering a serial number is strictly rejected by the backend state machine.
+                <span className="font-bold">SHIPPED</span> needs a serial number for every unit, plus the carrier and tracking number. The customer is emailed the tracking details.
               </div>
 
               {/* Submit Button */}

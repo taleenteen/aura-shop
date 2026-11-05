@@ -1,21 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import {
-  CheckCircle2,
-  Clock,
-  Loader2,
-  Package,
-  PackageCheck,
-  Truck,
-  UserRound,
-  XCircle,
-  type LucideIcon,
-} from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { Loader2, Package, UserRound } from "lucide-react";
+import { apiClient, type ApiRequestError } from "@/lib/api-client";
 import { formatTHB } from "@/lib/currency";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUIStore } from "@/stores/ui-store";
 import type { Order, OrderStatus, User } from "@/types/api";
+import { STATUS_META, STEPS, STEP_REACHED, formatTime, isPayable } from "@/features/orders/order-status";
+import { CancelOrderButton } from "@/features/orders/cancel-order-button";
+import { carrierName } from "@/features/orders/carriers";
 
 type AccountTab = "orders" | "profile";
 
@@ -31,30 +24,8 @@ const STAGES: { id: Stage; label: string; statuses: OrderStatus[] }[] = [
   { id: "cancelled", label: "Cancelled", statuses: ["CANCELLED"] },
 ];
 
-const STATUS_META: Record<OrderStatus, { label: string; icon: LucideIcon; tone: string }> = {
-  PENDING_PAYMENT: { label: "Awaiting payment", icon: Clock, tone: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20" },
-  PAID_PROCESSING: { label: "Preparing your order", icon: Package, tone: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20" },
-  SN_ASSIGNED: { label: "Packed, ready to ship", icon: PackageCheck, tone: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20" },
-  SHIPPED: { label: "On the way", icon: Truck, tone: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20" },
-  DELIVERED: { label: "Delivered", icon: CheckCircle2, tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20" },
-  CANCELLED: { label: "Cancelled", icon: XCircle, tone: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20" },
-};
-
-/** Progress steps shown on active orders; index of the step each status has reached. */
-const STEPS = ["Ordered", "Paid", "Packed", "Shipped", "Delivered"];
-const STEP_REACHED: Record<OrderStatus, number> = {
-  PENDING_PAYMENT: 0,
-  PAID_PROCESSING: 1,
-  SN_ASSIGNED: 2,
-  SHIPPED: 3,
-  DELIVERED: 4,
-  CANCELLED: -1,
-};
-
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
 export function AccountPage() {
   const user = useAuthStore((state) => state.user);
@@ -126,7 +97,19 @@ export function AccountPage() {
         </button>
       </div>
 
-      {tab === "orders" ? <OrdersSection /> : <ProfileSection user={user} />}
+      {tab === "orders" ? (
+        <OrdersSection />
+      ) : (
+        <div className="space-y-6">
+          {search.reset === "1" && (
+            <p role="status" className="px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+              Your password has been reset and you're signed in.
+            </p>
+          )}
+          <ProfileSection user={user} />
+          <ChangePasswordSection />
+        </div>
+      )}
     </div>
   );
 }
@@ -218,7 +201,11 @@ function OrdersSection() {
       ) : (
         <ul className="space-y-4">
           {visible.map((order) => (
-            <OrderCard key={order.id} order={order} />
+            <OrderCard
+              key={order.id}
+              order={order}
+              onChange={(updated) => setOrders((list) => list.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)))}
+            />
           ))}
         </ul>
       )}
@@ -226,14 +213,14 @@ function OrdersSection() {
   );
 }
 
-function OrderCard({ order }: { order: Order }) {
+function OrderCard({ order, onChange }: { order: Order; onChange: (order: Order) => void }) {
   const meta = STATUS_META[order.status];
   const Icon = meta.icon;
   const reached = STEP_REACHED[order.status];
   const items = order.items ?? [];
   const shown = items.slice(0, 2);
   const units = items.reduce((n, i) => n + i.quantity, 0);
-  const expired = order.status === "PENDING_PAYMENT" && new Date(order.reservation_expires_at) < new Date();
+  const payable = isPayable(order);
 
   return (
     <li className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
@@ -282,13 +269,24 @@ function OrderCard({ order }: { order: Order }) {
 
         {order.status === "PENDING_PAYMENT" && (
           <p className="text-xs text-amber-700 dark:text-amber-400">
-            {expired
-              ? "The 15-minute stock hold has expired; this order will be cancelled automatically."
-              : `Stock is held until ${formatTime(order.reservation_expires_at)}. Unpaid orders are cancelled automatically after that.`}
+            {payable
+              ? `Your items are held until ${formatTime(order.reservation_expires_at)}. Pay before then to confirm the order.`
+              : "The payment window has closed; the items are going back to your bag."}
           </p>
         )}
         {order.status === "SHIPPED" && (
-          <p className="text-xs text-zinc-500">Your parcel is with the courier. Serial numbers are listed on the receipt.</p>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+            <span>
+              {order.tracking_number
+                ? <>With {carrierName(order.carrier)} • <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200">{order.tracking_number}</span></>
+                : "Your parcel is with the courier."}
+            </span>
+            {order.tracking_number && (
+              <Link to="/orders/$orderNumber" params={{ orderNumber: order.order_number }} search={{ track: "1" }} className="font-semibold text-zinc-900 dark:text-white underline underline-offset-2">
+                Track parcel
+              </Link>
+            )}
+          </div>
         )}
       </div>
 
@@ -297,13 +295,25 @@ function OrderCard({ order }: { order: Order }) {
           {units} {units === 1 ? "item" : "items"} • Total{" "}
           <strong className="text-zinc-950 dark:text-white">{formatTHB(order.grand_total)}</strong>
         </p>
-        <Link
-          to="/orders/$orderNumber"
-          params={{ orderNumber: order.order_number }}
-          className="px-3.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-        >
-          View details
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {payable && <CancelOrderButton orderNumber={order.order_number} onCancelled={onChange} />}
+          <Link
+            to="/orders/$orderNumber"
+            params={{ orderNumber: order.order_number }}
+            className="px-3.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            View details
+          </Link>
+          {payable && (
+            <Link
+              to="/checkout"
+              search={{ order: order.order_number }}
+              className="px-3.5 py-1.5 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold hover:opacity-90"
+            >
+              Complete payment
+            </Link>
+          )}
+        </div>
       </div>
     </li>
   );
@@ -387,6 +397,85 @@ function ProfileSection({ user }: { user: User }) {
           {isSaving ? "Saving…" : "Save changes"}
         </button>
         {dirty && !isSaving && <span className="text-xs text-zinc-500">You have unsaved changes.</span>}
+        {message && (
+          <span role="status" className={`text-xs font-semibold ${message.kind === "ok" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+            {message.text}
+          </span>
+        )}
+      </div>
+    </form>
+  );
+}
+
+function ChangePasswordSection() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    if (next.length < 6) return setErrors({ new_password: "Use at least 6 characters." });
+    if (next !== confirm) return setErrors({ confirm: "Passwords don't match." });
+    setErrors({});
+    setBusy(true);
+    try {
+      await apiClient("/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ current_password: current, new_password: next }),
+      });
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+      setMessage({ kind: "ok", text: "Password updated." });
+    } catch (err) {
+      const apiErr = err as ApiRequestError;
+      setErrors(apiErr.fields ?? {});
+      if (!apiErr.fields) setMessage({ kind: "error", text: apiErr.message || "Could not change your password." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const input =
+    "w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white";
+  const label = "block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5";
+  const fieldError = (key: string) => errors[key] && <p className="mt-1 text-[11px] text-rose-600">{errors[key]}</p>;
+
+  return (
+    <form onSubmit={submit} noValidate className="max-w-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 sm:p-8 space-y-5 shadow-xs">
+      <div>
+        <h2 className="text-lg font-bold text-zinc-950 dark:text-white">Password</h2>
+        <p className="text-xs text-zinc-500 mt-1">Use at least 6 characters. You'll stay signed in on this device.</p>
+      </div>
+      <div>
+        <label htmlFor="pw-current" className={label}>Current password</label>
+        <input id="pw-current" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} className={input} />
+        {fieldError("current_password")}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="pw-new" className={label}>New password</label>
+          <input id="pw-new" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} className={input} />
+          {fieldError("new_password")}
+        </div>
+        <div>
+          <label htmlFor="pw-confirm" className={label}>Confirm new password</label>
+          <input id="pw-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className={input} />
+          {fieldError("confirm")}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={busy || !current || !next}
+          className="px-5 py-2.5 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        >
+          {busy ? "Updating…" : "Update password"}
+        </button>
         {message && (
           <span role="status" className={`text-xs font-semibold ${message.kind === "ok" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
             {message.text}

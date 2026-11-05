@@ -13,6 +13,8 @@ import { OrderReceiptPage } from "@/features/checkout/order-receipt-page";
 import { AdminLayout } from "@/features/admin/admin-layout";
 import { WishlistPage } from "@/features/wishlist/wishlist-page";
 import { AccountPage } from "@/features/account/account-page";
+import { OrderLookupPage } from "@/features/orders/order-lookup-page";
+import { ResetPasswordPage } from "@/features/auth/reset-password-page";
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -70,6 +72,18 @@ const orderReceiptRoute = createRoute({
   component: OrderReceiptWrapper,
 });
 
+const orderLookupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/orders/lookup",
+  component: OrderLookupPage,
+});
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reset-password",
+  component: ResetPasswordPage,
+});
+
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin",
@@ -83,7 +97,9 @@ const routeTree = rootRoute.addChildren([
   accountRoute,
   productDetailRoute,
   checkoutRoute,
+  orderLookupRoute,
   orderReceiptRoute,
+  resetPasswordRoute,
   adminRoute,
 ]);
 

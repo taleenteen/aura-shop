@@ -118,8 +118,16 @@ func (m *mockConcurrentOrderRepo) ListOrdersForUser(ctx context.Context, userID 
 	return nil, nil
 }
 
-func (m *mockConcurrentOrderRepo) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error {
+func (m *mockConcurrentOrderRepo) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string, shipment models.Shipment) error {
 	return nil
+}
+
+func (m *mockConcurrentOrderRepo) CancelPendingOrder(ctx context.Context, orderNumber string) (*models.Order, error) {
+	return nil, repository.ErrOrderNotFound
+}
+
+func (m *mockConcurrentOrderRepo) ListEmailsForOrder(ctx context.Context, orderID uuid.UUID) ([]models.EmailMessage, error) {
+	return nil, nil
 }
 
 func (m *mockConcurrentOrderRepo) GetAdminOverview(ctx context.Context) (*dto.AdminOverviewStats, error) {

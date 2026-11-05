@@ -8,6 +8,7 @@ import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 import type { AuthResponse } from "@/types/api";
 import { DEMO_MODE } from "@/lib/demo-mode";
+import { ForgotPasswordPanel } from "./forgot-password-panel";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const [mode, setMode] = useState<"signin" | "register">("signin");
+  const [mode, setMode] = useState<"signin" | "register" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -154,6 +155,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <X className="w-5 h-5" />
             </button>
 
+            {mode === "forgot" ? (
+              <ForgotPasswordPanel
+                initialEmail={email}
+                onBack={() => setMode("signin")}
+                onLeave={handleClose}
+              />
+            ) : (
+            <>
             {/* Header Badge & Title */}
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 mb-3 shadow-md">
@@ -294,13 +303,29 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Password
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="auth-password" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    Password
+                  </label>
+                  {mode === "signin" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("forgot");
+                        setError(null);
+                      }}
+                      className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-950 dark:hover:text-white cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
+                    id="auth-password"
                     type="password"
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
                     required
                     placeholder="••••••••"
                     value={password}
@@ -359,6 +384,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </button>
               </div>
             </div>
+            )}
+            </>
             )}
           </motion.div>
         </div>
