@@ -82,7 +82,7 @@ func (h *CheckoutHandler) Pay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !h.requesterOwnsOrder(w, r, req.OrderNumber, false) {
+	if _, ok := h.loadOrder(w, r, req.OrderNumber, accessOwner); !ok {
 		return
 	}
 
@@ -115,7 +115,7 @@ func (h *CheckoutHandler) GetPromptPayQR(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if !h.requesterOwnsOrder(w, r, orderNumber, false) {
+	if _, ok := h.loadOrder(w, r, orderNumber, accessOwner); !ok {
 		return
 	}
 
@@ -139,7 +139,7 @@ func (h *CheckoutHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	order, ok := h.loadOwnedOrder(w, r, orderNumber, true)
+	order, ok := h.loadOrder(w, r, orderNumber, accessViewer)
 	if !ok {
 		return
 	}
@@ -147,10 +147,23 @@ func (h *CheckoutHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, order, nil)
 }
 
-// loadOwnedOrder fetches an order and writes a 404 unless the requester placed it (same user or
-// same guest session), or allowAdmin is set and the requester is an admin. Orders that belong to
-// someone else are reported as not found so order numbers cannot be probed.
-func (h *CheckoutHandler) loadOwnedOrder(w http.ResponseWriter, r *http.Request, orderNumber string, allowAdmin bool) (*models.Order, bool) {
+// orderAccess says who may act on an order.
+type orderAccess int
+
+const (
+	// accessOwner: only the requester who placed it (same user or same guest session).
+	accessOwner orderAccess = iota
+	// accessViewer: the owner, an admin, or someone who proves the order email through the
+	// X-Order-Email header (set by the storefront after an order lookup).
+	accessViewer
+)
+
+// orderEmailHeader carries the email a customer entered in the order lookup.
+const orderEmailHeader = "X-Order-Email"
+
+// loadOrder fetches an order and writes a 404 unless the requester has the given access.
+// Orders the requester may not see are reported as not found so order numbers cannot be probed.
+func (h *CheckoutHandler) loadOrder(w http.ResponseWriter, r *http.Request, orderNumber string, access orderAccess) (*models.Order, bool) {
 	order, err := h.checkoutService.GetOrderByNumber(r.Context(), orderNumber)
 	if err != nil {
 		if errors.Is(err, repository.ErrOrderNotFound) {
@@ -166,17 +179,102 @@ func (h *CheckoutHandler) loadOwnedOrder(w http.ResponseWriter, r *http.Request,
 	if user != nil {
 		userID = &user.ID
 	}
-	if order.IsVisibleTo(userID, middleware.GetGuestIDFromContext(r.Context())) ||
-		(allowAdmin && user != nil && user.Role == "ADMIN") {
+	order.ViewerCanManage = order.IsVisibleTo(userID, middleware.GetGuestIDFromContext(r.Context()))
+	if order.ViewerCanManage {
 		return order, true
+	}
+	if access == accessViewer {
+		isAdmin := user != nil && user.Role == "ADMIN"
+		if isAdmin || emailMatches(order.CustomerEmail, r.Header.Get(orderEmailHeader)) {
+			return order, true
+		}
 	}
 	response.NotFound(w, "order not found")
 	return nil, false
 }
 
-func (h *CheckoutHandler) requesterOwnsOrder(w http.ResponseWriter, r *http.Request, orderNumber string, allowAdmin bool) bool {
-	_, ok := h.loadOwnedOrder(w, r, orderNumber, allowAdmin)
-	return ok
+func emailMatches(orderEmail, given string) bool {
+	given = strings.TrimSpace(given)
+	return given != "" && strings.EqualFold(strings.TrimSpace(orderEmail), given)
+}
+
+// LookupOrder finds an order by number and the email it was placed with.
+func (h *CheckoutHandler) LookupOrder(w http.ResponseWriter, r *http.Request) {
+	var req dto.OrderLookupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+	number := strings.ToUpper(strings.TrimSpace(req.OrderNumber))
+	fields := map[string]string{}
+	if number == "" {
+		fields["order_number"] = "Enter your order number."
+	}
+	if strings.TrimSpace(req.Email) == "" {
+		fields["email"] = "Enter the email you ordered with."
+	}
+	if len(fields) > 0 {
+		response.ValidationFailed(w, "Enter your order number and email.", fields)
+		return
+	}
+	order, err := h.checkoutService.GetOrderByNumber(r.Context(), number)
+	if err != nil && !errors.Is(err, repository.ErrOrderNotFound) {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+	if order == nil || !emailMatches(order.CustomerEmail, req.Email) {
+		response.NotFound(w, "We couldn't find an order with that number and email.")
+		return
+	}
+	var userID *uuid.UUID
+	if user := middleware.GetUserFromContext(r.Context()); user != nil {
+		userID = &user.ID
+	}
+	order.ViewerCanManage = order.IsVisibleTo(userID, middleware.GetGuestIDFromContext(r.Context()))
+	response.Success(w, http.StatusOK, order, nil)
+}
+
+// CancelOrder lets the customer who placed an unpaid order cancel it.
+func (h *CheckoutHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
+	orderNumber := chi.URLParam(r, "orderNumber")
+	current, ok := h.loadOrder(w, r, orderNumber, accessOwner)
+	if !ok {
+		return
+	}
+	order, err := h.checkoutService.CancelOrder(r.Context(), orderNumber)
+	if err != nil {
+		if errors.Is(err, repository.ErrOrderNotCancellable) {
+			msg := "This order has already been paid. Contact us to cancel it."
+			if current.Status == models.OrderStatusCancelled {
+				msg = "This order is already cancelled."
+			}
+			response.Conflict(w, "ORDER_NOT_CANCELLABLE", msg)
+			return
+		}
+		if errors.Is(err, repository.ErrOrderNotFound) {
+			response.NotFound(w, "order not found")
+			return
+		}
+		response.InternalServerError(w, err.Error())
+		return
+	}
+	order.ViewerCanManage = true
+	response.Success(w, http.StatusOK, order, nil)
+}
+
+// ListOrderEmails returns the emails sent to the customer about an order.
+func (h *CheckoutHandler) ListOrderEmails(w http.ResponseWriter, r *http.Request) {
+	order, ok := h.loadOrder(w, r, chi.URLParam(r, "orderNumber"), accessViewer)
+	if !ok {
+		return
+	}
+	msgs, err := h.checkoutService.ListOrderEmails(r.Context(), order.ID)
+	if err != nil {
+		slog.Error("order emails failed", "order", order.OrderNumber, "error", err)
+		response.InternalServerError(w, "failed to load emails")
+		return
+	}
+	response.Success(w, http.StatusOK, msgs, nil)
 }
 
 func (h *CheckoutHandler) CalculateInstallments(w http.ResponseWriter, r *http.Request) {

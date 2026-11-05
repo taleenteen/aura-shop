@@ -80,6 +80,9 @@ type Order struct {
 	ReservationExpiresAt time.Time      `json:"reservation_expires_at"`
 	Items                []OrderItem    `gorm:"foreignKey:OrderID" json:"items"`
 	AllowedTransitions   []string       `gorm:"-" json:"allowed_transitions,omitempty"` // filled for admin listings
+	// ViewerCanManage is true when the requester placed the order and may pay for or cancel it.
+	// Someone who opened it through an order lookup (number + email) can only read it.
+	ViewerCanManage bool `gorm:"-" json:"viewer_can_manage"`
 	CreatedAt            time.Time      `json:"created_at"`
 	UpdatedAt            time.Time      `json:"updated_at"`
 }

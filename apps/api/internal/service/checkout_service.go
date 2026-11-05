@@ -30,6 +30,8 @@ type CheckoutService interface {
 	GeneratePromptPayQR(ctx context.Context, orderNumber string) (*dto.PromptPayQRResponse, error)
 	GetOrderByNumber(ctx context.Context, orderNumber string) (*models.Order, error)
 	ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error)
+	CancelOrder(ctx context.Context, orderNumber string) (*models.Order, error)
+	ListOrderEmails(ctx context.Context, orderID uuid.UUID) ([]models.EmailMessage, error)
 	CalculateInstallments(satangAmount int64) []dto.InstallmentCalculationOption
 }
 
@@ -184,15 +186,12 @@ func (s *checkoutService) GeneratePromptPayQR(ctx context.Context, orderNumber s
 		return nil, repository.ErrOrderNotFound
 	}
 
-	// Thai PromptPay EMVCo Standard Mock Payload
-	thbAmount := float64(order.GrandTotal) / 100.0
-	payload := fmt.Sprintf("00020101021229370016A000000677010111011300668123456785802TH530376454%05.2f6304ABCD", thbAmount)
+	payload := promptPayPayload(order.GrandTotal, order.OrderNumber)
 
 	return &dto.PromptPayQRResponse{
 		OrderNumber:      order.OrderNumber,
 		GrandTotalSatang: order.GrandTotal,
 		PromptPayPayload: payload,
-		QRCodeDataURL:    fmt.Sprintf("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='black'/><rect x='10' y='10' width='80' height='80' fill='white'/><text x='50' y='55' font-size='8' text-anchor='middle' fill='black'>PromptPay ฿%.2f</text></svg>", thbAmount),
 	}, nil
 }
 
@@ -256,4 +255,18 @@ func newOrderNumber(now time.Time) (string, error) {
 
 func (s *checkoutService) ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error) {
 	return s.orderRepo.ListOrdersForUser(ctx, userID)
+}
+
+// CancelOrder cancels an unpaid order for the customer who placed it.
+func (s *checkoutService) CancelOrder(ctx context.Context, orderNumber string) (*models.Order, error) {
+	return s.orderRepo.CancelPendingOrder(ctx, orderNumber)
+}
+
+// ListOrderEmails returns the emails sent about an order, newest first.
+func (s *checkoutService) ListOrderEmails(ctx context.Context, orderID uuid.UUID) ([]models.EmailMessage, error) {
+	msgs, err := s.orderRepo.ListEmailsForOrder(ctx, orderID)
+	if msgs == nil && err == nil {
+		msgs = []models.EmailMessage{}
+	}
+	return msgs, err
 }

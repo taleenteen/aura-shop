@@ -50,7 +50,8 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | ตะกร้า | `GET /cart`, `POST /cart/items`, `PATCH/DELETE /cart/items/{id}` | `cart_items`, `product_variants` |
 | จองสต็อก (15 นาที) | `POST /checkout/reserve` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `cart_items` |
 | ชำระเงิน | `POST /checkout/pay`, `GET /checkout/promptpay/{no}`, `GET /checkout/installments/{satang}` | `orders`, `stock_reservations`, `product_variants`, `stock_movements` |
-| ใบเสร็จ (เฉพาะเจ้าของหรือ admin) | `GET /orders/{orderNumber}` | `orders`, `order_items` |
+| หน้าคำสั่งซื้อ + อีเมล (เจ้าของ, admin หรือผู้ค้นด้วยเลข order + อีเมล) | `GET /orders/{orderNumber}`, `GET /orders/{orderNumber}/emails`, `POST /orders/lookup` | `orders`, `order_items`, `email_messages` |
+| ยกเลิกคำสั่งซื้อที่ยังไม่จ่าย (เจ้าของ) | `POST /orders/{orderNumber}/cancel` | `orders`, `stock_reservations`, `product_variants`, `cart_items`, `email_messages` |
 | คำสั่งซื้อของฉัน | `GET /account/orders` | `orders`, `order_items` |
 | แดชบอร์ด admin | `GET /admin/overview` | `orders`, `order_items`, `product_variants`, `products`, `categories` |
 | จัดการคำสั่งซื้อ | `GET /admin/orders`, `PATCH /admin/orders/{id}/status` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `stock_movements` |
@@ -74,12 +75,15 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | `orders`, `order_items` | คำสั่งซื้อ, สถานะ, S/N รายเครื่อง (`serial_numbers`) |
 | `stock_reservations` | สต็อกที่จองไว้ระหว่าง checkout (ACTIVE / COMMITTED / RELEASED) |
 | `stock_movements` | ประวัติการเปลี่ยนสต็อกทุกครั้ง: เหตุผล, จำนวน, ยอดหลังเปลี่ยน, ผู้ทำ, order |
+| `email_messages` | อีเมลถึงลูกค้าทุกฉบับ (ยืนยันการจ่าย, จัดส่ง, ส่งถึง, ยกเลิก) เขียนใน transaction เดียวกับการเปลี่ยนสถานะ order |
 | `banners` | แบนเนอร์หน้าแรก |
 
 ### กฎสำคัญ
 - **เงิน** เก็บเป็นสตางค์ (`int64`)
 - **สถานะ order** ที่ admin เปลี่ยนได้: `PENDING_PAYMENT → CANCELLED`, `PAID_PROCESSING → SN_ASSIGNED / SHIPPED / CANCELLED`, `SHIPPED → DELIVERED` การจ่ายเงินทำได้ผ่าน checkout เท่านั้น การยกเลิกคืนสต็อกให้อัตโนมัติ
 - **SHIPPED** ต้องมี S/N ครบทุกเครื่อง
+- **การจ่ายเงินและอีเมลเป็นการจำลองทั้งหมด** ไม่มีการตัดเงินหรือส่งอีเมลจริง QR PromptPay อยู่ในรูปแบบมาตรฐาน EMVCo แต่ชี้ไปที่หมายเลขที่ไม่มีบัญชี (สแกนแล้วโอนไม่ได้) บัตรที่ลงท้าย `0000` จะถูกปฏิเสธ อีเมลเก็บใน `email_messages` และแสดงในหน้าคำสั่งซื้อ
+- **order ที่ยังไม่จ่าย** ยกเลิกเองได้ หรือถูกยกเลิกเมื่อครบ 15 นาที ทั้งสองกรณีคืนสต็อกที่จองไว้และใส่สินค้ากลับลงตะกร้า
 - **สต็อก** เปลี่ยนได้ผ่าน checkout, การยกเลิก order และการปรับสต็อกของ admin เท่านั้น ทุกครั้งเขียนลง `stock_movements`
 - สินค้าที่ปิดขายใส่ตะกร้าหรือ checkout ไม่ได้
 - error ตรวจข้อมูลตอบ `400 VALIDATION_FAILED` พร้อม `error.fields` แยกตามช่อง
@@ -141,7 +145,8 @@ go test ./...            # test
 | Bag | `GET /cart`, `POST /cart/items`, `PATCH/DELETE /cart/items/{id}` | `cart_items`, `product_variants` |
 | Stock hold (15 min) | `POST /checkout/reserve` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `cart_items` |
 | Payment | `POST /checkout/pay`, `GET /checkout/promptpay/{no}`, `GET /checkout/installments/{satang}` | `orders`, `stock_reservations`, `product_variants`, `stock_movements` |
-| Receipt (owner or admin only) | `GET /orders/{orderNumber}` | `orders`, `order_items` |
+| Order page + emails (owner, admin, or anyone with order number + email) | `GET /orders/{orderNumber}`, `GET /orders/{orderNumber}/emails`, `POST /orders/lookup` | `orders`, `order_items`, `email_messages` |
+| Cancel an unpaid order (owner) | `POST /orders/{orderNumber}/cancel` | `orders`, `stock_reservations`, `product_variants`, `cart_items`, `email_messages` |
 | My orders | `GET /account/orders` | `orders`, `order_items` |
 | Admin dashboard | `GET /admin/overview` | `orders`, `order_items`, `product_variants`, `products`, `categories` |
 | Order fulfilment | `GET /admin/orders`, `PATCH /admin/orders/{id}/status` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `stock_movements` |
@@ -165,12 +170,15 @@ All paths are under `/api/v1` except `GET /health`; `/admin/*` requires an ADMIN
 | `orders`, `order_items` | Orders, status, per-unit serial numbers (`serial_numbers`) |
 | `stock_reservations` | Units held during checkout (ACTIVE / COMMITTED / RELEASED) |
 | `stock_movements` | Every stock change: reason, delta, balance after, who, which order |
+| `email_messages` | Every customer email (payment confirmed, shipped, delivered, cancelled), written in the same transaction as the order change |
 | `banners` | Home-page banners |
 
 ### Key rules
 - **Money** is stored in satang (`int64`).
 - **Admin order transitions**: `PENDING_PAYMENT → CANCELLED`, `PAID_PROCESSING → SN_ASSIGNED / SHIPPED / CANCELLED`, `SHIPPED → DELIVERED`. Payment only happens through checkout; cancelling returns stock.
 - **SHIPPED** requires a serial number for every unit.
+- **Payments and emails are simulated.** No money moves and no mail is sent. The PromptPay QR is a valid EMVCo payload pointing at an unregistered proxy number (banking apps cannot complete it); cards ending in `0000` are declined. Emails are stored in `email_messages` and shown on the order page.
+- **Unpaid orders** can be cancelled by the customer, or are cancelled when the 15-minute hold ends; both release the held stock and put the items back in the bag.
 - **Stock** changes only through checkout, order cancellation and admin adjustments, each written to `stock_movements`.
 - Products taken off sale cannot be added to a bag or checked out.
 - Validation errors return `400 VALIDATION_FAILED` with per-field `error.fields`.

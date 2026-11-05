@@ -283,6 +283,8 @@ export interface Order {
   items: OrderItem[];
   /** Statuses an admin may move this order to. Present on admin listings; absent means none. */
   allowed_transitions?: OrderStatus[];
+  /** True when this browser or account placed the order and may pay for or cancel it. */
+  viewer_can_manage?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -318,7 +320,6 @@ export interface PromptPayQRResponse {
   order_number: string;
   grand_total_satang: number;
   promptpay_payload: string;
-  qr_code_data_url: string;
 }
 
 export interface LowStockItem {
@@ -413,4 +414,20 @@ export interface ProductInput {
   full_spec_matrix: SpecCategoryGroup[];
   is_active: boolean;
   variants: VariantInput[];
+}
+
+export type EmailKind = "ORDER_CONFIRMED" | "ORDER_SHIPPED" | "ORDER_DELIVERED" | "ORDER_CANCELLED";
+export type CancelReason = "customer" | "expired" | "store";
+
+/** An email sent to the customer about an order. */
+export interface EmailMessage {
+  id: string;
+  order_id: string;
+  kind: EmailKind;
+  sender: string;
+  recipient: string;
+  subject: string;
+  preheader: string;
+  data?: { reason?: CancelReason } | null;
+  sent_at: string;
 }

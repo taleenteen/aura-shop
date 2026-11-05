@@ -233,3 +233,10 @@ type UpdateOrderStatusRequest struct {
 	// Order item ID -> one serial per unit. A blank entry keeps the saved serial for that unit.
 	SerialNumbers map[string][]string `json:"serial_numbers,omitempty"`
 }
+
+// OrderLookupRequest finds an order by its number and the email it was placed with, for
+// customers who check out as guests or on another device.
+type OrderLookupRequest struct {
+	OrderNumber string `json:"order_number"`
+	Email       string `json:"email"`
+}

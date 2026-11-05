@@ -60,6 +60,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Order{},
 		&models.OrderItem{},
 		&models.StockMovement{},
+		&models.EmailMessage{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to auto-migrate schemas: %w", err)

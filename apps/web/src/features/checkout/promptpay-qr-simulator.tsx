@@ -1,25 +1,40 @@
-import { useState } from "react";
-import { QrCode, CheckCircle2, ShieldCheck, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
+import { QrCode, CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
 import { formatTHB } from "@/lib/currency";
 import type { PromptPayQRResponse } from "@/types/api";
-import { DEMO_MODE } from "@/lib/demo-mode";
 
 interface PromptPayQRSimulatorProps {
   qrData: PromptPayQRResponse;
-  onSimulateSuccess: () => Promise<void>;
+  /** Called when the customer says they have paid; resolves once the payment is confirmed. */
+  onConfirm: () => Promise<void>;
   isLoading: boolean;
 }
 
-export function PromptPayQRSimulator({
-  qrData,
-  onSimulateSuccess,
-  isLoading,
-}: PromptPayQRSimulatorProps) {
-  const [hasScanned, setHasScanned] = useState(false);
+/** Thai QR payment: shows the code, then confirms the transfer when the customer has paid. */
+export function PromptPayQRSimulator({ qrData, onConfirm, isLoading }: PromptPayQRSimulatorProps) {
+  const [isChecking, setIsChecking] = useState(false);
+  const [qrSrc, setQrSrc] = useState<string | null>(null);
 
-  const handleSimulate = async () => {
-    setHasScanned(true);
-    await onSimulateSuccess();
+  useEffect(() => {
+    let live = true;
+    QRCode.toDataURL(qrData.promptpay_payload, { errorCorrectionLevel: "M", margin: 1, width: 448 })
+      .then((url) => live && setQrSrc(url))
+      .catch(() => live && setQrSrc(null));
+    return () => {
+      live = false;
+    };
+  }, [qrData.promptpay_payload]);
+
+  const handleConfirm = async () => {
+    setIsChecking(true);
+    try {
+      // Give the bank a moment to report the incoming transfer before asking for it.
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await onConfirm();
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   return (
@@ -31,16 +46,12 @@ export function PromptPayQRSimulator({
           <span>THAI QR PAYMENT</span>
         </div>
 
-        {/* Dynamic QR SVG */}
-        <div className="w-56 h-56 mx-auto bg-zinc-50 dark:bg-zinc-800 p-2 rounded-2xl flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
-          {qrData.qr_code_data_url ? (
-            <img
-              src={qrData.qr_code_data_url}
-              alt="PromptPay QR Code"
-              className="w-full h-full object-contain"
-            />
+        {/* The QR stays dark-on-white in both themes so banking apps can read it */}
+        <div className="w-56 h-56 mx-auto bg-white p-2 rounded-2xl flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
+          {qrSrc ? (
+            <img src={qrSrc} alt={`PromptPay QR code for ${formatTHB(qrData.grand_total_satang)}`} className="w-full h-full object-contain [image-rendering:pixelated]" />
           ) : (
-            <QrCode className="w-32 h-32 text-zinc-900 dark:text-white stroke-[1.5]" />
+            <QrCode className="w-32 h-32 text-zinc-300 stroke-[1.5] animate-pulse" aria-hidden />
           )}
         </div>
 
@@ -55,40 +66,33 @@ export function PromptPayQRSimulator({
         </div>
       </div>
 
-      {DEMO_MODE ? (
-        <div className="w-full max-w-sm p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-white">
-            <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
-            <span>Developer Payment Simulator Bar</span>
-          </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 text-left leading-relaxed">
-            In a production environment, your banking app webhook notifies the gateway. Click below to simulate an instant webhook callback confirmation:
-          </p>
+      <ol className="w-full max-w-sm space-y-2 text-left text-xs text-zinc-600 dark:text-zinc-300">
+        {["Open your banking app and choose Scan QR.", "Scan the code and check the amount matches.", "Confirm the transfer, then tap the button below."].map((step, i) => (
+          <li key={step} className="flex items-start gap-2.5">
+            <span className="w-5 h-5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+            <span className="pt-0.5">{step}</span>
+          </li>
+        ))}
+      </ol>
 
-          <button
-            type="button"
-            disabled={isLoading}
-            onClick={handleSimulate}
-            className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
-          >
-            {hasScanned || isLoading ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 animate-spin" />
-                <span>Confirming Bank Transfer...</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Simulate Customer Scan Success</span>
-              </>
-            )}
-          </button>
-        </div>
-      ) : (
-        <p className="w-full max-w-sm text-xs text-zinc-500 dark:text-zinc-400">
-          Scan with your banking app and transfer the exact amount shown above.
-        </p>
-      )}
+      <button
+        type="button"
+        disabled={isLoading || isChecking}
+        onClick={handleConfirm}
+        className="w-full max-w-sm py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-80 text-white font-bold text-sm shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
+      >
+        {isLoading || isChecking ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>Checking with your bank…</span>
+          </>
+        ) : (
+          <>
+            <CheckCircle2 className="w-4 h-4" />
+            <span>I've completed the transfer</span>
+          </>
+        )}
+      </button>
 
       <div className="flex items-center gap-2 text-xs text-zinc-400">
         <ShieldCheck className="w-4 h-4 text-emerald-500" />

@@ -33,6 +33,8 @@ type OrderRepository interface {
 	ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error)
 	ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error)
 	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error
+	CancelPendingOrder(ctx context.Context, orderNumber string) (*models.Order, error)
+	ListEmailsForOrder(ctx context.Context, orderID uuid.UUID) ([]models.EmailMessage, error)
 	GetAdminOverview(ctx context.Context) (*dto.AdminOverviewStats, error)
 }
 
@@ -172,7 +174,7 @@ func (r *orderRepository) CommitReservationAndPay(ctx context.Context, orderNumb
 			return err
 		}
 
-		return nil
+		return queueEmail(tx, &order, models.EmailOrderConfirmed, "")
 	})
 
 	if err != nil {
@@ -205,9 +207,21 @@ func (r *orderRepository) ReleaseExpiredReservations(ctx context.Context) (int64
 
 			_ = tx.Model(&res).Update("status", "RELEASED").Error
 
-			// Mark order as CANCELLED
-			_ = tx.Model(&models.Order{}).Where("id = ? AND status = ?", res.OrderID, "PENDING_PAYMENT").
-				Update("status", "CANCELLED").Error
+			// Cancel the order. Only the first of its reservations matches, so the email and the
+			// return of its items to the bag happen once per order.
+			cancel := tx.Model(&models.Order{}).Where("id = ? AND status = ?", res.OrderID, models.OrderStatusPendingPayment).
+				Update("status", models.OrderStatusCancelled)
+			if cancel.Error == nil && cancel.RowsAffected == 1 {
+				var order models.Order
+				if err := tx.Preload("Items").First(&order, "id = ?", res.OrderID).Error; err == nil {
+					if err := restoreToCart(tx, &order); err != nil {
+						return err
+					}
+					if err := queueEmail(tx, &order, models.EmailOrderCancelled, models.CancelReasonExpired); err != nil {
+						return err
+					}
+				}
+			}
 
 			releasedCount++
 		}
@@ -313,10 +327,22 @@ func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UU
 			return ErrSerialNumberRequired
 		}
 
+		previous := order.Status
 		if err := tx.Model(&order).Update("status", newStatus).Error; err != nil {
 			return fmt.Errorf("failed to update order status: %w", err)
 		}
 
+		if previous == newStatus {
+			return nil // serial numbers recorded; nothing the customer needs to hear about
+		}
+		switch newStatus {
+		case models.OrderStatusShipped:
+			return queueEmail(tx, &order, models.EmailOrderShipped, "")
+		case models.OrderStatusDelivered:
+			return queueEmail(tx, &order, models.EmailOrderDelivered, "")
+		case models.OrderStatusCancelled:
+			return queueEmail(tx, &order, models.EmailOrderCancelled, models.CancelReasonStore)
+		}
 		return nil
 	})
 }

@@ -122,6 +122,14 @@ func (m *mockConcurrentOrderRepo) UpdateOrderStatus(ctx context.Context, orderID
 	return nil
 }
 
+func (m *mockConcurrentOrderRepo) CancelPendingOrder(ctx context.Context, orderNumber string) (*models.Order, error) {
+	return nil, repository.ErrOrderNotFound
+}
+
+func (m *mockConcurrentOrderRepo) ListEmailsForOrder(ctx context.Context, orderID uuid.UUID) ([]models.EmailMessage, error) {
+	return nil, nil
+}
+
 func (m *mockConcurrentOrderRepo) GetAdminOverview(ctx context.Context) (*dto.AdminOverviewStats, error) {
 	return &dto.AdminOverviewStats{}, nil
 }

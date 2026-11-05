@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
 import { CreditCard, Lock, AlertCircle } from "lucide-react";
-import { DEMO_MODE } from "@/lib/demo-mode";
 
 interface InteractiveCardFormProps {
   onPay: (cardData: {
@@ -115,19 +114,11 @@ export function InteractiveCardForm({
               </div>
             </div>
             <div className="text-[9px] text-zinc-500 text-center px-6">
-              256-bit encrypted simulation. Never enter real card credentials.
+              Card details are encrypted and never stored.
             </div>
           </div>
         </motion.div>
       </div>
-
-      {/* Simulator Guidance Alert (demo builds only) */}
-      {DEMO_MODE && (
-        <div className="p-3 rounded-xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300">
-          💡 <strong className="text-zinc-900 dark:text-white">Developer Simulation Tip:</strong> Enter card number ending in{" "}
-          <span className="font-mono font-bold text-rose-500">0000</span> to test bank decline simulation without losing your 15-minute stock hold.
-        </div>
-      )}
 
       {/* Decline Error Banner */}
       {errorMessage && (
