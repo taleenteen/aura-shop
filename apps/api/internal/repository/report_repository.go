@@ -179,4 +179,3 @@ func (r *reportRepository) SalesLines(ctx context.Context, from, to time.Time) (
 		ORDER BY o.created_at, o.order_number, i.sku_snapshot`, from, to).Scan(&rows).Error
 	return rows, err
 }
-

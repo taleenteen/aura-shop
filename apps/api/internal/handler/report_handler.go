@@ -122,7 +122,7 @@ func (h *ReportHandler) Export(w http.ResponseWriter, r *http.Request) {
 		_ = cw.Write([]string{
 			l.OrderNumber, l.CreatedAt.In(storeZone).Format("2006-01-02 15:04"), l.Status, refunded, l.CustomerEmail,
 			addr.RecipientName, addr.Province, l.PaymentMethod, l.SKU, l.Name, l.SpecSummary, strconv.Itoa(l.Quantity),
-			bahtCell(l.UnitPrice), bahtCell(l.UnitPrice*int64(l.Quantity)), bahtCell(l.GrandTotal), l.Carrier, strings.TrimSpace(l.TrackingNumber),
+			bahtCell(l.UnitPrice), bahtCell(l.UnitPrice * int64(l.Quantity)), bahtCell(l.GrandTotal), l.Carrier, strings.TrimSpace(l.TrackingNumber),
 		})
 	}
 	cw.Flush()
