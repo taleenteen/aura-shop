@@ -81,6 +81,7 @@ func main() {
 	productAdminRepo := repository.NewProductAdminRepository(db)
 	merchRepo := repository.NewMerchandisingRepository(db)
 	engagementRepo := repository.NewEngagementRepository(db)
+	importLookup := repository.NewProductImportLookup(db)
 
 	// 2. Initialize Services
 	authService := service.NewAuthService(db, userRepo, wishlistRepo, cartRepo, cfg.JWTSecret)
@@ -91,6 +92,7 @@ func main() {
 	productAdminService := service.NewProductAdminService(productAdminRepo)
 	merchService := service.NewMerchandisingService(merchRepo)
 	engagementService := service.NewEngagementService(engagementRepo)
+	importService := service.NewProductImportService(productAdminRepo, importLookup)
 
 	// 3. Initialize HTTP Handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -103,6 +105,7 @@ func main() {
 	productAdminHandler := handler.NewProductAdminHandler(productAdminService, uploadImage)
 	merchHandler := handler.NewMerchandisingHandler(merchService)
 	engagementHandler := handler.NewEngagementHandler(engagementService)
+	importHandler := handler.NewProductImportHandler(importService)
 
 	// 4. Router Setup & Middleware Stack
 	r := chi.NewRouter()
@@ -211,6 +214,10 @@ func main() {
 			adm.Post("/variants/{id}/stock-adjustments", productAdminHandler.AdjustStock)
 			adm.Get("/variants/{id}/stock-movements", productAdminHandler.ListMovements)
 			adm.Post("/uploads/images", productAdminHandler.UploadImage)
+			adm.Get("/imports/products/columns", importHandler.Columns)
+			adm.Get("/imports/products/export", importHandler.Export)
+			adm.Post("/imports/products/preview", importHandler.Preview)
+			adm.Post("/imports/products/commit", importHandler.Commit)
 			adm.Patch("/orders/{id}/status", adminHandler.UpdateOrderStatus)
 			adm.Get("/banners", merchHandler.ListBanners)
 			adm.Post("/banners", merchHandler.CreateBanner)

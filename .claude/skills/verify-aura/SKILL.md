@@ -58,7 +58,7 @@ Frontend changes hot-reload.
 
 Not covered yet: shipping with carrier + tracking number, parcel tracking modal, forgot/reset
 password, change password, banner and category/brand management, back-in-stock alerts, the
-account inbox, product reviews and review moderation. Add journeys for them when
+account inbox, product reviews, review moderation and the product CSV import. Add journeys for them when
 asked to verify those flows.
 
 ## Writing a journey

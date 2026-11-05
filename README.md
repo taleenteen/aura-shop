@@ -62,6 +62,7 @@ make dev-web                  # หน้าเว็บที่ http://localho
 **หลังบ้าน (`/admin`)**
 - ภาพรวม: รายได้ แนวโน้ม 30 วัน ยอดรายวัน 7 วัน ยอดตามหมวด และสต็อกใกล้หมด
 - สินค้าและสต็อก: เพิ่ม/แก้สินค้า variant รูป และปรับสต็อกพร้อมบันทึกประวัติทุกครั้ง
+- นำเข้า / ส่งออกสินค้าด้วย CSV: ดาวน์โหลด template และคู่มือส่งให้คนอื่นกรอกได้ ระบบจับคู่สินค้าด้วย slug และตัวเลือกด้วย SKU ถ้าชื่อซ้ำแต่ slug ต่างจะถามว่าเป็นสินค้าเดียวกันหรือไม่ และเลือกได้ทีละช่องว่าจะใช้ค่าจากไฟล์หรือค่าเดิม ก่อนบันทึกจริง
 - จัดส่ง: เปลี่ยนสถานะคำสั่งซื้อตามขั้นตอนที่อนุญาต บันทึก S/N รายเครื่อง และขนส่ง + เลขพัสดุตอนส่งของ
 - แบนเนอร์: สร้าง แก้ เปิด/ปิด ลบ และตั้งช่วงเวลาแสดง (hero, promo grid, ribbon ด้านบน) พร้อมพรีวิว
 - หมวดหมู่และแบรนด์: เพิ่ม แก้ ลบ (ลบได้เมื่อไม่มีสินค้า) และกำหนดเมนูด้านบน
@@ -138,6 +139,7 @@ On first start against an empty database the API creates the tables and loads sa
 **Backoffice (`/admin`)**
 - Overview: revenue, 30-day trend, last 7 days, revenue by category, low stock
 - Products & stock: create/edit products, variants and images; every stock change is recorded
+- Product CSV import / export: downloadable template and guide to hand to others; products match by slug and options by SKU; a same-name product with a different slug asks whether it is the same product; every changed field can keep its current value before anything is saved
 - Fulfilment: allowed status transitions only, one serial number per unit, carrier + tracking number on shipping
 - Banners: create, edit, switch on/off, delete and schedule (hero, promo grid, top ribbon) with a live preview
 - Categories and brands: add, edit, delete (only when no products use them) and set the top menu

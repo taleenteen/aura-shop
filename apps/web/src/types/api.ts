@@ -513,3 +513,63 @@ export interface AdminReview {
   product_name: string;
   product_slug: string;
 }
+
+// ---------------------------------------------------------------- product CSV import
+
+export interface ImportColumn {
+  key: string;
+  label: string;
+  level: "product" | "variant";
+  required_new: boolean;
+  format: string;
+  example: string;
+  notes: string;
+}
+
+export interface ImportIssue {
+  row: number;
+  column?: string;
+  message: string;
+}
+
+export interface ImportChange {
+  key: string;
+  sku?: string;
+  label: string;
+  current: string;
+  incoming: string;
+}
+
+export type ImportStatus = "create" | "update" | "unchanged" | "name_match" | "error";
+
+export interface ImportProduct {
+  key: string;
+  rows: number[];
+  name: string;
+  slug: string;
+  status: ImportStatus;
+  existing?: { id: string; slug: string; name: string };
+  changes: ImportChange[];
+  new_skus: string[];
+  issues: ImportIssue[];
+}
+
+export interface ImportPreview {
+  summary: { rows: number; products: number; create: number; update: number; unchanged: number; name_match: number; errors: number };
+  products: ImportProduct[];
+  file_issues: ImportIssue[];
+  warnings: string[];
+}
+
+export interface ImportDecision {
+  action: "update" | "create" | "skip";
+  keep: string[];
+}
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  outcomes: { key: string; name: string; status: "created" | "updated" | "skipped" | "unchanged" | "failed"; product_id?: string; message?: string }[];
+}
