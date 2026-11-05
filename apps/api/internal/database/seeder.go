@@ -205,11 +205,11 @@ func seedBanners(db *gorm.DB) error {
 
 func seedCategories(db *gorm.DB) (map[string]uuid.UUID, error) {
 	categories := []models.Category{
-		{Slug: "mac", Name: "MacBook & Apple", IconName: "Laptop", SortOrder: 1},
-		{Slug: "ultrabooks", Name: "Windows Ultrabooks", IconName: "Laptop2", SortOrder: 2},
-		{Slug: "gaming-laptops", Name: "Gaming Laptops", IconName: "Gamepad2", SortOrder: 3},
-		{Slug: "monitors", Name: "Pro Creator Monitors", IconName: "Monitor", SortOrder: 4},
-		{Slug: "accessories", Name: "Mechanical Keyboards & Gear", IconName: "Keyboard", SortOrder: 5},
+		{Slug: "mac", Name: "MacBook & Apple", IconName: "Laptop", NavLabel: "Mac", SortOrder: 1},
+		{Slug: "ultrabooks", Name: "Windows Ultrabooks", IconName: "Laptop2", NavLabel: "Ultrabooks", SortOrder: 2},
+		{Slug: "gaming-laptops", Name: "Gaming Laptops", IconName: "Gamepad2", NavLabel: "Gaming", SortOrder: 3},
+		{Slug: "monitors", Name: "Pro Creator Monitors", IconName: "Monitor", NavLabel: "Monitors", SortOrder: 4},
+		{Slug: "accessories", Name: "Mechanical Keyboards & Gear", IconName: "Keyboard", NavLabel: "Accessories", SortOrder: 5},
 	}
 
 	catMap := make(map[string]uuid.UUID)
@@ -222,10 +222,10 @@ func seedCategories(db *gorm.DB) (map[string]uuid.UUID, error) {
 			catMap[cat.Slug] = cat.ID
 			slog.Info("seeded category", "slug", cat.Slug, "name", cat.Name)
 		} else {
-			existing.Name = cat.Name
-			existing.IconName = cat.IconName
-			existing.SortOrder = cat.SortOrder
-			_ = db.Save(&existing)
+			// Keep admin edits; only fill the menu label for rows created before it existed.
+			if existing.NavLabel == "" {
+				_ = db.Model(&existing).Update("nav_label", cat.NavLabel).Error
+			}
 			catMap[cat.Slug] = existing.ID
 		}
 	}
@@ -250,10 +250,7 @@ func seedBrands(db *gorm.DB) (map[string]uuid.UUID, error) {
 			}
 			brandMap[b.Slug] = b.ID
 			slog.Info("seeded brand", "slug", b.Slug, "name", b.Name)
-		} else {
-			existing.Name = b.Name
-			existing.LogoURL = b.LogoURL
-			_ = db.Save(&existing)
+		} else { // keep admin edits
 			brandMap[b.Slug] = existing.ID
 		}
 	}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Boxes, LayoutDashboard, Image as ImageIcon, Package, ArrowLeft, Shield, LogIn, CheckCircle2, AlertCircle } from "lucide-react";
+import { Boxes, LayoutDashboard, Image as ImageIcon, Package, ArrowLeft, Shield, LogIn, CheckCircle2, AlertCircle, Tags } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { apiClient } from "@/lib/api-client";
 import { DEMO_MODE } from "@/lib/demo-mode";
@@ -9,6 +9,7 @@ import { useUIStore } from "@/stores/ui-store";
 import type { User } from "@/types/api";
 import { AdminOverview } from "./admin-overview";
 import { BannerManager } from "./banner-manager";
+import { TaxonomyAdmin } from "./taxonomy-admin";
 import { OrderSNFulfillment } from "./order-sn-fulfillment";
 import { ProductsAdmin } from "./products/products-admin";
 
@@ -16,7 +17,8 @@ const ADMIN_TABS = [
   { id: "overview", label: "Overview & Low Stock", icon: LayoutDashboard },
   { id: "products", label: "Products & Stock", icon: Boxes },
   { id: "orders", label: "Order S/N Fulfillment", icon: Package },
-  { id: "banners", label: "Dynamic Banners", icon: ImageIcon },
+  { id: "banners", label: "Banners", icon: ImageIcon },
+  { id: "catalog", label: "Categories & Brands", icon: Tags },
 ] as const;
 type AdminTab = (typeof ADMIN_TABS)[number]["id"];
 
@@ -170,6 +172,8 @@ export function AdminLayout() {
               <ProductsAdmin />
             ) : activeTab === "banners" ? (
               <BannerManager />
+            ) : activeTab === "catalog" ? (
+              <TaxonomyAdmin />
             ) : activeTab === "orders" ? (
               <OrderSNFulfillment />
             ) : (

@@ -6,24 +6,14 @@ import { BentoPromoGrid } from "@/features/banner/bento-promo-grid";
 import { PersonaQuickLinks } from "@/features/catalog/persona-quick-links";
 import { ProductCard } from "@/features/catalog/product-card";
 import { apiClient } from "@/lib/api-client";
-import type { Banner, Product } from "@/types/api";
+import type { Product } from "@/types/api";
+import { useStorefrontStore } from "@/stores/storefront-store";
 
 export function LandingPage() {
-  const [banners, setBanners] = useState<Record<string, Banner[]>>({
-    HERO_SPLIT: [],
-    BENTO_GRID: [],
-    TOP_RIBBON: [],
-  });
+  const banners = useStorefrontStore((state) => state.banners);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
 
   useEffect(() => {
-    // Fetch dynamic component banners
-    apiClient<Record<string, Banner[]>>("/banners")
-      .then((res) => {
-        if (res.data) setBanners(res.data);
-      })
-      .catch(() => {});
-
     // Fetch top featured flagship products
     apiClient<Product[]>("/catalog?limit=6")
       .then((res) => {

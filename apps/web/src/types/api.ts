@@ -48,6 +48,8 @@ export interface Category {
   slug: string;
   name: string;
   icon_name: string;
+  /** Short label in the top menu; empty keeps the category out of the menu. */
+  nav_label: string;
   sort_order: number;
 }
 
@@ -439,3 +441,12 @@ export interface EmailMessage {
 }
 
 export type Carrier = "KERRY" | "FLASH" | "DHL";
+
+/** Admin listing rows: the entry plus how many products use it. */
+export interface AdminCategory extends Category {
+  product_count: number;
+}
+
+export interface AdminBrand extends Brand {
+  product_count: number;
+}

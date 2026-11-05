@@ -89,3 +89,59 @@ type StockAdjustmentResponse struct {
 type UploadResponse struct {
 	URL string `json:"url"`
 }
+
+// AdminCategory is a category with the number of products filed under it.
+type AdminCategory struct {
+	ID           uuid.UUID `json:"id"`
+	Slug         string    `json:"slug"`
+	Name         string    `json:"name"`
+	IconName     string    `json:"icon_name"`
+	NavLabel     string    `json:"nav_label"`
+	SortOrder    int       `json:"sort_order"`
+	ProductCount int       `json:"product_count"`
+}
+
+// AdminBrand is a brand with the number of products that carry it.
+type AdminBrand struct {
+	ID           uuid.UUID `json:"id"`
+	Slug         string    `json:"slug"`
+	Name         string    `json:"name"`
+	LogoURL      string    `json:"logo_url"`
+	ProductCount int       `json:"product_count"`
+}
+
+// CategoryInput creates or updates a category. An empty slug is derived from the name.
+type CategoryInput struct {
+	Name      string `json:"name"`
+	Slug      string `json:"slug"`
+	NavLabel  string `json:"nav_label"`
+	IconName  string `json:"icon_name"`
+	SortOrder int    `json:"sort_order"`
+}
+
+// BrandInput creates or updates a brand. An empty slug is derived from the name.
+type BrandInput struct {
+	Name    string `json:"name"`
+	Slug    string `json:"slug"`
+	LogoURL string `json:"logo_url"`
+}
+
+// BannerInput creates or updates a banner. Dates are RFC 3339.
+type BannerInput struct {
+	Placement        string    `json:"placement"`
+	GridSpan         string    `json:"grid_span"` // bento tile size: large, wide or standard (see service)
+	ThemeMode        string    `json:"theme_mode"`
+	BackgroundColor  string    `json:"background_color"`
+	BadgeText        string    `json:"badge_text"`
+	Headline         string    `json:"headline"`
+	Subheadline      string    `json:"subheadline"`
+	ProductImageURL  string    `json:"product_image_url"`
+	CTAPrimaryText   string    `json:"cta_primary_text"`
+	CTAPrimaryLink   string    `json:"cta_primary_link"`
+	CTASecondaryText string    `json:"cta_secondary_text"`
+	CTASecondaryLink string    `json:"cta_secondary_link"`
+	SortOrder        int       `json:"sort_order"`
+	IsActive         bool      `json:"is_active"`
+	StartAt          time.Time `json:"start_at"`
+	EndAt            time.Time `json:"end_at"`
+}

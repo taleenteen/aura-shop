@@ -11,9 +11,19 @@ import {
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useAuthStore } from "@/stores/auth-store";
+import { useStorefrontStore } from "@/stores/storefront-store";
+
+const FALLBACK_CATEGORIES = [
+  { slug: "mac", name: "MacBook & Apple" },
+  { slug: "ultrabooks", name: "Windows Ultrabooks" },
+  { slug: "gaming-laptops", name: "Gaming Laptops" },
+  { slug: "monitors", name: "Pro Creator Monitors" },
+  { slug: "accessories", name: "Mechanical Keyboards & Gear" },
+];
 
 export function Footer() {
   const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
+  const categories = useStorefrontStore((state) => state.categories);
   const valueProps = [
     {
       icon: ShieldCheck,
@@ -97,36 +107,13 @@ export function Footer() {
             Shop Categories
           </h4>
           <ul className="space-y-2.5 text-xs">
-            <li>
-              <Link to="/catalog" search={{ category: "mac" }} className="hover:text-white transition-colors">
-                MacBook & Apple Silicon
-              </Link>
-            </li>
-            <li>
-              <Link to="/catalog" search={{ category: "ultrabooks" }} className="hover:text-white transition-colors">
-                Premium Ultrabooks
-              </Link>
-            </li>
-            <li>
-              <Link to="/catalog" search={{ category: "gaming-laptops" }} className="hover:text-white transition-colors">
-                Gaming Notebooks (RTX 40-Series)
-              </Link>
-            </li>
-            <li>
-              <Link to="/catalog" search={{ category: "monitors" }} className="hover:text-white transition-colors">
-                Pro Creator Monitors (5K & OLED)
-              </Link>
-            </li>
-            <li>
-              <Link to="/catalog" search={{ category: "accessories" }} className="hover:text-white transition-colors">
-                Mechanical Keyboards & Mice
-              </Link>
-            </li>
-            <li>
-              <Link to="/catalog" search={{ category: "accessories" }} className="hover:text-white transition-colors">
-                Thunderbolt 5 Docks & GaN Chargers
-              </Link>
-            </li>
+            {(categories.length ? categories : FALLBACK_CATEGORIES).map((c) => (
+              <li key={c.slug}>
+                <Link to="/catalog" search={{ category: c.slug }} className="hover:text-white transition-colors">
+                  {c.name}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
 

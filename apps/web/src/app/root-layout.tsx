@@ -13,6 +13,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 import { useCartStore } from "@/stores/cart-store";
 import { useUIStore } from "@/stores/ui-store";
+import { useStorefrontStore } from "@/stores/storefront-store";
 
 export function RootLayout() {
   const routerState = useRouterState();
@@ -23,18 +24,21 @@ export function RootLayout() {
   const fetchCart = useCartStore((state) => state.fetchCart);
   const isAuthOpen = useUIStore((state) => state.isAuthOpen);
   const setAuthOpen = useUIStore((state) => state.setAuthOpen);
+  const loadStorefront = useStorefrontStore((state) => state.load);
+  const ribbon = useStorefrontStore((state) => state.banners.TOP_RIBBON[0]);
 
   useEffect(() => {
     // Restore the signed-in user from a persisted token, then fetch cart and wishlist.
     restoreSession();
     loadWishlist();
     fetchCart();
-  }, [restoreSession, loadWishlist, fetchCart]);
+    loadStorefront();
+  }, [restoreSession, loadWishlist, fetchCart, loadStorefront]);
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950">
       <LenisManager pathname={pathname} />
-      <TopRibbon />
+      <TopRibbon banner={ribbon} />
       <Navbar />
       <main className="flex-1 w-full flex flex-col">
         <Outlet />

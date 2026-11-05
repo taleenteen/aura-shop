@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"aura-tech/api/internal/dto"
-	"aura-tech/api/internal/models"
 	"aura-tech/api/internal/repository"
 	"aura-tech/api/internal/response"
 	"aura-tech/api/internal/service"
@@ -73,21 +72,6 @@ func (h *AdminHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		TotalPages: totalPages,
 	}
 	response.Success(w, http.StatusOK, orders, meta)
-}
-
-func (h *AdminHandler) CreateBanner(w http.ResponseWriter, r *http.Request) {
-	var banner models.Banner
-	if err := json.NewDecoder(r.Body).Decode(&banner); err != nil {
-		response.BadRequest(w, "invalid request body")
-		return
-	}
-
-	if err := h.adminService.CreateBanner(r.Context(), &banner); err != nil {
-		response.InternalServerError(w, "failed to create banner: "+err.Error())
-		return
-	}
-
-	response.Success(w, http.StatusCreated, banner, nil)
 }
 
 func (h *AdminHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {

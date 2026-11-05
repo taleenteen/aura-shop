@@ -1,3 +1,4 @@
+import { useStorefrontStore } from "@/stores/storefront-store";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "@tanstack/react-router";
@@ -23,6 +24,14 @@ import { useWishlistStore } from "@/stores/wishlist-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { signOut } from "@/lib/session";
 import { SEARCH_SHORTCUT } from "@/lib/platform";
+
+const FALLBACK_NAV = [
+  { slug: "mac", nav_label: "Mac" },
+  { slug: "ultrabooks", nav_label: "Ultrabooks" },
+  { slug: "gaming-laptops", nav_label: "Gaming" },
+  { slug: "monitors", nav_label: "Monitors" },
+  { slug: "accessories", nav_label: "Accessories" },
+];
 
 export function Navbar() {
   const setCartOpen = useUIStore((state) => state.setCartOpen);
@@ -65,21 +74,13 @@ export function Navbar() {
     await signOut();
   };
 
-  const navLinks = [
-    { label: "Mac", href: "/catalog", search: { category: "mac" } },
-    { label: "Ultrabooks", href: "/catalog", search: { category: "ultrabooks" } },
-    {
-      label: "Gaming",
-      href: "/catalog",
-      search: { category: "gaming-laptops" },
-    },
-    { label: "Monitors", href: "/catalog", search: { category: "monitors" } },
-    {
-      label: "Accessories",
-      href: "/catalog",
-      search: { category: "accessories" },
-    },
-  ];
+  // Categories with a menu label, in the admin's order. Until they load, show the usual menu.
+  const categories = useStorefrontStore((state) => state.categories);
+  const navLinks = (categories.length ? categories.filter((c) => c.nav_label) : FALLBACK_NAV).map((c) => ({
+    label: c.nav_label,
+    href: "/catalog" as const,
+    search: { category: c.slug },
+  }));
 
   const getInitials = (name: string) => {
     return name

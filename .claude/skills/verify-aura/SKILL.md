@@ -57,7 +57,8 @@ Frontend changes hot-reload.
 | `admin-products` | Product create/edit, variants, image upload, stock adjustments and ledger |
 
 Not covered yet: shipping with carrier + tracking number, parcel tracking modal, forgot/reset
-password, change password. Add journeys for them when asked to verify those flows.
+password, change password, banner and category/brand management. Add journeys for them when
+asked to verify those flows.
 
 ## Writing a journey
 
