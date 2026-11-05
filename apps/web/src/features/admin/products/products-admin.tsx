@@ -1,3 +1,4 @@
+import { isFlagSet } from "@/lib/search-params";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { AlertTriangle, FileSpreadsheet, ImageOff, Loader2, Pencil, Plus, Search } from "lucide-react";
@@ -14,7 +15,7 @@ const PAGE_SIZE = 20;
 export function ProductsAdmin() {
   const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
   const edit = typeof search.edit === "string" ? search.edit : null;
-  if (search.import === "1") return <ProductImport />;
+  if (isFlagSet(search.import)) return <ProductImport />;
   return edit ? <ProductEditor productId={edit === "new" ? null : edit} /> : <ProductList />;
 }
 

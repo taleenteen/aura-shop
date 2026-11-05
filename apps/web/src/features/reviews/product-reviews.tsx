@@ -106,7 +106,7 @@ export function ProductReviewsSection({ slug }: { slug: string }) {
         <div className="lg:col-span-4 space-y-6">
           <div className="space-y-2">
             <div className="flex items-end gap-3">
-              <span className="text-5xl font-black text-zinc-950 dark:text-white">{summary.count ? summary.average.toFixed(1) : "–"}</span>
+              {summary.count > 0 && <span className="text-5xl font-black text-zinc-950 dark:text-white">{summary.average.toFixed(1)}</span>}
               <div className="pb-1.5">
                 <Stars value={summary.average} />
                 <p className="text-xs text-zinc-500 mt-0.5">

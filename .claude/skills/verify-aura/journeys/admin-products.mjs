@@ -75,8 +75,10 @@ export default async ({ page, step, api, sql, check, base }) => {
     await d.getByRole("button", { name: "Update stock" }).click(); await d.getByText("Stock is now 12 (+7).").waitFor();
     await d.getByLabel("Reason").selectOption("DAMAGE");
     await d.getByLabel("Units to write off").fill("2");
-    await d.getByRole("button", { name: "Update stock" }).click(); await page.waitForTimeout(500);
-    check((await d.getByRole("alert").innerText()).length > 0 && await d.getByText(/short note/).count() === 1, "write-off without note must be refused");
+    await d.getByRole("button", { name: "Update stock" }).click();
+    // Refused before sending: the note field explains why, and stock is unchanged.
+    await d.getByText(/short note/).waitFor();
+    check(sql(`select stock_quantity from product_variants where id='${v1.id}'`) === "12", "write-off without note must not change stock");
     await d.getByLabel(/^Note/).fill("Dropped in warehouse");
     await d.getByRole("button", { name: "Update stock" }).click(); await d.getByText("Stock is now 10 (-2).").waitFor();
     await d.getByLabel("Reason").selectOption("COUNT");
