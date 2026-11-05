@@ -1,18 +1,21 @@
+import { isFlagSet } from "@/lib/search-params";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { AlertTriangle, ImageOff, Loader2, Pencil, Plus, Search } from "lucide-react";
+import { AlertTriangle, FileSpreadsheet, ImageOff, Loader2, Pencil, Plus, Search } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { formatTHB } from "@/lib/currency";
 import type { AdminProductSummary, Category } from "@/types/api";
 import { ProductEditor } from "./product-editor";
+import { ProductImport } from "./product-import";
 
 type StatusFilter = "" | "active" | "inactive";
 const PAGE_SIZE = 20;
 
-/** Admin › Products. Shows the list, or the editor when the URL has ?edit=<id|new>. */
+/** Admin › Products: the list, the editor (?edit=<id|new>) or the CSV import (?import=1). */
 export function ProductsAdmin() {
   const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
   const edit = typeof search.edit === "string" ? search.edit : null;
+  if (isFlagSet(search.import)) return <ProductImport />;
   return edit ? <ProductEditor productId={edit === "new" ? null : edit} /> : <ProductList />;
 }
 
@@ -116,14 +119,24 @@ function ProductList() {
             {total} {total === 1 ? "product" : "products"} • edit details, variants, images and stock
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => open("new")}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 cursor-pointer self-start"
-        >
-          <Plus className="w-4 h-4" />
-          New product
-        </button>
+        <div className="flex flex-wrap gap-2 self-start">
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/admin", search: { tab: "products", import: "1" } })}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Import / export
+          </button>
+          <button
+            type="button"
+            onClick={() => open("new")}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            New product
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row lg:items-center gap-3">

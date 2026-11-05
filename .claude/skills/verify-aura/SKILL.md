@@ -55,11 +55,17 @@ Frontend changes hot-reload.
 | `mobile-menu` | Phone menu drawer fills the screen and closes on outside tap |
 | `admin-dashboard` | Overview figures come from real orders |
 | `admin-products` | Product create/edit, variants, image upload, stock adjustments and ledger |
+| `shipping-and-passwords` | Admin ships with carrier + tracking (required), customer tracking page, shipped email → parcel timeline, forgot password → in-app email → reset → signed in, change password, admin accounts get no reset email |
+| `banners-and-taxonomy` | Banner field errors, ribbon link validation, schedule order, on/off and delete reflected on the storefront; category menu label in the navbar, slug errors, in-use delete blocked, brand slug clash |
+| `alerts-and-reviews` | Sold-out sign-in prompt, "email me when it's back", restock → inbox email → exact option; reviews need a delivered order, star validation, short author name, admin hide |
+| `forms-and-import` | zod errors under fields (sign-up, checkout postal/phone, expired card), template download, CSV preview (new / update / same name), keep a current value, add a same-name product as new |
 
-Not covered yet: shipping with carrier + tracking number, parcel tracking modal, forgot/reset
-password, change password, banner and category/brand management, back-in-stock alerts, the
-account inbox, product reviews and review moderation. Add journeys for them when
-asked to verify those flows.
+Run the whole suite (about 10 minutes):
+
+```bash
+for j in order-lifecycle cart-badge account-and-home storefront-fixes-1 storefront-fixes-2 storefront-fixes-3 catalog-facets personas mobile-menu admin-dashboard admin-products shipping-and-passwords banners-and-taxonomy alerts-and-reviews forms-and-import; do node $H journey $j; done
+```
+
 
 ## Writing a journey
 
@@ -84,7 +90,9 @@ export default async ({ page, step, check, sql }) => {
 
 ## Gotchas
 
-- Journeys buy real stock in the isolated DB. After many runs the default MacBook Air variant
+- Journeys buy real stock and change shared accounts (the demo customer) in the isolated DB, so
+  write steps that still pass on a second run (unique names, `Date.now()`). After many runs the
+  default MacBook Air variant
   sells out (every unit held by pending orders) and "Add to Bag" disappears. Restock:
   `node $H sql "update product_variants set stock_quantity = 60 where sku like 'MBA13-M3-%'"`.
 - Payments are simulated: PromptPay confirms with "I've completed the transfer"; cards ending

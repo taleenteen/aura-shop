@@ -1,3 +1,4 @@
+import { isFlagSet } from "@/lib/search-params";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ArrowRight, CheckCircle2, Clock, Inbox, Loader2, Mail, Package, ShieldCheck, ShoppingBag, Truck, XCircle, type LucideIcon } from "lucide-react";
@@ -35,9 +36,9 @@ export function OrderReceiptPage({ orderNumber }: OrderReceiptPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [openEmail, setOpenEmail] = useState<EmailMessage | null>(null);
   const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
-  const [trackOpen, setTrackOpen] = useState(search.track === "1");
+  const [trackOpen, setTrackOpen] = useState(isFlagSet(search.track));
   useEffect(() => {
-    if (search.track === "1") setTrackOpen(true);
+    if (isFlagSet(search.track)) setTrackOpen(true);
   }, [search.track]);
   const setCartOpen = useUIStore((s) => s.setCartOpen);
 

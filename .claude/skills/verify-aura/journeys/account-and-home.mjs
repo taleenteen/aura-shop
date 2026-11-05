@@ -82,7 +82,9 @@ export default async ({ page, context, step, sql, check, api, base }) => {
       await page.goto("/products/macbook-air-13-m3");
       await page.getByRole("button", { name: "Add to Bag" }).click();
       await page.getByRole("button", { name: "Proceed to Checkout" }).click(); await page.waitForURL("**/checkout");
-      for (const [l, v] of Object.entries({ "Street Address & Building": "1 Rd", "District": "X", "Postal Code": "10330" })) await page.getByLabel(l, { exact: true }).fill(v);
+      // A saved address is preselected and hides the address fields; only fill them when shown.
+      if (await page.getByLabel("Street Address & Building", { exact: true }).count())
+        for (const [l, v] of Object.entries({ "Street Address & Building": "1 Rd", "District": "X", "Postal Code": "10330" })) await page.getByLabel(l, { exact: true }).fill(v);
       if (!(await page.getByLabel("Mobile Phone Number").inputValue())) await page.getByLabel("Mobile Phone Number").fill("081");
       await page.getByRole("button", { name: "Continue to Payment" }).click();
       const ref = (await page.getByText(/^Ref: AURA-/).textContent()).replace("Ref: ", "").trim();
@@ -105,11 +107,13 @@ export default async ({ page, context, step, sql, check, api, base }) => {
   await step("A2 profile: validation, save address, persists after reload", async () => {
     await page.goto("/account?tab=profile"); await page.waitForLoadState("networkidle");
     await page.getByLabel("Full name").fill("   ");
-    await page.getByRole("button", { name: "Save changes" }).click(); await page.waitForTimeout(600);
-    const err = await page.getByRole("status").innerText().catch(() => "");
-    check(/full name is required/i.test(err), `validation message: ${err}`);
+    await page.getByRole("button", { name: "Save changes" }).click();
+    // zod shows the problem under the field, before anything is sent.
+    await page.getByText("Full name is required.").waitFor();
     await page.getByLabel("Full name").fill("Somchai Techlover");
-    const addr = "99/1 Rama IX Rd\nHuai Khwang, Bangkok 10310";
+    // Unique per run: the demo account keeps its profile between runs, and saving identical
+    // values leaves "Save changes" disabled.
+    const addr = `99/1 Rama IX Rd (${Date.now()})\nHuai Khwang, Bangkok 10310`;
     await page.getByLabel("Delivery address").fill(addr);
     await page.getByRole("button", { name: "Save changes" }).click(); await page.waitForTimeout(600);
     check((await page.getByRole("status").innerText()).includes("Profile saved"), "saved");

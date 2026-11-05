@@ -43,7 +43,8 @@ export default async ({ page, step, api, sql, check }) => {
   const ref = await step("pay for 2 units", () => checkoutOpenCart(page, true));
   const orderId = sql(`select id from orders where order_number='${ref}'`);
   const itemId = sql(`select id from order_items where order_id='${orderId}'`);
-  const patch = (status, serials) => api("PATCH", `/admin/orders/${orderId}/status`, { status, ...(serials ? { serial_numbers: { [itemId]: serials } } : {}) }, token);
+  // Shipping also needs a carrier and tracking number; the API ignores them for other statuses.
+  const patch = (status, serials) => api("PATCH", `/admin/orders/${orderId}/status`, { status, carrier: "KERRY", tracking_number: "KEX0000000001", ...(serials ? { serial_numbers: { [itemId]: serials } } : {}) }, token);
 
   await step("#5 shipping with one of two serials is rejected", async () => {
     const r = await patch("SHIPPED", ["C02AAA"]);

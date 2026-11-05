@@ -1,3 +1,4 @@
+import { isFlagSet } from "@/lib/search-params";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Loader2, Package, UserRound } from "lucide-react";
@@ -129,7 +130,7 @@ export function AccountPage() {
         <OrdersSection />
       ) : (
         <div className="space-y-6">
-          {search.reset === "1" && (
+          {isFlagSet(search.reset) && (
             <p role="status" className="px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
               Your password has been reset and you're signed in.
             </p>

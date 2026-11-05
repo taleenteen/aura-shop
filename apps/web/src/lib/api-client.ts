@@ -108,3 +108,25 @@ export async function apiUpload<T>(endpoint: string, file: File): Promise<T> {
   }
   return json.data as T;
 }
+
+/** Downloads an authenticated file response (e.g. a CSV export) and saves it as `filename`. */
+export async function apiDownload(endpoint: string, filename: string): Promise<void> {
+  const headers = new Headers({ "X-Guest-Session-ID": getGuestSessionId() });
+  const token = getAuthToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`${API_BASE_URL}${endpoint}`, { headers });
+  if (!res.ok) throw new Error(`Download failed (HTTP ${res.status})`);
+  saveFile(await res.blob(), filename);
+}
+
+/** Saves a blob through a temporary link. */
+export function saveFile(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

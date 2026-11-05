@@ -60,6 +60,7 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | จัดการคำสั่งซื้อ | `GET /admin/orders`, `PATCH /admin/orders/{id}/status` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `stock_movements`, `email_messages` | (ส่งของต้องระบุ `carrier` KERRY/FLASH/DHL และ `tracking_number`)
 | จัดการสินค้า | `GET/POST /admin/products`, `GET/PUT /admin/products/{id}`, `PATCH /admin/products/{id}/status` | `products`, `product_variants`, `stock_movements`, `cart_items` |
 | ปรับสต็อก + ประวัติ | `POST /admin/variants/{id}/stock-adjustments`, `GET /admin/variants/{id}/stock-movements` | `product_variants`, `stock_movements` |
+| นำเข้า / ส่งออกสินค้าด้วย CSV | `GET /admin/imports/products/columns`, `POST /admin/imports/products/preview`, `POST /admin/imports/products/commit`, `GET /admin/imports/products/export` | `products`, `product_variants`, `stock_movements` |
 | อัปโหลดรูป | `POST /admin/uploads/images` | MinIO bucket `aura-assets` |
 | จัดการแบนเนอร์ (หน้าแรก, promo grid, ribbon) | `GET/POST /admin/banners`, `PUT/DELETE /admin/banners/{id}`, `PATCH /admin/banners/{id}/status` | `banners` |
 | จัดการหมวดหมู่และแบรนด์ | `GET/POST /admin/categories`, `PUT/DELETE /admin/categories/{id}`, `GET/POST /admin/brands`, `PUT/DELETE /admin/brands/{id}` | `categories`, `brands` (นับ `products`) |
@@ -164,6 +165,7 @@ go test ./...            # test
 | Order fulfilment | `GET /admin/orders`, `PATCH /admin/orders/{id}/status` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `stock_movements`, `email_messages` | (shipping needs `carrier` KERRY/FLASH/DHL and `tracking_number`)
 | Product management | `GET/POST /admin/products`, `GET/PUT /admin/products/{id}`, `PATCH /admin/products/{id}/status` | `products`, `product_variants`, `stock_movements`, `cart_items` |
 | Stock adjustment + history | `POST /admin/variants/{id}/stock-adjustments`, `GET /admin/variants/{id}/stock-movements` | `product_variants`, `stock_movements` |
+| Product CSV import / export | `GET /admin/imports/products/columns`, `POST /admin/imports/products/preview`, `POST /admin/imports/products/commit`, `GET /admin/imports/products/export` | `products`, `product_variants`, `stock_movements` |
 | Image upload | `POST /admin/uploads/images` | MinIO bucket `aura-assets` |
 | Banner management (hero, promo grid, ribbon) | `GET/POST /admin/banners`, `PUT/DELETE /admin/banners/{id}`, `PATCH /admin/banners/{id}/status` | `banners` |
 | Category and brand management | `GET/POST /admin/categories`, `PUT/DELETE /admin/categories/{id}`, `GET/POST /admin/brands`, `PUT/DELETE /admin/brands/{id}` | `categories`, `brands` (counts `products`) |
