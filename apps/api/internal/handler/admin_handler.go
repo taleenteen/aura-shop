@@ -2,7 +2,12 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"log/slog"
+	"math"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"aura-tech/api/internal/dto"
 	"aura-tech/api/internal/models"
@@ -12,6 +17,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+)
+
+const (
+	defaultOrdersPageSize = 20
+	maxOrdersPageSize     = 100
 )
 
 type AdminHandler struct {
@@ -25,11 +35,44 @@ func NewAdminHandler(adminService service.AdminService) *AdminHandler {
 func (h *AdminHandler) GetOverview(w http.ResponseWriter, r *http.Request) {
 	overview, err := h.adminService.GetOverview(r.Context())
 	if err != nil {
+		slog.Error("admin overview failed", "error", err)
 		response.InternalServerError(w, "failed to fetch admin overview")
 		return
 	}
 
 	response.Success(w, http.StatusOK, overview, nil)
+}
+
+func (h *AdminHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
+	status := r.URL.Query().Get("status")
+	search := strings.TrimSpace(r.URL.Query().Get("q"))
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = defaultOrdersPageSize
+	}
+	if limit > maxOrdersPageSize {
+		limit = maxOrdersPageSize
+	}
+
+	orders, total, err := h.adminService.ListOrders(r.Context(), dto.OrderListFilter{Status: status, Search: search, Page: page, Limit: limit})
+	if err != nil {
+		response.InternalServerError(w, "failed to list orders: "+err.Error())
+		return
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	meta := &response.Meta{
+		Page:       page,
+		Limit:      limit,
+		TotalItems: int(total),
+		TotalPages: totalPages,
+	}
+	response.Success(w, http.StatusOK, orders, meta)
 }
 
 func (h *AdminHandler) CreateBanner(w http.ResponseWriter, r *http.Request) {
@@ -45,21 +88,6 @@ func (h *AdminHandler) CreateBanner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, http.StatusCreated, banner, nil)
-}
-
-func (h *AdminHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
-	var product models.Product
-	if err := json.NewDecoder(r.Body).Decode(&product); err != nil {
-		response.BadRequest(w, "invalid request body")
-		return
-	}
-
-	if err := h.adminService.CreateProduct(r.Context(), &product); err != nil {
-		response.InternalServerError(w, "failed to create product: "+err.Error())
-		return
-	}
-
-	response.Success(w, http.StatusCreated, product, nil)
 }
 
 func (h *AdminHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
@@ -83,11 +111,19 @@ func (h *AdminHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request)
 
 	err = h.adminService.UpdateOrderStatus(r.Context(), orderID, req)
 	if err != nil {
-		if err == repository.ErrSerialNumberRequired {
+		if errors.Is(err, repository.ErrSerialNumberRequired) {
 			response.Error(w, http.StatusBadRequest, "SERIAL_NUMBER_REQUIRED", "Serial number is required for all order items before marking as SHIPPED.")
 			return
 		}
-		if err == repository.ErrOrderNotFound {
+		if errors.Is(err, repository.ErrInvalidSerialNumbers) {
+			response.Error(w, http.StatusBadRequest, "INVALID_SERIAL_NUMBERS", err.Error())
+			return
+		}
+		if errors.Is(err, repository.ErrInvalidOrderTransition) {
+			response.Error(w, http.StatusConflict, "INVALID_ORDER_TRANSITION", err.Error())
+			return
+		}
+		if errors.Is(err, repository.ErrOrderNotFound) {
 			response.NotFound(w, "order not found")
 			return
 		}

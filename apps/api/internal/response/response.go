@@ -6,16 +6,18 @@ import (
 )
 
 type Meta struct {
-	Page       int `json:"page,omitempty"`
-	Limit      int `json:"limit,omitempty"`
-	TotalItems int `json:"total_items,omitempty"`
-	TotalPages int `json:"total_pages,omitempty"`
+	// Pagination counts are always sent: zero results is a real answer, not a missing field.
+	Page       int `json:"page"`
+	Limit      int `json:"limit"`
+	TotalItems int `json:"total_items"`
+	TotalPages int `json:"total_pages"`
 	Facets     any `json:"facets,omitempty"`
 }
 
 type APIError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string            `json:"code"`
+	Message string            `json:"message"`
+	Fields  map[string]string `json:"fields,omitempty"` // per-field problems, keyed by input path
 }
 
 type Envelope struct {
@@ -74,4 +76,12 @@ func Conflict(w http.ResponseWriter, code string, message string) {
 
 func InternalServerError(w http.ResponseWriter, message string) {
 	Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", message)
+}
+
+// ValidationFailed reports invalid input with a message per offending field.
+func ValidationFailed(w http.ResponseWriter, message string, fields map[string]string) {
+	JSON(w, http.StatusBadRequest, Envelope{
+		Success: false,
+		Error:   &APIError{Code: "VALIDATION_FAILED", Message: message, Fields: fields},
+	})
 }

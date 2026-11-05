@@ -26,5 +26,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := database.OpenStockLedger(db); err != nil {
+		slog.Error("failed to open stock ledger for seeded stock", "error", err)
+		os.Exit(1)
+	}
+
 	slog.Info("database seeding completed successfully")
 }

@@ -21,6 +21,7 @@ export function CheckoutPage() {
   const navigate = useNavigate();
   const cartItems = useCartStore((state) => state.items);
   const cartSubtotal = useCartStore((state) => state.subtotalAmount);
+  const fetchCart = useCartStore((state) => state.fetchCart);
   const user = useAuthStore((state) => state.user);
 
   // Form states
@@ -40,6 +41,11 @@ export function CheckoutPage() {
   const [isPaying, setIsPaying] = useState(false);
   const [reserveError, setReserveError] = useState<string | null>(null);
   const [cardError, setCardError] = useState<string | null>(null);
+  // Locking stock turns the bag into an order and empties it on the server. Keep a copy of the
+  // items for the Order Summary while paying, and refresh the cart so the navbar shows it empty.
+  const [lockedItems, setLockedItems] = useState<typeof cartItems | null>(null);
+  const summaryItems = lockedItems ?? cartItems;
+  const summarySubtotal = lockedItems ? grandTotalSatang : cartSubtotal;
 
   // Payment tab
   const [activeTab, setActiveTab] = useState<PaymentTab>("PROMPTPAY_QR");
@@ -86,9 +92,11 @@ export function CheckoutPage() {
         }),
       });
 
+      setLockedItems(cartItems);
       setActiveOrderNumber(res.data.order_number);
       setReservationExpiresAt(res.data.reservation_expires_at);
       setGrandTotalSatang(res.data.grand_total_satang);
+      fetchCart();
 
       // Pre-fetch QR code if on PromptPay tab
       loadPromptPayQR(res.data.order_number);
@@ -281,10 +289,11 @@ export function CheckoutPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label htmlFor="checkout-email" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Customer Email
                   </label>
                   <input
+                    id="checkout-email"
                     type="email"
                     required
                     value={email}
@@ -295,10 +304,11 @@ export function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label htmlFor="checkout-name" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Recipient Full Name
                   </label>
                   <input
+                    id="checkout-name"
                     type="text"
                     required
                     value={recipientName}
@@ -310,10 +320,11 @@ export function CheckoutPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                <label htmlFor="checkout-phone" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                   Mobile Phone Number
                 </label>
                 <input
+                    id="checkout-phone"
                   type="tel"
                   required
                   value={phone}
@@ -324,10 +335,11 @@ export function CheckoutPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                <label htmlFor="checkout-address" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                   Street Address & Building
                 </label>
                 <input
+                    id="checkout-address"
                   type="text"
                   required
                   value={addressLine1}
@@ -339,10 +351,11 @@ export function CheckoutPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label htmlFor="checkout-district" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     District
                   </label>
                   <input
+                    id="checkout-district"
                     type="text"
                     required
                     value={district}
@@ -353,10 +366,11 @@ export function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label htmlFor="checkout-province" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Province
                   </label>
                   <input
+                    id="checkout-province"
                     type="text"
                     required
                     value={province}
@@ -366,10 +380,11 @@ export function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label htmlFor="checkout-postal" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Postal Code
                   </label>
                   <input
+                    id="checkout-postal"
                     type="text"
                     required
                     value={postalCode}
@@ -496,7 +511,7 @@ export function CheckoutPage() {
             </h3>
 
             <div className="divide-y divide-zinc-200 dark:divide-zinc-800/80 max-h-80 overflow-y-auto">
-              {cartItems.map((item) => (
+              {summaryItems.map((item) => (
                 <div key={item.id} className="py-3 flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center p-1 shrink-0 overflow-hidden">
                     <img
@@ -525,7 +540,7 @@ export function CheckoutPage() {
             <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-2 text-xs">
               <div className="flex justify-between text-zinc-500">
                 <span>Subtotal</span>
-                <span>{formatTHB(cartSubtotal)}</span>
+                <span>{formatTHB(summarySubtotal)}</span>
               </div>
               <div className="flex justify-between text-zinc-500">
                 <span>Express Courier Shipping</span>
@@ -533,7 +548,7 @@ export function CheckoutPage() {
               </div>
               <div className="flex justify-between text-base font-black text-zinc-950 dark:text-white pt-2 border-t border-zinc-200 dark:border-zinc-800">
                 <span>Grand Total</span>
-                <span>{formatTHB(cartSubtotal)}</span>
+                <span>{formatTHB(summarySubtotal)}</span>
               </div>
             </div>
           </div>

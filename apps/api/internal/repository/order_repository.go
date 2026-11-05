@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"aura-tech/api/internal/dto"
@@ -16,10 +17,11 @@ import (
 )
 
 var (
-	ErrReservationExpired    = errors.New("reservation lock has expired")
-	ErrOrderNotFound         = errors.New("order not found")
-	ErrSerialNumberRequired  = errors.New("serial number is required for all items before shipping")
+	ErrReservationExpired     = errors.New("reservation lock has expired")
+	ErrOrderNotFound          = errors.New("order not found")
+	ErrSerialNumberRequired   = errors.New("serial number is required for all items before shipping")
 	ErrInvalidOrderTransition = errors.New("invalid order status transition")
+	ErrInvalidSerialNumbers   = errors.New("invalid serial numbers")
 )
 
 type OrderRepository interface {
@@ -28,7 +30,9 @@ type OrderRepository interface {
 	ReleaseExpiredReservations(ctx context.Context) (int64, error)
 	GetOrderByNumber(ctx context.Context, orderNumber string) (*models.Order, error)
 	GetOrderByID(ctx context.Context, id uuid.UUID) (*models.Order, error)
-	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string]string) error
+	ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error)
+	ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error)
+	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error
 	GetAdminOverview(ctx context.Context) (*dto.AdminOverviewStats, error)
 }
 
@@ -47,6 +51,9 @@ func (r *orderRepository) CreateReservationAtomic(ctx context.Context, order *mo
 			var variant models.ProductVariant
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, "id = ?", reservations[i].VariantID).Error; err != nil {
 				return fmt.Errorf("variant %s not found: %w", reservations[i].VariantID, err)
+			}
+			if err := requireOnSale(tx, variant.ProductID); err != nil {
+				return fmt.Errorf("%w: %s", err, variant.SKU)
 			}
 
 			available := variant.StockQuantity - variant.ReservedStock
@@ -97,7 +104,8 @@ func (r *orderRepository) CreateReservationAtomic(ctx context.Context, order *mo
 func (r *orderRepository) CommitReservationAndPay(ctx context.Context, orderNumber string, paymentMethod string, installmentJSON datatypes.JSON) (*models.Order, error) {
 	var order models.Order
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Preload("Items").First(&order, "order_number = ?", orderNumber).Error; err != nil {
+		// Lock the order row so an admin cancel cannot interleave with payment.
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Preload("Items").First(&order, "order_number = ?", orderNumber).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrOrderNotFound
 			}
@@ -127,6 +135,10 @@ func (r *orderRepository) CommitReservationAndPay(ctx context.Context, orderNumb
 			newStock := variant.StockQuantity - res.Quantity
 			if newStock < 0 {
 				newStock = 0
+			}
+			orderID := order.ID
+			if err := recordMovement(tx, variant.ID, newStock-variant.StockQuantity, newStock, models.StockReasonSale, order.OrderNumber, nil, &orderID); err != nil {
+				return err
 			}
 			newReserved := variant.ReservedStock - res.Quantity
 			if newReserved < 0 {
@@ -230,49 +242,75 @@ func (r *orderRepository) GetOrderByID(ctx context.Context, id uuid.UUID) (*mode
 	return &order, nil
 }
 
-func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string]string) error {
+func (r *orderRepository) ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error) {
+	// Page and Limit are validated by the handler, which also reports them in the response meta.
+	offset := (filter.Page - 1) * filter.Limit
+
+	query := r.db.WithContext(ctx).Model(&models.Order{})
+	if filter.Status != "" && filter.Status != "ALL" {
+		query = query.Where("status = ?", filter.Status)
+	}
+	if filter.Search != "" {
+		pattern := "%" + escapeLikePattern(filter.Search) + "%"
+		query = query.Where("order_number ILIKE ? OR customer_email ILIKE ?", pattern, pattern)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count orders: %w", err)
+	}
+
+	var orders []models.Order
+	err := query.
+		Preload("Items").
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(filter.Limit).
+		Find(&orders).Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list orders: %w", err)
+	}
+
+	for i := range orders {
+		orders[i].AllowedTransitions = models.AdminOrderTransitions(orders[i].Status)
+	}
+
+	return orders, total, nil
+}
+
+func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var order models.Order
-		if err := tx.Preload("Items").First(&order, "id = ?", orderID).Error; err != nil {
+		// Lock the order row so a concurrent checkout payment or cancel sees the final status.
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Preload("Items").First(&order, "id = ?", orderID).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrOrderNotFound
 			}
 			return err
 		}
 
-		// Apply Serial Numbers if provided
-		if len(serialNumbers) > 0 {
-			for key, sn := range serialNumbers {
-				for i := range order.Items {
-					// Match either by direct UUID string or if single item in order
-					if order.Items[i].ID.String() == key || (len(order.Items) == 1 && (key == "primary" || key == "default" || key == order.Items[i].VariantID.String())) {
-						order.Items[i].SerialNumber = sn
-						if err := tx.Model(&order.Items[i]).Update("serial_number", sn).Error; err != nil {
-							return fmt.Errorf("failed to save serial number for item %s: %w", order.Items[i].ID, err)
-						}
-					}
-				}
+		if !models.CanAdminTransitionOrder(order.Status, newStatus) {
+			return fmt.Errorf("%w: %s -> %s", ErrInvalidOrderTransition, order.Status, newStatus)
+		}
+
+		if newStatus == models.OrderStatusCancelled {
+			if err := releaseOrderStock(tx, order.ID); err != nil {
+				return err
 			}
 		}
 
-		// State Machine Validation:
-		// When transitioning to SHIPPED, all items MUST have a serial number assigned
-		if newStatus == "SHIPPED" {
-			for _, item := range order.Items {
-				hasSN := item.SerialNumber != ""
-				if sn, ok := serialNumbers[item.ID.String()]; ok && sn != "" {
-					hasSN = true
-				} else if len(order.Items) == 1 {
-					for _, snVal := range serialNumbers {
-						if snVal != "" {
-							hasSN = true
-						}
-					}
-				}
-				if !hasSN {
-					return ErrSerialNumberRequired
-				}
+		changed, err := mergeSerialNumbers(order.Items, serialNumbers, models.SerialsEditable(order.Status))
+		if err != nil {
+			return err
+		}
+		for _, i := range changed {
+			if err := tx.Model(&order.Items[i]).Update("serial_numbers", order.Items[i].SerialNumbers).Error; err != nil {
+				return fmt.Errorf("failed to save serial numbers for item %s: %w", order.Items[i].ID, err)
 			}
+		}
+
+		if newStatus == models.OrderStatusShipped && !allUnitsHaveSerials(order.Items) {
+			return ErrSerialNumberRequired
 		}
 
 		if err := tx.Model(&order).Update("status", newStatus).Error; err != nil {
@@ -283,40 +321,124 @@ func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UU
 	})
 }
 
+// releaseOrderStock returns a cancelled order's stock: ACTIVE reservations give back their
+// reserved units, COMMITTED ones (already deducted at payment) are added back to physical stock.
+func releaseOrderStock(tx *gorm.DB, orderID uuid.UUID) error {
+	var reservations []models.StockReservation
+	if err := tx.Where("order_id = ? AND status IN ?", orderID, []string{"ACTIVE", "COMMITTED"}).Find(&reservations).Error; err != nil {
+		return fmt.Errorf("failed to load reservations: %w", err)
+	}
+
+	for _, res := range reservations {
+		var variant models.ProductVariant
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, "id = ?", res.VariantID).Error; err != nil {
+			return fmt.Errorf("variant %s not found: %w", res.VariantID, err)
+		}
+
+		updates := map[string]interface{}{}
+		if res.Status == "ACTIVE" {
+			updates["reserved_stock"] = max(variant.ReservedStock-res.Quantity, 0)
+		} else {
+			restocked := variant.StockQuantity + res.Quantity
+			updates["stock_quantity"] = restocked
+			oid := orderID
+			if err := recordMovement(tx, variant.ID, res.Quantity, restocked, models.StockReasonCancelRestock, "", nil, &oid); err != nil {
+				return err
+			}
+		}
+		if err := tx.Model(&variant).Updates(updates).Error; err != nil {
+			return fmt.Errorf("failed to restore stock for variant %s: %w", variant.ID, err)
+		}
+		if err := tx.Model(&res).Update("status", "RELEASED").Error; err != nil {
+			return fmt.Errorf("failed to release reservation %s: %w", res.ID, err)
+		}
+	}
+	return nil
+}
+
+// storeZone is the business's local time (Thailand has no DST), used to bucket orders by day.
+var storeZone = time.FixedZone("ICT", 7*60*60)
+
+// unpaidStatuses never count toward revenue.
+var unpaidStatuses = []string{models.OrderStatusPendingPayment, models.OrderStatusCancelled}
+
 func (r *orderRepository) GetAdminOverview(ctx context.Context) (*dto.AdminOverviewStats, error) {
+	return r.adminOverviewAt(ctx, time.Now())
+}
+
+func (r *orderRepository) adminOverviewAt(ctx context.Context, now time.Time) (*dto.AdminOverviewStats, error) {
+	db := r.db.WithContext(ctx)
 	stats := &dto.AdminOverviewStats{
-		OrdersByStatus: make(map[string]int64),
-		LowStockAlerts: []dto.LowStockItem{},
+		OrdersByStatus:  make(map[string]int64),
+		DailyRevenue:    []dto.DailyRevenue{},
+		CategoryRevenue: []dto.CategoryRevenue{},
+		LowStockAlerts:  []dto.LowStockItem{},
 	}
 
-	// 1. Total Revenue in Satang for completed/paid orders
-	var revResult struct {
-		TotalRevenue int64
-	}
-	_ = r.db.WithContext(ctx).Model(&models.Order{}).
-		Where("status NOT IN (?)", []string{"PENDING_PAYMENT", "CANCELLED"}).
-		Select("COALESCE(SUM(grand_total), 0) as total_revenue").
-		Scan(&revResult).Error
-	stats.TotalRevenueSatang = revResult.TotalRevenue
-
-	// 2. Orders count by status
+	// 1. Orders by status, total orders.
 	var statusCounts []struct {
 		Status string
 		Count  int64
 	}
-	_ = r.db.WithContext(ctx).Model(&models.Order{}).
-		Select("status, count(*) as count").
-		Group("status").
-		Scan(&statusCounts).Error
-
-	var totalOrders int64
+	if err := db.Model(&models.Order{}).Select("status, count(*) AS count").Group("status").Scan(&statusCounts).Error; err != nil {
+		return nil, fmt.Errorf("failed to count orders by status: %w", err)
+	}
 	for _, sc := range statusCounts {
 		stats.OrdersByStatus[sc.Status] = sc.Count
-		totalOrders += sc.Count
+		stats.TotalOrdersCount += sc.Count
 	}
-	stats.TotalOrdersCount = totalOrders
 
-	// 3. Low stock alerts (where stock_quantity - reserved_stock <= 3)
+	// 2. Paid revenue: all time, last 30 days, and the 30 days before (for the trend).
+	today := time.Date(now.In(storeZone).Year(), now.In(storeZone).Month(), now.In(storeZone).Day(), 0, 0, 0, 0, storeZone)
+	since30 := today.AddDate(0, 0, -29)
+	since60 := since30.AddDate(0, 0, -30)
+	var rev struct {
+		Total, Paid, Last30, Prev30 int64
+	}
+	if err := db.Model(&models.Order{}).
+		Where("status NOT IN ?", unpaidStatuses).
+		Select(`COALESCE(SUM(grand_total), 0) AS total,
+			COUNT(*) AS paid,
+			COALESCE(SUM(grand_total) FILTER (WHERE created_at >= ?), 0) AS last30,
+			COALESCE(SUM(grand_total) FILTER (WHERE created_at >= ? AND created_at < ?), 0) AS prev30`,
+			since30, since60, since30).
+		Scan(&rev).Error; err != nil {
+		return nil, fmt.Errorf("failed to sum revenue: %w", err)
+	}
+	stats.TotalRevenueSatang, stats.PaidOrdersCount = rev.Total, rev.Paid
+	stats.Revenue30dSatang, stats.RevenuePrev30dSatang = rev.Last30, rev.Prev30
+
+	// 3. Daily paid revenue for the last 7 store-local days, zero-filled.
+	since7 := today.AddDate(0, 0, -6)
+	var days []struct {
+		Day     string
+		Revenue int64
+		Orders  int64
+	}
+	if err := db.Model(&models.Order{}).
+		Where("status NOT IN ? AND created_at >= ?", unpaidStatuses, since7).
+		Select("to_char(created_at AT TIME ZONE 'Asia/Bangkok', 'YYYY-MM-DD') AS day, SUM(grand_total) AS revenue, COUNT(*) AS orders").
+		Group("day").
+		Scan(&days).Error; err != nil {
+		return nil, fmt.Errorf("failed to bucket daily revenue: %w", err)
+	}
+	stats.DailyRevenue = fillDailyRevenue(since7, 7, days)
+
+	// 4. Paid line-item revenue by product category.
+	if err := db.Table("order_items AS oi").
+		Joins("JOIN orders o ON o.id = oi.order_id").
+		Joins("LEFT JOIN product_variants v ON v.id = oi.variant_id").
+		Joins("LEFT JOIN products p ON p.id = v.product_id").
+		Joins("LEFT JOIN categories c ON c.id = p.category_id").
+		Where("o.status NOT IN ?", unpaidStatuses).
+		Select("COALESCE(c.name, 'Uncategorized') AS category, SUM(oi.unit_price * oi.quantity) AS revenue_satang, SUM(oi.quantity) AS units").
+		Group("category").
+		Order("revenue_satang DESC").
+		Scan(&stats.CategoryRevenue).Error; err != nil {
+		return nil, fmt.Errorf("failed to sum category revenue: %w", err)
+	}
+
+	// 5. Low stock alerts (where stock_quantity - reserved_stock <= 3)
 	var lowStockVariants []struct {
 		VariantID      uuid.UUID
 		ProductID      uuid.UUID
@@ -328,27 +450,146 @@ func (r *orderRepository) GetAdminOverview(ctx context.Context) (*dto.AdminOverv
 		AvailableStock int
 	}
 
-	err := r.db.WithContext(ctx).Table("product_variants").
+	err := db.Table("product_variants").
 		Select("product_variants.id as variant_id, product_variants.product_id, products.name as product_name, product_variants.sku, product_variants.color_name, product_variants.stock_quantity, product_variants.reserved_stock, (product_variants.stock_quantity - product_variants.reserved_stock) as available_stock").
 		Joins("JOIN products ON products.id = product_variants.product_id").
 		Where("(product_variants.stock_quantity - product_variants.reserved_stock) <= 3").
 		Order("available_stock ASC").
 		Scan(&lowStockVariants).Error
 
-	if err == nil {
-		for _, v := range lowStockVariants {
-			stats.LowStockAlerts = append(stats.LowStockAlerts, dto.LowStockItem{
-				VariantID:      v.VariantID,
-				ProductID:      v.ProductID,
-				ProductName:    v.ProductName,
-				SKU:            v.SKU,
-				ColorName:      v.ColorName,
-				StockQuantity:  v.StockQuantity,
-				ReservedStock:  v.ReservedStock,
-				AvailableStock: v.AvailableStock,
-			})
-		}
+	if err != nil {
+		return nil, fmt.Errorf("failed to load low stock alerts: %w", err)
+	}
+	for _, v := range lowStockVariants {
+		stats.LowStockAlerts = append(stats.LowStockAlerts, dto.LowStockItem{
+			VariantID:      v.VariantID,
+			ProductID:      v.ProductID,
+			ProductName:    v.ProductName,
+			SKU:            v.SKU,
+			ColorName:      v.ColorName,
+			StockQuantity:  v.StockQuantity,
+			ReservedStock:  v.ReservedStock,
+			AvailableStock: v.AvailableStock,
+		})
 	}
 
 	return stats, nil
+}
+
+// likeEscaper makes user input match literally inside a LIKE/ILIKE pattern (Postgres escape char is \).
+var likeEscaper = strings.NewReplacer(`\`, `\`, `%`, `\%`, `_`, `\_`)
+
+func escapeLikePattern(s string) string {
+	return likeEscaper.Replace(s)
+}
+
+// mergeSerialNumbers applies per-unit serials from input (order item ID -> serials) onto items
+// and returns the indexes of items that changed. A blank entry keeps the saved serial for that
+// unit, so a partially filled form never erases data. Serials must be unique within the order.
+// When editable is false, input is accepted only if it would change nothing.
+func mergeSerialNumbers(items []models.OrderItem, input map[string][]string, editable bool) ([]int, error) {
+	byID := make(map[string]int, len(items))
+	for i := range items {
+		byID[items[i].ID.String()] = i
+	}
+
+	var changed []int
+	for id, serials := range input {
+		i, ok := byID[id]
+		if !ok {
+			return nil, fmt.Errorf("%w: item %s is not part of this order", ErrInvalidSerialNumbers, id)
+		}
+		item := &items[i]
+		if len(serials) > item.Quantity {
+			return nil, fmt.Errorf("%w: %d serials given for %s but quantity is %d", ErrInvalidSerialNumbers, len(serials), item.SKUSnapshot, item.Quantity)
+		}
+
+		merged := make([]string, item.Quantity)
+		copy(merged, item.SerialNumbers)
+		differs := false
+		for u, sn := range serials {
+			sn = strings.ToUpper(strings.TrimSpace(sn))
+			if sn != "" && sn != merged[u] {
+				merged[u] = sn
+				differs = true
+			}
+		}
+		if !differs {
+			continue
+		}
+		if !editable {
+			return nil, fmt.Errorf("%w: serial numbers can only be changed before the order ships", ErrInvalidSerialNumbers)
+		}
+		item.SerialNumbers = merged
+		changed = append(changed, i)
+	}
+
+	seen := map[string]string{}
+	for _, item := range items {
+		for _, sn := range item.SerialNumbers {
+			if sn == "" {
+				continue
+			}
+			if other, dup := seen[sn]; dup {
+				return nil, fmt.Errorf("%w: serial %s is used for both %s and %s", ErrInvalidSerialNumbers, sn, other, item.SKUSnapshot)
+			}
+			seen[sn] = item.SKUSnapshot
+		}
+	}
+	return changed, nil
+}
+
+// allUnitsHaveSerials reports whether every unit of every item has a non-empty serial.
+func allUnitsHaveSerials(items []models.OrderItem) bool {
+	for _, item := range items {
+		if len(item.SerialNumbers) < item.Quantity {
+			return false
+		}
+		for _, sn := range item.SerialNumbers[:item.Quantity] {
+			if sn == "" {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// fillDailyRevenue returns n consecutive days starting at from, using the matching row's
+// totals where one exists and zero otherwise.
+func fillDailyRevenue(from time.Time, n int, rows []struct {
+	Day     string
+	Revenue int64
+	Orders  int64
+}) []dto.DailyRevenue {
+	byDay := make(map[string]int, len(rows))
+	for i, row := range rows {
+		byDay[row.Day] = i
+	}
+	out := make([]dto.DailyRevenue, n)
+	for i := range out {
+		day := from.AddDate(0, 0, i).Format("2006-01-02")
+		out[i] = dto.DailyRevenue{Date: day}
+		if j, ok := byDay[day]; ok {
+			out[i].RevenueSatang, out[i].Orders = rows[j].Revenue, rows[j].Orders
+		}
+	}
+	return out
+}
+
+// maxAccountOrders caps the account order history; enough for any realistic customer.
+const maxAccountOrders = 200
+
+// ListOrdersForUser returns orders placed while signed in to this account, newest first.
+func (r *orderRepository) ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error) {
+	var orders []models.Order
+	err := r.db.WithContext(ctx).
+		Preload("Items").
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Limit(maxAccountOrders).
+		Find(&orders).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to list account orders: %w", err)
+	}
+	return orders, nil
 }

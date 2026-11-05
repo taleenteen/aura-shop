@@ -1,0 +1,148 @@
+# AURA TECH
+
+ร้านค้าออนไลน์สำหรับโน้ตบุ๊ก จอ และอุปกรณ์ไอที ประกอบด้วยหน้าร้านสำหรับลูกค้าและหลังบ้านสำหรับผู้ดูแล
+An online store for laptops, monitors and IT gear, with a customer storefront and an admin backoffice.
+
+- [ภาษาไทย](#ภาษาไทย)
+- [English](#english)
+- รายละเอียดเชิงลึก / Deep dives: [`apps/api/README.md`](apps/api/README.md) (backend) · [`apps/web/README.md`](apps/web/README.md) (frontend)
+
+---
+
+## ภาษาไทย
+
+### โครงสร้าง
+
+| ส่วน | เทคโนโลยี | ที่อยู่ |
+|---|---|---|
+| Backend API | Go 1.23, chi, GORM | `apps/api` |
+| Frontend | React 19, Vite 6, TanStack Router, Zustand, Tailwind 4 | `apps/web` |
+| ฐานข้อมูล | PostgreSQL 16 | Docker (`postgres`) |
+| ไฟล์รูปภาพ | MinIO (S3-compatible) | Docker (`minio`) |
+
+### เริ่มใช้งาน
+
+ต้องมี Docker Desktop, Go 1.23 ขึ้นไป และ Node.js 20 ขึ้นไป
+
+```bash
+cp .env.example .env          # ตั้งค่าเริ่มต้น
+make up                       # รันทุกอย่างใน Docker (Postgres, MinIO, API, Web)
+```
+
+หรือรันแบบแยกบนเครื่อง:
+
+```bash
+make infra                    # Postgres + MinIO ใน Docker
+make dev-api                  # API ที่ http://localhost:8080
+make dev-web                  # หน้าเว็บที่ http://localhost:5173
+```
+
+ตอน API เริ่มทำงานครั้งแรกกับฐานข้อมูลว่าง ระบบจะสร้างตารางและใส่ข้อมูลตัวอย่างให้เอง รัน `make seed-local` (หรือ `npm run seed`) ซ้ำได้เพื่ออัปเดตข้อมูลตัวอย่าง โดย**ไม่ทับจำนวนสต็อกจริง**
+
+### บัญชีทดลอง
+
+| บทบาท | อีเมล | รหัสผ่าน |
+|---|---|---|
+| ผู้ดูแล (Admin) | `admin@auratech.co.th` | `password123` |
+| ลูกค้า | `demo@auratech.co.th` | `password123` |
+
+### ความสามารถหลัก
+
+**หน้าร้าน**
+- รายการสินค้าพร้อมตัวกรอง (หมวด แบรนด์ การใช้งาน CPU RAM SSD ราคา) ตัวเลขในตัวกรองนับจากตัวกรองอื่นที่เลือกอยู่
+- หน้าสินค้าเลือกสีและสเปก, เปรียบเทียบสูงสุด 3 รุ่น, ค้นหาด้วย Ctrl K / ⌘K
+- ตะกร้าและรายการโปรด ใช้ได้ทั้งแบบไม่ล็อกอินและล็อกอิน ระบบรวมให้ตอนล็อกอิน
+- Checkout: จองสต็อก 15 นาที แล้วจ่ายด้วย PromptPay บัตรเครดิต หรือผ่อน 0%
+- หน้าบัญชีผู้ใช้: ติดตามคำสั่งซื้อตามสถานะ และแก้ชื่อ เบอร์โทร ที่อยู่
+
+**หลังบ้าน (`/admin`)**
+- ภาพรวม: รายได้ แนวโน้ม 30 วัน ยอดรายวัน 7 วัน ยอดตามหมวด และสต็อกใกล้หมด
+- สินค้าและสต็อก: เพิ่ม/แก้สินค้า variant รูป และปรับสต็อกพร้อมบันทึกประวัติทุกครั้ง
+- จัดส่ง: เปลี่ยนสถานะคำสั่งซื้อตามขั้นตอนที่อนุญาต และบันทึก S/N รายเครื่อง
+- แบนเนอร์บนหน้าแรก
+
+### คำสั่งที่ใช้บ่อย
+
+| คำสั่ง | ทำอะไร |
+|---|---|
+| `make up` / `make down` | เปิด / ปิดทุกบริการใน Docker |
+| `make reset` | ลบข้อมูลทั้งหมดแล้วเริ่มใหม่ |
+| `make psql` | เข้า Postgres |
+| `cd apps/api && go test ./...` | รัน test ฝั่ง backend |
+| `cd apps/web && npx tsc --noEmit` | ตรวจ type ฝั่ง frontend |
+
+### เอกสารอื่น
+
+- `PROJECT_SPEC.md` สเปกตั้งต้นของโปรเจกต์
+- `docs/01-project-genesis-and-asset-pipeline.md` ที่มาของโปรเจกต์และไปป์ไลน์สร้างรูปสินค้า
+- `IMAGE_GEN_TRACKER.md` สถานะการสร้างรูปสินค้า (เขียนโดย `cmd/assetgen`)
+
+---
+
+## English
+
+### Layout
+
+| Part | Stack | Path |
+|---|---|---|
+| Backend API | Go 1.23, chi, GORM | `apps/api` |
+| Frontend | React 19, Vite 6, TanStack Router, Zustand, Tailwind 4 | `apps/web` |
+| Database | PostgreSQL 16 | Docker (`postgres`) |
+| Images | MinIO (S3-compatible) | Docker (`minio`) |
+
+### Getting started
+
+Requires Docker Desktop, Go 1.23+ and Node.js 20+.
+
+```bash
+cp .env.example .env          # default settings
+make up                       # everything in Docker (Postgres, MinIO, API, web)
+```
+
+Or run the apps on your machine:
+
+```bash
+make infra                    # Postgres + MinIO in Docker
+make dev-api                  # API on http://localhost:8080
+make dev-web                  # web on http://localhost:5173
+```
+
+On first start against an empty database the API creates the tables and loads sample data. `make seed-local` (or `npm run seed`) can be re-run to refresh sample data; it **never overwrites real stock levels**.
+
+### Demo accounts
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@auratech.co.th` | `password123` |
+| Customer | `demo@auratech.co.th` | `password123` |
+
+### Features
+
+**Storefront**
+- Catalog with filters (category, brand, use case, CPU, RAM, storage, price); each filter's counts reflect the other active filters
+- Product configurator (colour/spec), compare up to 3 models, search with Ctrl K / ⌘K
+- Bag and wishlist for guests and signed-in users, merged on sign-in
+- Checkout: 15-minute stock hold, then PromptPay, card or 0% instalments
+- Account page: orders grouped by status, editable name, phone and address
+
+**Backoffice (`/admin`)**
+- Overview: revenue, 30-day trend, last 7 days, revenue by category, low stock
+- Products & stock: create/edit products, variants and images; every stock change is recorded
+- Fulfilment: allowed status transitions only, one serial number per unit
+- Home-page banners
+
+### Common commands
+
+| Command | Does |
+|---|---|
+| `make up` / `make down` | Start / stop all Docker services |
+| `make reset` | Wipe data and start fresh |
+| `make psql` | Open a Postgres shell |
+| `cd apps/api && go test ./...` | Backend tests |
+| `cd apps/web && npx tsc --noEmit` | Frontend type check |
+
+### Other documents
+
+- `PROJECT_SPEC.md` — the original project specification
+- `docs/01-project-genesis-and-asset-pipeline.md` — project history and the product-image pipeline
+- `IMAGE_GEN_TRACKER.md` — product-image generation status (written by `cmd/assetgen`)

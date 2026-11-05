@@ -26,11 +26,11 @@ func (m *mockAdminService) GetOverview(ctx context.Context) (*dto.AdminOverviewS
 	return &dto.AdminOverviewStats{}, nil
 }
 
-func (m *mockAdminService) CreateBanner(ctx context.Context, banner *models.Banner) error {
-	return nil
+func (m *mockAdminService) ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error) {
+	return []models.Order{}, 0, nil
 }
 
-func (m *mockAdminService) CreateProduct(ctx context.Context, product *models.Product) error {
+func (m *mockAdminService) CreateBanner(ctx context.Context, banner *models.Banner) error {
 	return nil
 }
 

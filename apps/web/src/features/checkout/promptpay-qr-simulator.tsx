@@ -2,6 +2,7 @@ import { useState } from "react";
 import { QrCode, CheckCircle2, ShieldCheck, Zap } from "lucide-react";
 import { formatTHB } from "@/lib/currency";
 import type { PromptPayQRResponse } from "@/types/api";
+import { DEMO_MODE } from "@/lib/demo-mode";
 
 interface PromptPayQRSimulatorProps {
   qrData: PromptPayQRResponse;
@@ -54,35 +55,40 @@ export function PromptPayQRSimulator({
         </div>
       </div>
 
-      {/* Developer Webhook Simulator Action Bar */}
-      <div className="w-full max-w-sm p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-white">
-          <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
-          <span>Developer Payment Simulator Bar</span>
-        </div>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 text-left leading-relaxed">
-          In a production environment, your banking app webhook notifies the gateway. Click below to simulate an instant webhook callback confirmation:
-        </p>
+      {DEMO_MODE ? (
+        <div className="w-full max-w-sm p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 space-y-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-white">
+            <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <span>Developer Payment Simulator Bar</span>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 text-left leading-relaxed">
+            In a production environment, your banking app webhook notifies the gateway. Click below to simulate an instant webhook callback confirmation:
+          </p>
 
-        <button
-          type="button"
-          disabled={isLoading}
-          onClick={handleSimulate}
-          className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
-        >
-          {hasScanned || isLoading ? (
-            <>
-              <CheckCircle2 className="w-4 h-4 animate-spin" />
-              <span>Confirming Bank Transfer...</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Simulate Customer Scan Success</span>
-            </>
-          )}
-        </button>
-      </div>
+          <button
+            type="button"
+            disabled={isLoading}
+            onClick={handleSimulate}
+            className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
+          >
+            {hasScanned || isLoading ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 animate-spin" />
+                <span>Confirming Bank Transfer...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Simulate Customer Scan Success</span>
+              </>
+            )}
+          </button>
+        </div>
+      ) : (
+        <p className="w-full max-w-sm text-xs text-zinc-500 dark:text-zinc-400">
+          Scan with your banking app and transfer the exact amount shown above.
+        </p>
+      )}
 
       <div className="flex items-center gap-2 text-xs text-zinc-400">
         <ShieldCheck className="w-4 h-4 text-emerald-500" />

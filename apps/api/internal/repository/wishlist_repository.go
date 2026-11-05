@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type WishlistRepository interface {
@@ -29,13 +30,13 @@ func (r *wishlistRepository) GetWishlist(ctx context.Context, userID *uuid.UUID,
 	query := r.db.WithContext(ctx).
 		Preload("Product.Category").
 		Preload("Product.Brand").
-		Preload("Product.Variants").
+		Preload("Product.Variants", orderVariants).
 		Order("created_at DESC")
 
 	if userID != nil {
 		query = query.Where("user_id = ?", *userID)
 	} else if guestID != nil && *guestID != "" {
-		query = query.Where("guest_session_id = ?", *guestID)
+		query = query.Where("guest_session_id = ? AND user_id IS NULL", *guestID)
 	} else {
 		return []models.Wishlist{}, nil
 	}
@@ -57,7 +58,7 @@ func (r *wishlistRepository) ToggleWishlist(ctx context.Context, userID *uuid.UU
 		if userID != nil {
 			query = query.Where("user_id = ?", *userID)
 		} else if guestID != nil && *guestID != "" {
-			query = query.Where("guest_session_id = ?", *guestID)
+			query = query.Where("guest_session_id = ? AND user_id IS NULL", *guestID)
 		} else {
 			return errors.New("neither user_id nor guest_session_id provided")
 		}
@@ -73,10 +74,11 @@ func (r *wishlistRepository) ToggleWishlist(ctx context.Context, userID *uuid.UU
 			// Item does not exist; like it
 			newWish := models.Wishlist{
 				UserID:         userID,
-				GuestSessionID: guestID,
+				GuestSessionID: guestOnly(userID, guestID),
 				ProductID:      productID,
 			}
-			if err := tx.Create(&newWish).Error; err != nil {
+			// DO NOTHING keeps a double-click (two concurrent likes) from failing on the unique index.
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&newWish).Error; err != nil {
 				return fmt.Errorf("failed to add to wishlist: %w", err)
 			}
 			liked = true
@@ -89,7 +91,7 @@ func (r *wishlistRepository) ToggleWishlist(ctx context.Context, userID *uuid.UU
 		if userID != nil {
 			countQuery = countQuery.Where("user_id = ?", *userID)
 		} else if guestID != nil {
-			countQuery = countQuery.Where("guest_session_id = ?", *guestID)
+			countQuery = countQuery.Where("guest_session_id = ? AND user_id IS NULL", *guestID)
 		}
 		if err := countQuery.Count(&totalCount).Error; err != nil {
 			return fmt.Errorf("failed to count wishlist: %w", err)
@@ -110,7 +112,7 @@ func (r *wishlistRepository) MergeGuestWishlist(ctx context.Context, tx *gorm.DB
 	}
 
 	var guestItems []models.Wishlist
-	if err := tx.WithContext(ctx).Where("guest_session_id = ?", guestID).Find(&guestItems).Error; err != nil {
+	if err := tx.WithContext(ctx).Where("guest_session_id = ? AND user_id IS NULL", guestID).Find(&guestItems).Error; err != nil {
 		return fmt.Errorf("failed to fetch guest wishlist items: %w", err)
 	}
 

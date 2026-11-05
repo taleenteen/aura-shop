@@ -65,11 +65,22 @@ export function LandingPage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Phones: a swipeable row that snaps card by card, with the next card peeking in.
+            sm and up: the regular grid. */}
+        <div
+          role="region"
+          aria-label="Flagship models"
+          className="-mx-4 px-4 flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-6 sm:overflow-visible sm:pb-0"
+        >
           {featuredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <div key={product.id} className="snap-start shrink-0 w-[82%] sm:w-auto">
+              <ProductCard product={product} className="h-full" />
+            </div>
           ))}
         </div>
+        {featuredProducts.length > 1 && (
+          <p className="sm:hidden mt-3 text-center text-[11px] text-zinc-400">Swipe to see more</p>
+        )}
       </section>
 
       {/* 4. Bento Promo Campaign Grid */}

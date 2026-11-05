@@ -27,6 +27,9 @@ const ICON_MAP: Record<string, typeof Sparkles> = {
   Volume2,
 };
 
+/** Icon names the highlights grid can render; the admin editor offers exactly these. */
+export const BENTO_ICON_NAMES = Object.keys(ICON_MAP);
+
 export function BentoHighlights({
   highlights = [],
   productName,

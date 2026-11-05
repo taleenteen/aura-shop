@@ -115,10 +115,17 @@ export function OrderReceiptPage({ orderNumber }: OrderReceiptPageProps) {
                     <div className="text-xs text-zinc-500 mt-0.5">
                       {item.spec_summary} • Qty: {item.quantity}
                     </div>
-                    {item.serial_number ? (
-                      <div className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 text-[11px] font-mono font-semibold">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>S/N: {item.serial_number}</span>
+                    {item.serial_numbers?.some(Boolean) ? (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {item.serial_numbers.filter(Boolean).map((sn) => (
+                          <div
+                            key={sn}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 text-[11px] font-mono font-semibold"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>S/N: {sn}</span>
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       <div className="text-[11px] text-zinc-400 font-mono mt-1">

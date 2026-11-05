@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -45,6 +46,9 @@ func main() {
 					slog.Error("automatic startup seeding failed", "error", err)
 				} else {
 					slog.Info("automatic startup seeding completed successfully")
+					if err := database.OpenStockLedger(db); err != nil {
+						slog.Error("failed to open stock ledger for seeded stock", "error", err)
+					}
 				}
 			}
 		}
@@ -58,10 +62,13 @@ func main() {
 		cfg.MinIOPublicURL,
 		cfg.MinIOUseSSL,
 	)
+	var uploadImage func(r *http.Request, objectName string, body io.Reader, size int64, contentType string) (string, error)
 	if err != nil {
 		slog.Warn("minio not yet reachable at startup", "error", err)
 	} else {
-		_ = storageClient
+		uploadImage = func(r *http.Request, objectName string, body io.Reader, size int64, contentType string) (string, error) {
+			return storageClient.Upload(r.Context(), objectName, body, size, contentType)
+		}
 	}
 
 	// 1. Initialize Repositories
@@ -71,13 +78,15 @@ func main() {
 	wishlistRepo := repository.NewWishlistRepository(db)
 	cartRepo := repository.NewCartRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
+	productAdminRepo := repository.NewProductAdminRepository(db)
 
 	// 2. Initialize Services
 	authService := service.NewAuthService(db, userRepo, wishlistRepo, cartRepo, cfg.JWTSecret)
 	catalogService := service.NewCatalogService(catalogRepo, bannerRepo)
 	interactionService := service.NewInteractionService(wishlistRepo, cartRepo)
 	checkoutService := service.NewCheckoutService(orderRepo, cartRepo)
-	adminService := service.NewAdminService(orderRepo, bannerRepo, catalogRepo)
+	adminService := service.NewAdminService(orderRepo, bannerRepo)
+	productAdminService := service.NewProductAdminService(productAdminRepo)
 
 	// 3. Initialize HTTP Handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -87,6 +96,7 @@ func main() {
 	cartHandler := handler.NewCartHandler(interactionService)
 	checkoutHandler := handler.NewCheckoutHandler(checkoutService)
 	adminHandler := handler.NewAdminHandler(adminService)
+	productAdminHandler := handler.NewProductAdminHandler(productAdminService, uploadImage)
 
 	// 4. Router Setup & Middleware Stack
 	r := chi.NewRouter()
@@ -123,6 +133,13 @@ func main() {
 			auth.Post("/register", authHandler.Register)
 			auth.Post("/login", authHandler.Login)
 			auth.With(appMiddleware.RequireAuth).Get("/me", authHandler.Me)
+			auth.With(appMiddleware.RequireAuth).Patch("/me", authHandler.UpdateMe)
+		})
+
+		// Signed-in customer account
+		api.Route("/account", func(acc chi.Router) {
+			acc.Use(appMiddleware.RequireAuth)
+			acc.Get("/orders", checkoutHandler.ListMyOrders)
 		})
 
 		// Dynamic Component-Driven Banners
@@ -165,8 +182,16 @@ func main() {
 		api.Route("/admin", func(adm chi.Router) {
 			adm.Use(appMiddleware.RequireAdmin)
 			adm.Get("/overview", adminHandler.GetOverview)
+			adm.Get("/orders", adminHandler.ListOrders)
 			adm.Post("/banners", adminHandler.CreateBanner)
-			adm.Post("/products", adminHandler.CreateProduct)
+			adm.Get("/products", productAdminHandler.ListProducts)
+			adm.Post("/products", productAdminHandler.CreateProduct)
+			adm.Get("/products/{id}", productAdminHandler.GetProduct)
+			adm.Put("/products/{id}", productAdminHandler.UpdateProduct)
+			adm.Patch("/products/{id}/status", productAdminHandler.SetStatus)
+			adm.Post("/variants/{id}/stock-adjustments", productAdminHandler.AdjustStock)
+			adm.Get("/variants/{id}/stock-movements", productAdminHandler.ListMovements)
+			adm.Post("/uploads/images", productAdminHandler.UploadImage)
 			adm.Patch("/orders/{id}/status", adminHandler.UpdateOrderStatus)
 		})
 	})

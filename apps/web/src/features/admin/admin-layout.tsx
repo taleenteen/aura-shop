@@ -1,19 +1,31 @@
 import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutDashboard, Image as ImageIcon, Package, ArrowLeft, Shield, LogIn, CheckCircle2, AlertCircle } from "lucide-react";
+import { Boxes, LayoutDashboard, Image as ImageIcon, Package, ArrowLeft, Shield, LogIn, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { apiClient } from "@/lib/api-client";
+import { DEMO_MODE } from "@/lib/demo-mode";
+import { signOut } from "@/lib/session";
+import { useUIStore } from "@/stores/ui-store";
 import type { User } from "@/types/api";
 import { AdminOverview } from "./admin-overview";
 import { BannerManager } from "./banner-manager";
 import { OrderSNFulfillment } from "./order-sn-fulfillment";
+import { ProductsAdmin } from "./products/products-admin";
+
+const ADMIN_TABS = [
+  { id: "overview", label: "Overview & Low Stock", icon: LayoutDashboard },
+  { id: "products", label: "Products & Stock", icon: Boxes },
+  { id: "orders", label: "Order S/N Fulfillment", icon: Package },
+  { id: "banners", label: "Dynamic Banners", icon: ImageIcon },
+] as const;
+type AdminTab = (typeof ADMIN_TABS)[number]["id"];
 
 export function AdminLayout() {
   const location = useLocation();
-  const pathname = location.pathname;
   const user = useAuthStore((state) => state.user);
   const setAuth = useAuthStore((state) => state.setAuth);
-  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const isRestoring = useAuthStore((state) => state.isRestoring);
+  const setAuthOpen = useUIStore((state) => state.setAuthOpen);
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -38,17 +50,19 @@ export function AdminLayout() {
   };
 
   const isAdmin = user?.role === "ADMIN";
+  const tabParam = (location.search as Record<string, unknown>).tab;
+  const activeTab: AdminTab = ADMIN_TABS.some((t) => t.id === tabParam) ? (tabParam as AdminTab) : "overview";
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="w-full min-w-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       {/* Top Admin Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 shrink-0 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center">
             <Shield className="w-5 h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <h1 className="text-2xl font-black tracking-tight text-zinc-950 dark:text-white">
                 Backoffice Operations Console
               </h1>
@@ -62,7 +76,7 @@ export function AdminLayout() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {isAdmin ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
@@ -71,13 +85,15 @@ export function AdminLayout() {
               </span>
               <button
                 type="button"
-                onClick={() => clearAuth()}
+                onClick={() => signOut()}
                 className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
               >
                 Sign Out
               </button>
             </div>
-          ) : (
+          ) : isRestoring ? (
+            <span className="text-xs text-zinc-500">Restoring session…</span>
+          ) : DEMO_MODE && (
             <button
               type="button"
               onClick={handleAdminQuickLogin}
@@ -99,21 +115,22 @@ export function AdminLayout() {
         </div>
       </div>
 
-      {!isAdmin && (
+      {!isAdmin && !isRestoring && (
         <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
             <span>
-              Admin authentication is required for backoffice API access (admin@auratech.co.th / password123).
+              {user
+                ? `You are signed in as ${user.email}, which is not an admin account.`
+                : "Sign in with an admin account to use the backoffice."}
             </span>
           </div>
           <button
             type="button"
-            onClick={handleAdminQuickLogin}
-            disabled={isLoggingIn}
+            onClick={() => setAuthOpen(true)}
             className="px-3 py-1.5 rounded-lg bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
           >
-            Authenticate Session
+            {user ? "Switch Account" : "Sign In"}
           </button>
         </div>
       )}
@@ -124,57 +141,43 @@ export function AdminLayout() {
         </div>
       )}
 
-      {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3 overflow-x-auto">
-        <Link
-          to="/admin"
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            pathname === "/admin"
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-              : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          }`}
-        >
-          <LayoutDashboard className="w-4 h-4" />
-          <span>Overview & Low Stock</span>
-        </Link>
+      {/* Backoffice tabs and data are rendered for admins only. */}
+      {isAdmin && (
+        <>
+          {/* Navigation Sub-Tabs */}
+          <nav aria-label="Backoffice sections" className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3 overflow-x-auto">
+            {ADMIN_TABS.map((t) => (
+              <Link
+                key={t.id}
+                to="/admin"
+                search={t.id === "overview" ? {} : { tab: t.id }}
+                aria-current={activeTab === t.id ? "page" : undefined}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === t.id
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                    : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <t.icon className="w-4 h-4" />
+                <span>{t.label}</span>
+              </Link>
+            ))}
+          </nav>
 
-        <Link
-          to="/admin"
-          search={{ tab: "banners" }}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            location.searchStr.includes("tab=banners")
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-              : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          }`}
-        >
-          <ImageIcon className="w-4 h-4" />
-          <span>Dynamic Banners</span>
-        </Link>
-
-        <Link
-          to="/admin"
-          search={{ tab: "orders" }}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            location.searchStr.includes("tab=orders")
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-              : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          }`}
-        >
-          <Package className="w-4 h-4" />
-          <span>Order S/N Fulfillment</span>
-        </Link>
-      </div>
-
-      {/* Tab Switcher Content */}
-      <div className="pt-2">
-        {location.searchStr.includes("tab=banners") ? (
-          <BannerManager />
-        ) : location.searchStr.includes("tab=orders") ? (
-          <OrderSNFulfillment />
-        ) : (
-          <AdminOverview />
-        )}
-      </div>
+          {/* Tab Switcher Content */}
+          <div className="pt-2">
+            {activeTab === "products" ? (
+              <ProductsAdmin />
+            ) : activeTab === "banners" ? (
+              <BannerManager />
+            ) : activeTab === "orders" ? (
+              <OrderSNFulfillment />
+            ) : (
+              <AdminOverview />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

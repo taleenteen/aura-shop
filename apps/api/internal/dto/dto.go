@@ -26,8 +26,16 @@ type UserDTO struct {
 	Email     string    `json:"email"`
 	FullName  string    `json:"full_name"`
 	Phone     string    `json:"phone"`
+	Address   string    `json:"address"`
 	Role      string    `json:"role"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// UpdateProfileRequest replaces the signed-in user's editable profile fields.
+type UpdateProfileRequest struct {
+	FullName string `json:"full_name"`
+	Phone    string `json:"phone"`
+	Address  string `json:"address"`
 }
 
 type AuthResponse struct {
@@ -127,18 +135,18 @@ type ShippingAddressDTO struct {
 }
 
 type CheckoutReserveRequest struct {
-	CustomerEmail   string             `json:"customer_email"`
-	ShippingAddress ShippingAddressDTO `json:"shipping_address"`
-	PaymentMethod   string             `json:"payment_method"` // PROMPTPAY_QR, CREDIT_CARD, INSTALLMENT_0
+	CustomerEmail   string              `json:"customer_email"`
+	ShippingAddress ShippingAddressDTO  `json:"shipping_address"`
+	PaymentMethod   string              `json:"payment_method"` // PROMPTPAY_QR, CREDIT_CARD, INSTALLMENT_0
 	InstallmentPlan *InstallmentPlanDTO `json:"installment_plan,omitempty"`
 }
 
 type InstallmentPlanDTO struct {
-	BankCode           string `json:"bank_code"` // KBANK, SCB, KRUNGSRI, BBL
-	BankName           string `json:"bank_name"`
-	Months             int    `json:"months"` // 3, 6, 10
-	InterestRate       int    `json:"interest_rate"`
-	MonthlyPaySatang   int64  `json:"monthly_pay_satang"`
+	BankCode         string `json:"bank_code"` // KBANK, SCB, KRUNGSRI, BBL
+	BankName         string `json:"bank_name"`
+	Months           int    `json:"months"` // 3, 6, 10
+	InterestRate     int    `json:"interest_rate"`
+	MonthlyPaySatang int64  `json:"monthly_pay_satang"`
 }
 
 type CheckoutReserveResponse struct {
@@ -186,14 +194,42 @@ type LowStockItem struct {
 	AvailableStock int       `json:"available_stock"`
 }
 
+// OrderListFilter selects a page of admin orders. Page and Limit are already validated.
+type OrderListFilter struct {
+	Status string // empty or "ALL" means every status
+	Search string // case-insensitive match on order number or customer email
+	Page   int
+	Limit  int
+}
+
+// AdminOverviewStats is computed from orders. "Paid" means any status except PENDING_PAYMENT
+// and CANCELLED; dates are order dates in the store's time zone (Asia/Bangkok).
 type AdminOverviewStats struct {
-	TotalRevenueSatang int64                `json:"total_revenue_satang"`
-	TotalOrdersCount   int64                `json:"total_orders_count"`
-	OrdersByStatus     map[string]int64     `json:"orders_by_status"`
-	LowStockAlerts     []LowStockItem       `json:"low_stock_alerts"`
+	TotalRevenueSatang   int64             `json:"total_revenue_satang"` // all paid orders, all time
+	PaidOrdersCount      int64             `json:"paid_orders_count"`
+	TotalOrdersCount     int64             `json:"total_orders_count"` // every status
+	OrdersByStatus       map[string]int64  `json:"orders_by_status"`
+	Revenue30dSatang     int64             `json:"revenue_30d_satang"`      // last 30 days, today included
+	RevenuePrev30dSatang int64             `json:"revenue_prev_30d_satang"` // the 30 days before that
+	DailyRevenue         []DailyRevenue    `json:"daily_revenue"`           // last 7 days, oldest first, zero-filled
+	CategoryRevenue      []CategoryRevenue `json:"category_revenue"`        // all paid line items, largest first
+	LowStockAlerts       []LowStockItem    `json:"low_stock_alerts"`
+}
+
+type DailyRevenue struct {
+	Date          string `json:"date"` // YYYY-MM-DD
+	RevenueSatang int64  `json:"revenue_satang"`
+	Orders        int64  `json:"orders"`
+}
+
+type CategoryRevenue struct {
+	Category      string `json:"category"`
+	RevenueSatang int64  `json:"revenue_satang"`
+	Units         int64  `json:"units"`
 }
 
 type UpdateOrderStatusRequest struct {
-	Status        string            `json:"status"` // PENDING_PAYMENT, PAID_PROCESSING, SN_ASSIGNED, SHIPPED, DELIVERED, CANCELLED
-	SerialNumbers map[string]string `json:"serial_numbers,omitempty"` // item/variant ID or "primary" -> serial number string
+	Status string `json:"status"` // PENDING_PAYMENT, PAID_PROCESSING, SN_ASSIGNED, SHIPPED, DELIVERED, CANCELLED
+	// Order item ID -> one serial per unit. A blank entry keeps the saved serial for that unit.
+	SerialNumbers map[string][]string `json:"serial_numbers,omitempty"`
 }

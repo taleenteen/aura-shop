@@ -3,8 +3,10 @@ package storage
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -38,6 +40,11 @@ func NewMinIOClient(endpoint, accessKey, secretKey, bucket, publicURL string, us
 			slog.Warn("could not auto-create minio bucket, might be handled by minio-init", "bucket", bucket, "error", err)
 		} else {
 			slog.Info("created minio bucket successfully", "bucket", bucket)
+			// Product and banner images are served straight from the bucket, like minio-init does.
+			policy := fmt.Sprintf(`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::%s/*"]}]}`, bucket)
+			if err := client.SetBucketPolicy(ctx, bucket, policy); err != nil {
+				slog.Warn("could not make minio bucket publicly readable", "bucket", bucket, "error", err)
+			}
 		}
 	}
 
@@ -68,4 +75,17 @@ func (m *MinIOClient) Client() *minio.Client {
 
 func (m *MinIOClient) Bucket() string {
 	return m.bucket
+}
+
+// Upload stores an object and returns its public URL. The API uploads on the browser's
+// behalf, so the browser never needs to reach the storage endpoint the API uses.
+func (m *MinIOClient) Upload(ctx context.Context, objectName string, body io.Reader, size int64, contentType string) (string, error) {
+	_, err := m.client.PutObject(ctx, m.bucket, objectName, body, size, minio.PutObjectOptions{
+		ContentType:  contentType,
+		CacheControl: "public, max-age=31536000, immutable",
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to store object: %w", err)
+	}
+	return strings.TrimRight(m.publicURL, "/") + "/" + objectName, nil
 }

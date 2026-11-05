@@ -110,15 +110,15 @@ func (m *mockConcurrentOrderRepo) GetOrderByID(ctx context.Context, id uuid.UUID
 	return nil, nil
 }
 
-func (m *mockConcurrentOrderRepo) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string]string) error {
-	if newStatus == "SHIPPED" {
-		for _, sn := range serialNumbers {
-			if sn != "" {
-				return nil
-			}
-		}
-		return repository.ErrSerialNumberRequired
-	}
+func (m *mockConcurrentOrderRepo) ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error) {
+	return []models.Order{}, 0, nil
+}
+
+func (m *mockConcurrentOrderRepo) ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error) {
+	return nil, nil
+}
+
+func (m *mockConcurrentOrderRepo) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error {
 	return nil
 }
 

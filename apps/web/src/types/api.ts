@@ -22,6 +22,8 @@ export interface ApiMeta {
 export interface ApiError {
   code: string;
   message: string;
+  /** Per-field problems, keyed by input path such as "variants.0.sku". */
+  fields?: Record<string, string>;
 }
 
 export interface User {
@@ -29,9 +31,16 @@ export interface User {
   email: string;
   full_name: string;
   phone: string;
+  /** Free-text delivery address saved on the profile. */
+  address: string;
   role: "CUSTOMER" | "ADMIN";
   created_at: string;
   updated_at: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
 }
 
 export interface Category {
@@ -253,7 +262,8 @@ export interface OrderItem {
   spec_summary: string;
   unit_price: number; // Satang
   quantity: number;
-  serial_number: string;
+  /** One warranty serial per unit; index i is unit i+1. */
+  serial_numbers: string[] | null;
 }
 
 export interface Order {
@@ -271,6 +281,8 @@ export interface Order {
   installment_plan?: InstallmentPlanData | null;
   reservation_expires_at: string;
   items: OrderItem[];
+  /** Statuses an admin may move this order to. Present on admin listings; absent means none. */
+  allowed_transitions?: OrderStatus[];
   created_at: string;
   updated_at: string;
 }
@@ -320,9 +332,85 @@ export interface LowStockItem {
   available_stock: number;
 }
 
+/** Computed from orders; "paid" excludes PENDING_PAYMENT and CANCELLED. Amounts in satang. */
 export interface AdminOverviewStats {
   total_revenue_satang: number;
+  paid_orders_count: number;
   total_orders_count: number;
   orders_by_status: Record<string, number>;
+  revenue_30d_satang: number;
+  revenue_prev_30d_satang: number;
+  /** Last 7 days (Bangkok time), oldest first, zero-filled. */
+  daily_revenue: { date: string; revenue_satang: number; orders: number }[];
+  /** Paid line-item revenue per category, largest first. */
+  category_revenue: { category: string; revenue_satang: number; units: number }[];
   low_stock_alerts: LowStockItem[];
+}
+
+// --- Admin catalog management ---
+
+export interface AdminProductSummary {
+  id: string;
+  slug: string;
+  name: string;
+  category_name: string;
+  brand_name: string;
+  is_active: boolean;
+  variant_count: number;
+  stock_total: number;
+  reserved_total: number;
+  low_stock_count: number;
+  min_price: number; // Satang
+  thumbnail: string;
+  updated_at: string;
+}
+
+export type StockReason = "INITIAL" | "RECEIVE" | "COUNT" | "DAMAGE" | "RETURN" | "SALE" | "CANCEL_RESTOCK";
+
+export interface StockMovement {
+  id: string;
+  variant_id: string;
+  delta: number;
+  stock_after: number;
+  reason: StockReason;
+  note: string;
+  actor_email: string;
+  order_id: string | null;
+  created_at: string;
+}
+
+export interface StockAdjustmentResult {
+  variant_id: string;
+  stock_quantity: number;
+  reserved_stock: number;
+  available_stock: number;
+  delta: number;
+}
+
+export interface VariantInput {
+  id?: string;
+  sku: string;
+  color_name: string;
+  color_hex: string;
+  price: number; // Satang
+  compare_price: number; // Satang, 0 = none
+  specs: Partial<VariantSpecs> & Record<string, unknown>;
+  images: string[];
+  initial_stock: number;
+}
+
+export interface ProductInput {
+  name: string;
+  slug: string;
+  category_id: string;
+  brand_id: string;
+  tagline: string;
+  short_description: string;
+  usage_personas: string[];
+  bento_highlights: BentoHighlightItem[];
+  box_contents: BoxContentItem[];
+  ports_diagram: PortsDiagramData;
+  full_spec_matrix: SpecCategoryGroup[];
+  is_active: boolean;
+  variants: VariantInput[];
 }

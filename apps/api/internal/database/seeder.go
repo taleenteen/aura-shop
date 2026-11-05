@@ -124,10 +124,10 @@ func seedBanners(db *gorm.DB) error {
 			BadgeText:        "NEW M4 PRO CHIP",
 			Headline:         "MacBook Pro 14 with M4 Pro",
 			Subheadline:      "Mind-blowing performance. Up to 24 hrs battery. Liquid Retina XDR.",
-			ProductImageURL:  "https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mbp14-spaceblack-select-202410?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1730145244585",
+			ProductImageURL:  "http://localhost:9000/aura-assets/banners/macbook-pro-14-with-m4-pro.png",
 			CTAPrimaryText:   "Configure Now",
 			CTAPrimaryLink:   "/products/macbook-pro-14-m4",
-			CTASecondaryText: "Compare Specs",
+			CTASecondaryText: "Browse Mac Lineup",
 			CTASecondaryLink: "/catalog?category=mac",
 			SortOrder:        1,
 			IsActive:         true,
@@ -142,7 +142,7 @@ func seedBanners(db *gorm.DB) error {
 			BadgeText:        "240HZ OLED DISPLAY",
 			Headline:         "ROG Zephyrus G16 OLED",
 			Subheadline:      "Precision-engineered aluminum gaming & creator powerhouse with RTX 4080.",
-			ProductImageURL:  "https://dlcdnwebimgs.asus.com/gain/E4E1A4CD-1261-43D1-A18D-C91711A989AD/w1000/h732",
+			ProductImageURL:  "http://localhost:9000/aura-assets/banners/rog-zephyrus-g16-oled.png",
 			CTAPrimaryText:   "Explore ROG",
 			CTAPrimaryLink:   "/products/asus-rog-zephyrus-g16-oled",
 			CTASecondaryText: "Gaming Laptops",
@@ -156,11 +156,11 @@ func seedBanners(db *gorm.DB) error {
 			Placement:        "BENTO_GRID",
 			GridSpan:         "col-span-2 row-span-1",
 			ThemeMode:        "LIGHT",
-			BackgroundColor:  "#F4F4F5",
+			BackgroundColor:  "#FEF3C7",
 			BadgeText:        "EDUCATION PRICING",
 			Headline:         "Back to University Savings",
 			Subheadline:      "Save up to ฿5,500 on MacBook Air M3 with student identification.",
-			ProductImageURL:  "https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mba13-midnight-select-202402?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1708367688034",
+			ProductImageURL:  "http://localhost:9000/aura-assets/banners/back-to-university-savings.png",
 			CTAPrimaryText:   "Claim Student Deal",
 			CTAPrimaryLink:   "/products/macbook-air-13-m3",
 			CTASecondaryText: "Learn More",
@@ -309,8 +309,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mbp14-spaceblack-select-202410?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1730145244585",
-						"https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mbp14-spaceblack-gallery1-202410?wid=4000&hei=3072&fmt=jpeg&qlt=90&.v=1728935272671"
+						"http://localhost:9000/aura-assets/products/macbook-pro-14-m4/MBP14-M4-16-512-SB.png"
 					]`),
 				},
 				{
@@ -333,8 +332,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mbp14-silver-select-202410?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1730145244585",
-						"https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mbp14-silver-gallery1-202410?wid=4000&hei=3072&fmt=jpeg&qlt=90&.v=1728935272671"
+						"http://localhost:9000/aura-assets/products/macbook-pro-14-m4/MBP14-M4-16-512-SL.png"
 					]`),
 				},
 				{
@@ -357,7 +355,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mbp14-spaceblack-select-202410?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1730145244585"
+						"http://localhost:9000/aura-assets/products/macbook-pro-14-m4/MBP14-M4P-24-512-SB.png"
 					]`),
 				},
 				{
@@ -380,7 +378,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mbp14-spaceblack-select-202410?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1730145244585"
+						"http://localhost:9000/aura-assets/products/macbook-pro-14-m4/MBP14-M4P-48-1TB-SB.png"
 					]`),
 				},
 			},
@@ -422,7 +420,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mba13-midnight-select-202402?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1708367688034"
+						"http://localhost:9000/aura-assets/products/macbook-air-13-m3/MBA13-M3-16-256-MN.png"
 					]`),
 				},
 				{
@@ -445,7 +443,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mba13-silver-select-202402?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1708367688034"
+						"http://localhost:9000/aura-assets/products/macbook-air-13-m3/MBA13-M3-16-512-SL.png"
 					]`),
 				},
 				{
@@ -468,7 +466,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mba13-starlight-select-202402?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1708367688034"
+						"http://localhost:9000/aura-assets/products/macbook-air-13-m3/MBA13-M3-24-512-ST.png"
 					]`),
 				},
 			},
@@ -510,7 +508,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://dlcdnwebimgs.asus.com/gain/E4E1A4CD-1261-43D1-A18D-C91711A989AD/w1000/h732"
+						"http://localhost:9000/aura-assets/products/asus-rog-zephyrus-g16-oled/ROG-G16-U9-4070-GY.png"
 					]`),
 				},
 				{
@@ -533,7 +531,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://dlcdnwebimgs.asus.com/gain/AA196938-7A28-4264-904C-F7569F80B7B6"
+						"http://localhost:9000/aura-assets/products/asus-rog-zephyrus-g16-oled/ROG-G16-U9-4080-WH.png"
 					]`),
 				},
 			},
@@ -575,7 +573,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://p3-ofp.static.pub//fes/cms/2026/08/24/6do4e0n12c4vgm0z88s9s9xtfb3sli355994.png"
+						"http://localhost:9000/aura-assets/products/lenovo-yoga-slim-7i-aura/YOGA-7I-U7-16-512-LG.png"
 					]`),
 				},
 				{
@@ -598,7 +596,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://p3-ofp.static.pub//fes/cms/2026/08/24/6do4e0n12c4vgm0z88s9s9xtfb3sli355994.png"
+						"http://localhost:9000/aura-assets/products/lenovo-yoga-slim-7i-aura/YOGA-7I-U7-32-1TB-LG.png"
 					]`),
 				},
 			},
@@ -640,7 +638,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": true
 					}`),
 					Images: datatypes.JSON(`[
-						"https://www.lg.com/content/dam/channel/wcms/th/images/consumer-monitors/27md5kl-b_atm_eath_th_c/gallery/DZ_01.jpg?w=800"
+						"http://localhost:9000/aura-assets/products/lg-ultrafine-27-5k/LG-27MD5KL-B.png"
 					]`),
 				},
 			},
@@ -682,7 +680,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": false
 					}`),
 					Images: datatypes.JSON(`[
-						"https://www.keychron.com/cdn/shop/products/Keychron-Q1-Pro-QMK-VIA-wireless-custom-mechanical-keyboard-knob-75_-layout-full-aluminum-black-frame-for-Mac-Windows-Linux-barebone.jpg"
+						"http://localhost:9000/aura-assets/products/keychron-q1-pro-wireless/Q1P-KPRO-RED-CB.png"
 					]`),
 				},
 				{
@@ -705,7 +703,7 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 						"has_thunderbolt": false
 					}`),
 					Images: datatypes.JSON(`[
-						"https://www.keychron.com/cdn/shop/products/Keychron-Q1-Pro-QMK-VIA-wireless-custom-mechanical-keyboard-knob-75-percent-layout-full-aluminum-white-frame-for-Mac-Windows-Linux-with-RGB-backlight-hot-swappable-K-Pro-switch-banana.jpg"
+						"http://localhost:9000/aura-assets/products/keychron-q1-pro-wireless/Q1P-KPRO-BAN-SW.png"
 					]`),
 				},
 			},
@@ -753,8 +751,8 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 				existingVar.ColorHex = v.ColorHex
 				existingVar.Price = v.Price
 				existingVar.ComparePrice = v.ComparePrice
-				existingVar.StockQuantity = v.StockQuantity
-				existingVar.ReservedStock = v.ReservedStock
+				// Stock is managed in the admin and recorded in the stock ledger, and reserved
+				// units belong to live checkouts: re-seeding never overwrites either.
 				existingVar.Specs = v.Specs
 				existingVar.Images = v.Images
 				_ = db.Save(&existingVar)
@@ -765,25 +763,24 @@ func seedProductsAndVariants(db *gorm.DB, catMap map[string]uuid.UUID, brandMap 
 	// Seed Frequently Bought Together Bundles
 	mbpID := createdProductMap["macbook-pro-14-m4"]
 	mbaID := createdProductMap["macbook-air-13-m3"]
+	asusID := createdProductMap["asus-rog-zephyrus-g16-oled"]
+	yogaID := createdProductMap["lenovo-yoga-slim-7i-aura"]
 	keyboardID := createdProductMap["keychron-q1-pro-wireless"]
 	monitorID := createdProductMap["lg-ultrafine-27-5k"]
 
 	bundles := []models.ProductAccessoryBundle{
-		{
-			MainProductID:      mbpID,
-			AccessoryProductID: keyboardID,
-			BundleDiscountPct:  10,
-		},
-		{
-			MainProductID:      mbpID,
-			AccessoryProductID: monitorID,
-			BundleDiscountPct:  10,
-		},
-		{
-			MainProductID:      mbaID,
-			AccessoryProductID: keyboardID,
-			BundleDiscountPct:  10,
-		},
+		// MacBook Pro 14
+		{MainProductID: mbpID, AccessoryProductID: keyboardID, BundleDiscountPct: 10},
+		{MainProductID: mbpID, AccessoryProductID: monitorID, BundleDiscountPct: 10},
+		// MacBook Air 13
+		{MainProductID: mbaID, AccessoryProductID: keyboardID, BundleDiscountPct: 10},
+		{MainProductID: mbaID, AccessoryProductID: monitorID, BundleDiscountPct: 10},
+		// ASUS ROG Zephyrus G16
+		{MainProductID: asusID, AccessoryProductID: keyboardID, BundleDiscountPct: 10},
+		{MainProductID: asusID, AccessoryProductID: monitorID, BundleDiscountPct: 10},
+		// Lenovo Yoga Slim 7i Aura Edition
+		{MainProductID: yogaID, AccessoryProductID: keyboardID, BundleDiscountPct: 10},
+		{MainProductID: yogaID, AccessoryProductID: monitorID, BundleDiscountPct: 10},
 	}
 
 	for _, b := range bundles {
