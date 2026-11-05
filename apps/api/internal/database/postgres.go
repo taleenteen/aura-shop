@@ -45,6 +45,8 @@ func ConnectPostgres(databaseURL string) (*gorm.DB, error) {
 
 func AutoMigrate(db *gorm.DB) error {
 	slog.Info("running database schema auto-migrations...")
+	// Checked before migrating: the menu labels are backfilled only when the column is new.
+	navLabelIsNew := db.Migrator().HasTable(&models.Category{}) && !db.Migrator().HasColumn(&models.Category{}, "nav_label")
 
 	err := db.AutoMigrate(
 		&models.User{},
@@ -68,6 +70,12 @@ func AutoMigrate(db *gorm.DB) error {
 	}
 
 	slog.Info("database schema auto-migration succeeded")
+
+	if navLabelIsNew {
+		if err := backfillNavLabels(db); err != nil {
+			return fmt.Errorf("failed to backfill category menu labels: %w", err)
+		}
+	}
 
 	if err := normalizeGuestOwnership(db); err != nil {
 		return fmt.Errorf("failed to normalize cart/wishlist ownership: %w", err)
@@ -173,4 +181,17 @@ func EnsureGINIndexes(db *gorm.DB) error {
 
 	slog.Info("successfully verified and ensured GIN indexes on jsonb and text fields")
 	return nil
+}
+
+// backfillNavLabels gives existing categories their top-menu label when the nav_label column is
+// first added, so the menu looks the same as before. Unknown categories use their name.
+func backfillNavLabels(db *gorm.DB) error {
+	return db.Exec(`UPDATE categories SET nav_label = CASE slug
+		WHEN 'mac' THEN 'Mac'
+		WHEN 'ultrabooks' THEN 'Ultrabooks'
+		WHEN 'gaming-laptops' THEN 'Gaming'
+		WHEN 'monitors' THEN 'Monitors'
+		WHEN 'accessories' THEN 'Accessories'
+		ELSE LEFT(name, 20) END
+		WHERE nav_label = ''`).Error
 }

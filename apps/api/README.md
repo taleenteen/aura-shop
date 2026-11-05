@@ -59,7 +59,8 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | จัดการสินค้า | `GET/POST /admin/products`, `GET/PUT /admin/products/{id}`, `PATCH /admin/products/{id}/status` | `products`, `product_variants`, `stock_movements`, `cart_items` |
 | ปรับสต็อก + ประวัติ | `POST /admin/variants/{id}/stock-adjustments`, `GET /admin/variants/{id}/stock-movements` | `product_variants`, `stock_movements` |
 | อัปโหลดรูป | `POST /admin/uploads/images` | MinIO bucket `aura-assets` |
-| สร้างแบนเนอร์ | `POST /admin/banners` | `banners` |
+| จัดการแบนเนอร์ (หน้าแรก, promo grid, ribbon) | `GET/POST /admin/banners`, `PUT/DELETE /admin/banners/{id}`, `PATCH /admin/banners/{id}/status` | `banners` |
+| จัดการหมวดหมู่และแบรนด์ | `GET/POST /admin/categories`, `PUT/DELETE /admin/categories/{id}`, `GET/POST /admin/brands`, `PUT/DELETE /admin/brands/{id}` | `categories`, `brands` (นับ `products`) |
 
 ทุก path ขึ้นต้นด้วย `/api/v1` ยกเว้น `GET /health` และ `/admin/*` ต้องเป็นบัญชี ADMIN
 
@@ -68,7 +69,7 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | ตาราง | เก็บอะไร |
 |---|---|
 | `users` | บัญชีผู้ใช้ (รหัสผ่านเข้ารหัส bcrypt), บทบาท, ที่อยู่ |
-| `categories`, `brands` | หมวดหมู่และแบรนด์ |
+| `categories`, `brands` | หมวดหมู่และแบรนด์; `nav_label` ของหมวดคือชื่อในเมนูด้านบน (ว่าง = ไม่แสดงในเมนู) |
 | `products` | ข้อมูลสินค้า, กลุ่มการใช้งาน, เนื้อหาหน้าสินค้า (JSONB), เปิด/ปิดขาย |
 | `product_variants` | สี/สเปก, SKU, ราคา (สตางค์), รูป, `stock_quantity`, `reserved_stock` |
 | `product_accessory_bundles` | อุปกรณ์ที่แนะนำให้ซื้อคู่กัน |
@@ -78,7 +79,7 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | `stock_movements` | ประวัติการเปลี่ยนสต็อกทุกครั้ง: เหตุผล, จำนวน, ยอดหลังเปลี่ยน, ผู้ทำ, order |
 | `email_messages` | อีเมลถึงลูกค้าทุกฉบับ (ยืนยันการจ่าย, จัดส่ง, ส่งถึง, ยกเลิก) เขียนใน transaction เดียวกับการเปลี่ยนสถานะ order |
 | `password_reset_tokens` | ลิงก์รีเซ็ตรหัสผ่าน (เก็บ SHA-256 ของ token) ใช้ได้ครั้งเดียว หมดอายุ 30 นาที |
-| `banners` | แบนเนอร์หน้าแรก |
+| `banners` | แบนเนอร์หน้าแรก แสดงเมื่อเปิดอยู่และอยู่ในช่วง `start_at`–`end_at` |
 
 ### กฎสำคัญ
 - **เงิน** เก็บเป็นสตางค์ (`int64`)
@@ -157,7 +158,8 @@ go test ./...            # test
 | Product management | `GET/POST /admin/products`, `GET/PUT /admin/products/{id}`, `PATCH /admin/products/{id}/status` | `products`, `product_variants`, `stock_movements`, `cart_items` |
 | Stock adjustment + history | `POST /admin/variants/{id}/stock-adjustments`, `GET /admin/variants/{id}/stock-movements` | `product_variants`, `stock_movements` |
 | Image upload | `POST /admin/uploads/images` | MinIO bucket `aura-assets` |
-| Create banner | `POST /admin/banners` | `banners` |
+| Banner management (hero, promo grid, ribbon) | `GET/POST /admin/banners`, `PUT/DELETE /admin/banners/{id}`, `PATCH /admin/banners/{id}/status` | `banners` |
+| Category and brand management | `GET/POST /admin/categories`, `PUT/DELETE /admin/categories/{id}`, `GET/POST /admin/brands`, `PUT/DELETE /admin/brands/{id}` | `categories`, `brands` (counts `products`) |
 
 All paths are under `/api/v1` except `GET /health`; `/admin/*` requires an ADMIN account.
 
@@ -166,7 +168,7 @@ All paths are under `/api/v1` except `GET /health`; `/admin/*` requires an ADMIN
 | Table | Holds |
 |---|---|
 | `users` | Accounts (bcrypt passwords), role, address |
-| `categories`, `brands` | Taxonomy |
+| `categories`, `brands` | Taxonomy; a category's `nav_label` is its top-menu label (empty = not in the menu) |
 | `products` | Product details, use cases, product-page content (JSONB), on-sale flag |
 | `product_variants` | Colour/spec, SKU, price (satang), images, `stock_quantity`, `reserved_stock` |
 | `product_accessory_bundles` | "Frequently bought together" pairs |
@@ -176,7 +178,7 @@ All paths are under `/api/v1` except `GET /health`; `/admin/*` requires an ADMIN
 | `stock_movements` | Every stock change: reason, delta, balance after, who, which order |
 | `email_messages` | Every customer email (payment confirmed, shipped, delivered, cancelled), written in the same transaction as the order change |
 | `password_reset_tokens` | Password reset links (SHA-256 of the token only), single use, 30-minute expiry |
-| `banners` | Home-page banners |
+| `banners` | Home-page banners, shown while on and between `start_at` and `end_at` |
 
 ### Key rules
 - **Money** is stored in satang (`int64`).

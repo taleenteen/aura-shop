@@ -13,23 +13,15 @@ import (
 type AdminService interface {
 	GetOverview(ctx context.Context) (*dto.AdminOverviewStats, error)
 	ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error)
-	CreateBanner(ctx context.Context, banner *models.Banner) error
 	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, req dto.UpdateOrderStatusRequest) error
 }
 
 type adminService struct {
-	orderRepo  repository.OrderRepository
-	bannerRepo repository.BannerRepository
+	orderRepo repository.OrderRepository
 }
 
-func NewAdminService(
-	orderRepo repository.OrderRepository,
-	bannerRepo repository.BannerRepository,
-) AdminService {
-	return &adminService{
-		orderRepo:  orderRepo,
-		bannerRepo: bannerRepo,
-	}
+func NewAdminService(orderRepo repository.OrderRepository) AdminService {
+	return &adminService{orderRepo: orderRepo}
 }
 
 func (s *adminService) GetOverview(ctx context.Context) (*dto.AdminOverviewStats, error) {
@@ -38,10 +30,6 @@ func (s *adminService) GetOverview(ctx context.Context) (*dto.AdminOverviewStats
 
 func (s *adminService) ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error) {
 	return s.orderRepo.ListOrders(ctx, filter)
-}
-
-func (s *adminService) CreateBanner(ctx context.Context, banner *models.Banner) error {
-	return s.bannerRepo.Create(ctx, banner)
 }
 
 func (s *adminService) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, req dto.UpdateOrderStatusRequest) error {

@@ -11,7 +11,8 @@ type Category struct {
 	ID        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
 	Slug      string    `gorm:"uniqueIndex;not null" json:"slug"` // mac, ultrabooks, gaming-laptops, monitors, accessories
 	Name      string    `gorm:"not null" json:"name"`
-	IconName  string    `json:"icon_name"` // Lucide icon identifier
+	IconName  string    `json:"icon_name"`                            // Lucide icon identifier
+	NavLabel  string    `gorm:"not null;default:''" json:"nav_label"` // short label in the top menu; empty keeps it out of the menu
 	SortOrder int       `gorm:"default:0" json:"sort_order"`
 }
 

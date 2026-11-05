@@ -61,7 +61,8 @@ make dev-web                  # หน้าเว็บที่ http://localho
 - ภาพรวม: รายได้ แนวโน้ม 30 วัน ยอดรายวัน 7 วัน ยอดตามหมวด และสต็อกใกล้หมด
 - สินค้าและสต็อก: เพิ่ม/แก้สินค้า variant รูป และปรับสต็อกพร้อมบันทึกประวัติทุกครั้ง
 - จัดส่ง: เปลี่ยนสถานะคำสั่งซื้อตามขั้นตอนที่อนุญาต บันทึก S/N รายเครื่อง และขนส่ง + เลขพัสดุตอนส่งของ
-- แบนเนอร์บนหน้าแรก
+- แบนเนอร์: สร้าง แก้ เปิด/ปิด ลบ และตั้งช่วงเวลาแสดง (hero, promo grid, ribbon ด้านบน) พร้อมพรีวิว
+- หมวดหมู่และแบรนด์: เพิ่ม แก้ ลบ (ลบได้เมื่อไม่มีสินค้า) และกำหนดเมนูด้านบน
 
 ### คำสั่งที่ใช้บ่อย
 
@@ -133,7 +134,8 @@ On first start against an empty database the API creates the tables and loads sa
 - Overview: revenue, 30-day trend, last 7 days, revenue by category, low stock
 - Products & stock: create/edit products, variants and images; every stock change is recorded
 - Fulfilment: allowed status transitions only, one serial number per unit, carrier + tracking number on shipping
-- Home-page banners
+- Banners: create, edit, switch on/off, delete and schedule (hero, promo grid, top ribbon) with a live preview
+- Categories and brands: add, edit, delete (only when no products use them) and set the top menu
 
 ### Common commands
 

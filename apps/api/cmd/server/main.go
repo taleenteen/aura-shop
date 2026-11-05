@@ -79,14 +79,16 @@ func main() {
 	cartRepo := repository.NewCartRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
 	productAdminRepo := repository.NewProductAdminRepository(db)
+	merchRepo := repository.NewMerchandisingRepository(db)
 
 	// 2. Initialize Services
 	authService := service.NewAuthService(db, userRepo, wishlistRepo, cartRepo, cfg.JWTSecret)
 	catalogService := service.NewCatalogService(catalogRepo, bannerRepo)
 	interactionService := service.NewInteractionService(wishlistRepo, cartRepo)
 	checkoutService := service.NewCheckoutService(orderRepo, cartRepo)
-	adminService := service.NewAdminService(orderRepo, bannerRepo)
+	adminService := service.NewAdminService(orderRepo)
 	productAdminService := service.NewProductAdminService(productAdminRepo)
+	merchService := service.NewMerchandisingService(merchRepo)
 
 	// 3. Initialize HTTP Handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -97,6 +99,7 @@ func main() {
 	checkoutHandler := handler.NewCheckoutHandler(checkoutService)
 	adminHandler := handler.NewAdminHandler(adminService)
 	productAdminHandler := handler.NewProductAdminHandler(productAdminService, uploadImage)
+	merchHandler := handler.NewMerchandisingHandler(merchService)
 
 	// 4. Router Setup & Middleware Stack
 	r := chi.NewRouter()
@@ -190,7 +193,6 @@ func main() {
 			adm.Use(appMiddleware.RequireAdmin)
 			adm.Get("/overview", adminHandler.GetOverview)
 			adm.Get("/orders", adminHandler.ListOrders)
-			adm.Post("/banners", adminHandler.CreateBanner)
 			adm.Get("/products", productAdminHandler.ListProducts)
 			adm.Post("/products", productAdminHandler.CreateProduct)
 			adm.Get("/products/{id}", productAdminHandler.GetProduct)
@@ -200,6 +202,19 @@ func main() {
 			adm.Get("/variants/{id}/stock-movements", productAdminHandler.ListMovements)
 			adm.Post("/uploads/images", productAdminHandler.UploadImage)
 			adm.Patch("/orders/{id}/status", adminHandler.UpdateOrderStatus)
+			adm.Get("/banners", merchHandler.ListBanners)
+			adm.Post("/banners", merchHandler.CreateBanner)
+			adm.Put("/banners/{id}", merchHandler.UpdateBanner)
+			adm.Patch("/banners/{id}/status", merchHandler.SetBannerStatus)
+			adm.Delete("/banners/{id}", merchHandler.DeleteBanner)
+			adm.Get("/categories", merchHandler.ListCategories)
+			adm.Post("/categories", merchHandler.CreateCategory)
+			adm.Put("/categories/{id}", merchHandler.UpdateCategory)
+			adm.Delete("/categories/{id}", merchHandler.DeleteCategory)
+			adm.Get("/brands", merchHandler.ListBrands)
+			adm.Post("/brands", merchHandler.CreateBrand)
+			adm.Put("/brands/{id}", merchHandler.UpdateBrand)
+			adm.Delete("/brands/{id}", merchHandler.DeleteBrand)
 		})
 	})
 

@@ -30,10 +30,6 @@ func (m *mockAdminService) ListOrders(ctx context.Context, filter dto.OrderListF
 	return []models.Order{}, 0, nil
 }
 
-func (m *mockAdminService) CreateBanner(ctx context.Context, banner *models.Banner) error {
-	return nil
-}
-
 func (m *mockAdminService) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, req dto.UpdateOrderStatusRequest) error {
 	if m.updateOrderFunc != nil {
 		return m.updateOrderFunc(ctx, orderID, req)
