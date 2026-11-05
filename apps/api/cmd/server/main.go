@@ -82,6 +82,8 @@ func main() {
 	merchRepo := repository.NewMerchandisingRepository(db)
 	engagementRepo := repository.NewEngagementRepository(db)
 	importLookup := repository.NewProductImportLookup(db)
+	auditRepo := repository.NewAuditRepository(db)
+	reportRepo := repository.NewReportRepository(db)
 
 	// 2. Initialize Services
 	authService := service.NewAuthService(db, userRepo, wishlistRepo, cartRepo, cfg.JWTSecret)
@@ -93,6 +95,7 @@ func main() {
 	merchService := service.NewMerchandisingService(merchRepo)
 	engagementService := service.NewEngagementService(engagementRepo)
 	importService := service.NewProductImportService(productAdminRepo, importLookup)
+	auditService := service.NewAuditService(auditRepo)
 
 	// 3. Initialize HTTP Handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -101,11 +104,13 @@ func main() {
 	wishlistHandler := handler.NewWishlistHandler(interactionService)
 	cartHandler := handler.NewCartHandler(interactionService)
 	checkoutHandler := handler.NewCheckoutHandler(checkoutService)
-	adminHandler := handler.NewAdminHandler(adminService)
-	productAdminHandler := handler.NewProductAdminHandler(productAdminService, uploadImage)
-	merchHandler := handler.NewMerchandisingHandler(merchService)
-	engagementHandler := handler.NewEngagementHandler(engagementService)
-	importHandler := handler.NewProductImportHandler(importService)
+	adminHandler := handler.NewAdminHandler(adminService, auditService)
+	productAdminHandler := handler.NewProductAdminHandler(productAdminService, auditService, uploadImage)
+	merchHandler := handler.NewMerchandisingHandler(merchService, auditService)
+	engagementHandler := handler.NewEngagementHandler(engagementService, auditService)
+	importHandler := handler.NewProductImportHandler(importService, auditService)
+	auditHandler := handler.NewAuditHandler(auditService)
+	reportHandler := handler.NewReportHandler(reportRepo)
 
 	// 4. Router Setup & Middleware Stack
 	r := chi.NewRouter()
@@ -234,6 +239,9 @@ func main() {
 			adm.Delete("/brands/{id}", merchHandler.DeleteBrand)
 			adm.Get("/reviews", engagementHandler.ListReviewsAdmin)
 			adm.Patch("/reviews/{id}", engagementHandler.SetReviewHidden)
+			adm.Get("/audit-logs", auditHandler.List)
+			adm.Get("/reports/sales", reportHandler.Sales)
+			adm.Get("/reports/sales/export", reportHandler.Export)
 		})
 	})
 

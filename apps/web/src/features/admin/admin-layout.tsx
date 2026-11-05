@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Boxes, LayoutDashboard, Image as ImageIcon, Package, ArrowLeft, Shield, LogIn, CheckCircle2, AlertCircle, Tags, Star } from "lucide-react";
+import { Boxes, LayoutDashboard, Image as ImageIcon, Package, ArrowLeft, Shield, LogIn, CheckCircle2, AlertCircle, Tags, Star, BarChart3, History } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { apiClient } from "@/lib/api-client";
 import { DEMO_MODE } from "@/lib/demo-mode";
@@ -11,6 +11,8 @@ import { AdminOverview } from "./admin-overview";
 import { BannerManager } from "./banner-manager";
 import { TaxonomyAdmin } from "./taxonomy-admin";
 import { ReviewsAdmin } from "./reviews-admin";
+import { SalesReportPanel } from "./sales-report";
+import { AuditLogPanel } from "./audit-log";
 import { OrderSNFulfillment } from "./order-sn-fulfillment";
 import { ProductsAdmin } from "./products/products-admin";
 
@@ -21,6 +23,8 @@ const ADMIN_TABS = [
   { id: "banners", label: "Banners", icon: ImageIcon },
   { id: "catalog", label: "Categories & Brands", icon: Tags },
   { id: "reviews", label: "Reviews", icon: Star },
+  { id: "sales", label: "Sales report", icon: BarChart3 },
+  { id: "activity", label: "Activity", icon: History },
 ] as const;
 type AdminTab = (typeof ADMIN_TABS)[number]["id"];
 
@@ -174,6 +178,10 @@ export function AdminLayout() {
               <ProductsAdmin />
             ) : activeTab === "banners" ? (
               <BannerManager />
+            ) : activeTab === "sales" ? (
+              <SalesReportPanel />
+            ) : activeTab === "activity" ? (
+              <AuditLogPanel />
             ) : activeTab === "reviews" ? (
               <ReviewsAdmin />
             ) : activeTab === "catalog" ? (

@@ -28,13 +28,14 @@ var imageExtensions = map[string]string{"image/png": "png", "image/jpeg": "jpg",
 
 type ProductAdminHandler struct {
 	service service.ProductAdminService
+	audit   service.AuditService
 	upload  func(r *http.Request, objectName string, body io.Reader, size int64, contentType string) (string, error)
 }
 
 // NewProductAdminHandler wires the admin product endpoints. upload may be nil when object
 // storage is unavailable; uploads then answer 503.
-func NewProductAdminHandler(svc service.ProductAdminService, upload func(r *http.Request, objectName string, body io.Reader, size int64, contentType string) (string, error)) *ProductAdminHandler {
-	return &ProductAdminHandler{service: svc, upload: upload}
+func NewProductAdminHandler(svc service.ProductAdminService, audit service.AuditService, upload func(r *http.Request, objectName string, body io.Reader, size int64, contentType string) (string, error)) *ProductAdminHandler {
+	return &ProductAdminHandler{service: svc, audit: audit, upload: upload}
 }
 
 func actorFrom(r *http.Request) repository.Actor {
@@ -95,6 +96,10 @@ func (h *ProductAdminHandler) CreateProduct(w http.ResponseWriter, r *http.Reque
 		h.fail(w, err, "create product")
 		return
 	}
+	h.audit.Record(r.Context(), actorFrom(r), service.AuditEntry{
+		Action: "product.create", EntityType: "product", EntityID: p.ID.String(), EntityLabel: p.Name,
+		Changes: service.Diff(nil, service.ProductSnapshot(p)),
+	})
 	response.Success(w, http.StatusCreated, p, nil)
 }
 
@@ -108,10 +113,16 @@ func (h *ProductAdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Reque
 		response.BadRequest(w, "invalid request body: "+err.Error())
 		return
 	}
+	before, _ := h.service.GetProduct(r.Context(), id)
 	p, err := h.service.UpdateProduct(r.Context(), id, in, actorFrom(r))
 	if err != nil {
 		h.fail(w, err, "update product")
 		return
+	}
+	if changes := service.Diff(service.ProductSnapshot(before), service.ProductSnapshot(p)); len(changes) > 0 {
+		h.audit.Record(r.Context(), actorFrom(r), service.AuditEntry{
+			Action: "product.update", EntityType: "product", EntityID: p.ID.String(), EntityLabel: p.Name, Changes: changes,
+		})
 	}
 	response.Success(w, http.StatusOK, p, nil)
 }
@@ -126,9 +137,20 @@ func (h *ProductAdminHandler) SetStatus(w http.ResponseWriter, r *http.Request) 
 		response.BadRequest(w, "invalid request body")
 		return
 	}
+	before, _ := h.service.GetProduct(r.Context(), id)
 	if err := h.service.SetActive(r.Context(), id, req.IsActive); err != nil {
 		h.fail(w, err, "update product status")
 		return
+	}
+	if before != nil && before.IsActive != req.IsActive {
+		action := "product.hide"
+		if req.IsActive {
+			action = "product.show"
+		}
+		h.audit.Record(r.Context(), actorFrom(r), service.AuditEntry{
+			Action: action, EntityType: "product", EntityID: id.String(), EntityLabel: before.Name,
+			Changes: []models.AuditChange{{Field: "on_sale", From: yesNo(before.IsActive), To: yesNo(req.IsActive)}},
+		})
 	}
 	response.Success(w, http.StatusOK, map[string]bool{"is_active": req.IsActive}, nil)
 }
@@ -148,6 +170,14 @@ func (h *ProductAdminHandler) AdjustStock(w http.ResponseWriter, r *http.Request
 		h.fail(w, err, "adjust stock")
 		return
 	}
+	h.audit.Record(r.Context(), actorFrom(r), service.AuditEntry{
+		Action: "stock.adjust", EntityType: "variant", EntityID: id.String(), EntityLabel: res.SKU,
+		Changes: []models.AuditChange{
+			{Field: "stock", From: strconv.Itoa(res.StockQuantity - res.Delta), To: strconv.Itoa(res.StockQuantity)},
+			{Field: "reason", To: strings.ToUpper(strings.TrimSpace(req.Reason))},
+			{Field: "note", To: strings.TrimSpace(req.Note)},
+		},
+	})
 	response.Success(w, http.StatusOK, res, nil)
 }
 
@@ -240,4 +270,11 @@ func decodeStrict(r *http.Request, v interface{}) error {
 	dec := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
 	dec.DisallowUnknownFields()
 	return dec.Decode(v)
+}
+
+func yesNo(b bool) string {
+	if b {
+		return "Yes"
+	}
+	return "No"
 }

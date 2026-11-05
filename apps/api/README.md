@@ -61,6 +61,8 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | จัดการสินค้า | `GET/POST /admin/products`, `GET/PUT /admin/products/{id}`, `PATCH /admin/products/{id}/status` | `products`, `product_variants`, `stock_movements`, `cart_items` |
 | ปรับสต็อก + ประวัติ | `POST /admin/variants/{id}/stock-adjustments`, `GET /admin/variants/{id}/stock-movements` | `product_variants`, `stock_movements` |
 | นำเข้า / ส่งออกสินค้าด้วย CSV | `GET /admin/imports/products/columns`, `POST /admin/imports/products/preview`, `POST /admin/imports/products/commit`, `GET /admin/imports/products/export` | `products`, `product_variants`, `stock_movements` |
+| บันทึกการแก้ไขของ admin (audit log) | `GET /admin/audit-logs` (ตัวกรอง `type`, `actor`, `q`, `from`, `to`) | `audit_logs` |
+| รายงานยอดขาย + ดาวน์โหลด CSV | `GET /admin/reports/sales?from=&to=&group=day|week|month`, `GET /admin/reports/sales/export` | `orders`, `order_items`, `products`, `categories`, `stock_movements` |
 | อัปโหลดรูป | `POST /admin/uploads/images` | MinIO bucket `aura-assets` |
 | จัดการแบนเนอร์ (หน้าแรก, promo grid, ribbon) | `GET/POST /admin/banners`, `PUT/DELETE /admin/banners/{id}`, `PATCH /admin/banners/{id}/status` | `banners` |
 | จัดการหมวดหมู่และแบรนด์ | `GET/POST /admin/categories`, `PUT/DELETE /admin/categories/{id}`, `GET/POST /admin/brands`, `PUT/DELETE /admin/brands/{id}` | `categories`, `brands` (นับ `products`) |
@@ -86,6 +88,7 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | `banners` | แบนเนอร์หน้าแรก แสดงเมื่อเปิดอยู่และอยู่ในช่วง `start_at`–`end_at` |
 | `stock_alerts` | คำขอแจ้งเตือนเมื่อสินค้ากลับมามีของ (รอส่งได้หนึ่งรายการต่อคนต่อตัวเลือก) ส่งอีเมลเมื่อสต็อกที่ซื้อได้กลับมามากกว่า 0 |
 | `reviews` | รีวิวหนึ่งรายการต่อคนต่อสินค้า คะแนน 1–5 admin ซ่อนได้ |
+| `audit_logs` | การแก้ไขทุกครั้งของ admin: ใคร ทำอะไร กับอะไร และค่าก่อน/หลังของแต่ละช่อง |
 
 ### กฎสำคัญ
 - **เงิน** เก็บเป็นสตางค์ (`int64`)
@@ -166,6 +169,8 @@ go test ./...            # test
 | Product management | `GET/POST /admin/products`, `GET/PUT /admin/products/{id}`, `PATCH /admin/products/{id}/status` | `products`, `product_variants`, `stock_movements`, `cart_items` |
 | Stock adjustment + history | `POST /admin/variants/{id}/stock-adjustments`, `GET /admin/variants/{id}/stock-movements` | `product_variants`, `stock_movements` |
 | Product CSV import / export | `GET /admin/imports/products/columns`, `POST /admin/imports/products/preview`, `POST /admin/imports/products/commit`, `GET /admin/imports/products/export` | `products`, `product_variants`, `stock_movements` |
+| Admin activity log (audit) | `GET /admin/audit-logs` (filters `type`, `actor`, `q`, `from`, `to`) | `audit_logs` |
+| Sales report + CSV export | `GET /admin/reports/sales?from=&to=&group=day|week|month`, `GET /admin/reports/sales/export` | `orders`, `order_items`, `products`, `categories`, `stock_movements` |
 | Image upload | `POST /admin/uploads/images` | MinIO bucket `aura-assets` |
 | Banner management (hero, promo grid, ribbon) | `GET/POST /admin/banners`, `PUT/DELETE /admin/banners/{id}`, `PATCH /admin/banners/{id}/status` | `banners` |
 | Category and brand management | `GET/POST /admin/categories`, `PUT/DELETE /admin/categories/{id}`, `GET/POST /admin/brands`, `PUT/DELETE /admin/brands/{id}` | `categories`, `brands` (counts `products`) |
@@ -191,6 +196,7 @@ All paths are under `/api/v1` except `GET /health`; `/admin/*` requires an ADMIN
 | `banners` | Home-page banners, shown while on and between `start_at` and `end_at` |
 | `stock_alerts` | Back-in-stock requests (one pending per customer per option); emailed when available stock rises above 0 |
 | `reviews` | One review per customer per product, 1–5 stars; admins can hide it |
+| `audit_logs` | Every admin change: who, what, which record, and each field before and after |
 
 ### Key rules
 - **Money** is stored in satang (`int64`).

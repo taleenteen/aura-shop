@@ -7,17 +7,19 @@ import (
 	"net/http"
 
 	"aura-tech/api/internal/dto"
+	"aura-tech/api/internal/models"
 	"aura-tech/api/internal/response"
 	"aura-tech/api/internal/service"
 )
 
 // ProductImportHandler serves the admin product CSV import.
 type ProductImportHandler struct {
-	svc service.ProductImportService
+	svc   service.ProductImportService
+	audit service.AuditService
 }
 
-func NewProductImportHandler(svc service.ProductImportService) *ProductImportHandler {
-	return &ProductImportHandler{svc: svc}
+func NewProductImportHandler(svc service.ProductImportService, audit service.AuditService) *ProductImportHandler {
+	return &ProductImportHandler{svc: svc, audit: audit}
 }
 
 // maxImportBody leaves room for JSON escaping around a 2 MB CSV.
@@ -72,6 +74,18 @@ func (h *ProductImportHandler) Commit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("product import", "file", req.Filename, "created", out.Created, "updated", out.Updated, "failed", out.Failed)
+	if out.Created+out.Updated > 0 {
+		// One entry for the file, listing each product it created or updated.
+		changes := []models.AuditChange{}
+		for _, o := range out.Outcomes {
+			if o.Status == "created" || o.Status == "updated" {
+				changes = append(changes, models.AuditChange{Field: o.Name, To: o.Status})
+			}
+		}
+		h.audit.Record(r.Context(), actorFrom(r), service.AuditEntry{
+			Action: "products.import", EntityType: "import", EntityLabel: req.Filename, Changes: changes,
+		})
+	}
 	response.Success(w, http.StatusOK, out, nil)
 }
 

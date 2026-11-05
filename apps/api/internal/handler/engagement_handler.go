@@ -9,6 +9,7 @@ import (
 
 	"aura-tech/api/internal/dto"
 	"aura-tech/api/internal/middleware"
+	"aura-tech/api/internal/models"
 	"aura-tech/api/internal/repository"
 	"aura-tech/api/internal/response"
 	"aura-tech/api/internal/service"
@@ -19,11 +20,12 @@ import (
 
 // EngagementHandler serves back-in-stock alerts, the account inbox and product reviews.
 type EngagementHandler struct {
-	svc service.EngagementService
+	svc   service.EngagementService
+	audit service.AuditService
 }
 
-func NewEngagementHandler(svc service.EngagementService) *EngagementHandler {
-	return &EngagementHandler{svc: svc}
+func NewEngagementHandler(svc service.EngagementService, audit service.AuditService) *EngagementHandler {
+	return &EngagementHandler{svc: svc, audit: audit}
 }
 
 func (h *EngagementHandler) fail(w http.ResponseWriter, err error, action string) {
@@ -221,5 +223,14 @@ func (h *EngagementHandler) SetReviewHidden(w http.ResponseWriter, r *http.Reque
 		h.fail(w, err, "update review")
 		return
 	}
+	label, _ := h.svc.ReviewLabel(r.Context(), id)
+	action, from, to := "review.hide", "Visible", "Hidden"
+	if !req.IsHidden {
+		action, from, to = "review.show", "Hidden", "Visible"
+	}
+	h.audit.Record(r.Context(), actorFrom(r), service.AuditEntry{
+		Action: action, EntityType: "review", EntityID: id.String(), EntityLabel: label,
+		Changes: []models.AuditChange{{Field: "visibility", From: from, To: to}},
+	})
 	response.Success(w, http.StatusOK, map[string]bool{"is_hidden": req.IsHidden}, nil)
 }

@@ -66,6 +66,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.PasswordResetToken{},
 		&models.StockAlert{},
 		&models.Review{},
+		&models.AuditLog{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to auto-migrate schemas: %w", err)
