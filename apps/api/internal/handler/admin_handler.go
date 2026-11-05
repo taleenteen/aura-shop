@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"aura-tech/api/internal/dto"
+	"aura-tech/api/internal/models"
 	"aura-tech/api/internal/repository"
 	"aura-tech/api/internal/response"
 	"aura-tech/api/internal/service"
@@ -25,10 +26,11 @@ const (
 
 type AdminHandler struct {
 	adminService service.AdminService
+	audit        service.AuditService
 }
 
-func NewAdminHandler(adminService service.AdminService) *AdminHandler {
-	return &AdminHandler{adminService: adminService}
+func NewAdminHandler(adminService service.AdminService, audit service.AuditService) *AdminHandler {
+	return &AdminHandler{adminService: adminService, audit: audit}
 }
 
 func (h *AdminHandler) GetOverview(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +95,7 @@ func (h *AdminHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	before, _ := h.adminService.GetOrder(r.Context(), orderID)
 	err = h.adminService.UpdateOrderStatus(r.Context(), orderID, req)
 	if err != nil {
 		if errors.Is(err, repository.ErrSerialNumberRequired) {
@@ -124,8 +127,41 @@ func (h *AdminHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if after, _ := h.adminService.GetOrder(r.Context(), orderID); before != nil && after != nil {
+		if changes := orderChanges(before, after); len(changes) > 0 {
+			h.audit.Record(r.Context(), actorFrom(r), service.AuditEntry{
+				Action: "order.status", EntityType: "order", EntityID: after.ID.String(), EntityLabel: after.OrderNumber, Changes: changes,
+			})
+		}
+	}
+
 	response.Success(w, http.StatusOK, map[string]string{
 		"message": "order status successfully updated",
 		"status":  req.Status,
 	}, nil)
+}
+
+// orderChanges lists what an admin changed on an order: status, shipment and serial numbers.
+func orderChanges(before, after *models.Order) []models.AuditChange {
+	var out []models.AuditChange
+	add := func(field, from, to string) {
+		if from != to {
+			out = append(out, models.AuditChange{Field: field, From: from, To: to})
+		}
+	}
+	add("status", before.Status, after.Status)
+	add("carrier", before.Carrier, after.Carrier)
+	add("tracking_number", before.TrackingNumber, after.TrackingNumber)
+	serials := func(o *models.Order) map[string]string {
+		m := map[string]string{}
+		for _, it := range o.Items {
+			m[it.SKUSnapshot] = strings.Join(it.SerialNumbers, ", ")
+		}
+		return m
+	}
+	b, a := serials(before), serials(after)
+	for _, it := range after.Items {
+		add("serials."+it.SKUSnapshot, b[it.SKUSnapshot], a[it.SKUSnapshot])
+	}
+	return out
 }

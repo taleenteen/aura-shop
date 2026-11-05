@@ -36,6 +36,8 @@ type EngagementRepository interface {
 	DeleteUserReview(ctx context.Context, productID, userID uuid.UUID) error
 	ListReviewsAdmin(ctx context.Context, filter dto.AdminReviewFilter) ([]dto.AdminReview, int64, error)
 	SetReviewHidden(ctx context.Context, id uuid.UUID, hidden bool) error
+	// ReviewLabel describes a review for the audit log: product, author and rating.
+	ReviewLabel(ctx context.Context, id uuid.UUID) (string, error)
 }
 
 type engagementRepository struct {
@@ -270,3 +272,19 @@ func (r *engagementRepository) SetReviewHidden(ctx context.Context, id uuid.UUID
 	return nil
 }
 
+
+func (r *engagementRepository) ReviewLabel(ctx context.Context, id uuid.UUID) (string, error) {
+	var row struct {
+		Product, Email string
+		Rating         int
+	}
+	err := r.db.WithContext(ctx).Table("reviews r").
+		Select("p.name AS product, u.email, r.rating").
+		Joins("JOIN products p ON p.id = r.product_id").
+		Joins("JOIN users u ON u.id = r.user_id").
+		Where("r.id = ?", id).Scan(&row).Error
+	if err != nil || row.Product == "" {
+		return "", err
+	}
+	return fmt.Sprintf("%s · %d★ by %s", row.Product, row.Rating, row.Email), nil
+}

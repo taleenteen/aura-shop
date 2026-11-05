@@ -80,6 +80,7 @@ type StockAdjustmentRequest struct {
 
 type StockAdjustmentResponse struct {
 	VariantID      uuid.UUID `json:"variant_id"`
+	SKU            string    `json:"sku"`
 	StockQuantity  int       `json:"stock_quantity"`
 	ReservedStock  int       `json:"reserved_stock"`
 	AvailableStock int       `json:"available_stock"`
@@ -221,4 +222,44 @@ type AdminReview struct {
 	AuthorEmail string    `json:"author_email"`
 	ProductName string    `json:"product_name"`
 	ProductSlug string    `json:"product_slug"`
+}
+
+// ---------------------------------------------------------------- sales report
+
+// SalesReport summarises paid orders between two store dates (inclusive).
+type SalesReport struct {
+	From     string           `json:"from"`
+	To       string           `json:"to"`
+	Group    string           `json:"group"` // day, week or month
+	Totals   SalesTotals      `json:"totals"`
+	Previous SalesTotals      `json:"previous"` // the same number of days just before From
+	Series   []SalesPeriod    `json:"series"`
+	Products []SalesBreakdown `json:"top_products"`
+	Category []SalesBreakdown `json:"categories"`
+	Payments []SalesBreakdown `json:"payment_methods"`
+}
+
+type SalesTotals struct {
+	Orders            int64 `json:"orders"`
+	Units             int64 `json:"units"`
+	RevenueSatang     int64 `json:"revenue_satang"`
+	AvgOrderSatang    int64 `json:"avg_order_satang"`
+	RefundedOrders    int64 `json:"refunded_orders"` // paid, then cancelled by the store
+	RefundedSatang    int64 `json:"refunded_satang"`
+	NewCustomerOrders int64 `json:"new_customer_orders"` // first paid order of that email
+}
+
+type SalesPeriod struct {
+	Start         string `json:"start"` // YYYY-MM-DD, store time
+	Orders        int64  `json:"orders"`
+	Units         int64  `json:"units"`
+	RevenueSatang int64  `json:"revenue_satang"`
+}
+
+type SalesBreakdown struct {
+	Key           string `json:"key"`
+	Label         string `json:"label"`
+	Orders        int64  `json:"orders"`
+	Units         int64  `json:"units"`
+	RevenueSatang int64  `json:"revenue_satang"`
 }

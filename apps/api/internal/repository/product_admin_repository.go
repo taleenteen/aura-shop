@@ -352,7 +352,7 @@ func (r *productAdminRepository) AdjustStock(ctx context.Context, variantID uuid
 			return err
 		}
 		resp = dto.StockAdjustmentResponse{
-			VariantID: v.ID, StockQuantity: next, ReservedStock: v.ReservedStock,
+			VariantID: v.ID, SKU: v.SKU, StockQuantity: next, ReservedStock: v.ReservedStock,
 			AvailableStock: next - v.ReservedStock, Delta: delta,
 		}
 		return nil

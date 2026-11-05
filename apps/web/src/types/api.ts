@@ -573,3 +573,53 @@ export interface ImportResult {
   failed: number;
   outcomes: { key: string; name: string; status: "created" | "updated" | "skipped" | "unchanged" | "failed"; product_id?: string; message?: string }[];
 }
+
+// ---------------------------------------------------------------- audit log & sales report
+
+export interface AuditChange {
+  field: string;
+  from: string;
+  to: string;
+}
+
+export interface AuditLog {
+  id: string;
+  actor_id: string | null;
+  actor_email: string;
+  action: string;
+  entity_type: "product" | "variant" | "order" | "banner" | "category" | "brand" | "review" | "import";
+  entity_id: string;
+  entity_label: string;
+  changes: AuditChange[];
+  created_at: string;
+}
+
+export interface SalesTotals {
+  orders: number;
+  units: number;
+  revenue_satang: number;
+  avg_order_satang: number;
+  refunded_orders: number;
+  refunded_satang: number;
+  new_customer_orders: number;
+}
+
+export interface SalesBreakdown {
+  key: string;
+  label: string;
+  orders: number;
+  units: number;
+  revenue_satang: number;
+}
+
+export interface SalesReport {
+  from: string;
+  to: string;
+  group: "day" | "week" | "month";
+  totals: SalesTotals;
+  previous: SalesTotals;
+  series: { start: string; orders: number; units: number; revenue_satang: number }[];
+  top_products: SalesBreakdown[];
+  categories: SalesBreakdown[];
+  payment_methods: SalesBreakdown[];
+}

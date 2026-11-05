@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"aura-tech/api/internal/dto"
+	"aura-tech/api/internal/models"
 	"aura-tech/api/internal/repository"
 	"aura-tech/api/internal/response"
 	"aura-tech/api/internal/service"
@@ -18,11 +19,12 @@ import (
 
 // MerchandisingHandler serves the admin endpoints for banners, categories and brands.
 type MerchandisingHandler struct {
-	svc service.MerchandisingService
+	svc   service.MerchandisingService
+	audit service.AuditService
 }
 
-func NewMerchandisingHandler(svc service.MerchandisingService) *MerchandisingHandler {
-	return &MerchandisingHandler{svc: svc}
+func NewMerchandisingHandler(svc service.MerchandisingService, audit service.AuditService) *MerchandisingHandler {
+	return &MerchandisingHandler{svc: svc, audit: audit}
 }
 
 func (h *MerchandisingHandler) fail(w http.ResponseWriter, err error, action string) {
@@ -62,6 +64,13 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
+// record writes an audit entry when something changed.
+func (h *MerchandisingHandler) record(r *http.Request, action, kind, id, label string, before, after service.Snapshot) {
+	if changes := service.Diff(before, after); len(changes) > 0 {
+		h.audit.Record(r.Context(), actorFrom(r), service.AuditEntry{Action: action, EntityType: kind, EntityID: id, EntityLabel: label, Changes: changes})
+	}
+}
+
 // ---------------------------------------------------------------- banners
 
 func (h *MerchandisingHandler) ListBanners(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +92,7 @@ func (h *MerchandisingHandler) CreateBanner(w http.ResponseWriter, r *http.Reque
 		h.fail(w, err, "create banner")
 		return
 	}
+	h.record(r, "banner.create", "banner", b.ID.String(), b.Headline, nil, service.BannerSnapshot(b))
 	response.Success(w, http.StatusCreated, b, nil)
 }
 
@@ -95,11 +105,13 @@ func (h *MerchandisingHandler) UpdateBanner(w http.ResponseWriter, r *http.Reque
 	if !decode(w, r, &in) {
 		return
 	}
+	before, _ := h.svc.GetBanner(r.Context(), id)
 	b, err := h.svc.UpdateBanner(r.Context(), id, in)
 	if err != nil {
 		h.fail(w, err, "update banner")
 		return
 	}
+	h.record(r, "banner.update", "banner", b.ID.String(), b.Headline, service.BannerSnapshot(before), service.BannerSnapshot(b))
 	response.Success(w, http.StatusOK, b, nil)
 }
 
@@ -114,9 +126,19 @@ func (h *MerchandisingHandler) SetBannerStatus(w http.ResponseWriter, r *http.Re
 	if !decode(w, r, &req) {
 		return
 	}
+	before, _ := h.svc.GetBanner(r.Context(), id)
 	if err := h.svc.SetBannerActive(r.Context(), id, req.IsActive); err != nil {
 		h.fail(w, err, "update banner")
 		return
+	}
+	if before != nil {
+		after := *before
+		after.IsActive = req.IsActive
+		action := "banner.off"
+		if req.IsActive {
+			action = "banner.on"
+		}
+		h.record(r, action, "banner", id.String(), before.Headline, service.BannerSnapshot(before), service.BannerSnapshot(&after))
 	}
 	response.Success(w, http.StatusOK, map[string]bool{"is_active": req.IsActive}, nil)
 }
@@ -126,9 +148,13 @@ func (h *MerchandisingHandler) DeleteBanner(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
+	before, _ := h.svc.GetBanner(r.Context(), id)
 	if err := h.svc.DeleteBanner(r.Context(), id); err != nil {
 		h.fail(w, err, "delete banner")
 		return
+	}
+	if before != nil {
+		h.record(r, "banner.delete", "banner", id.String(), before.Headline, service.BannerSnapshot(before), nil)
 	}
 	response.Success(w, http.StatusOK, map[string]string{"message": "Banner deleted."}, nil)
 }
@@ -149,11 +175,18 @@ func (h *MerchandisingHandler) saveCategory(w http.ResponseWriter, r *http.Reque
 	if !decode(w, r, &in) {
 		return
 	}
+	var before *models.Category
+	action := "category.create"
+	if id != nil {
+		before, _ = h.svc.GetCategory(r.Context(), *id)
+		action = "category.update"
+	}
 	c, err := h.svc.SaveCategory(r.Context(), id, in)
 	if err != nil {
 		h.fail(w, err, "save category")
 		return
 	}
+	h.record(r, action, "category", c.ID.String(), c.Name, service.CategorySnapshot(before), service.CategorySnapshot(c))
 	response.Success(w, status, c, nil)
 }
 
@@ -172,9 +205,13 @@ func (h *MerchandisingHandler) DeleteCategory(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
+	before, _ := h.svc.GetCategory(r.Context(), id)
 	if err := h.svc.DeleteCategory(r.Context(), id); err != nil {
 		h.fail(w, err, "delete category")
 		return
+	}
+	if before != nil {
+		h.record(r, "category.delete", "category", id.String(), before.Name, service.CategorySnapshot(before), nil)
 	}
 	response.Success(w, http.StatusOK, map[string]string{"message": "Category deleted."}, nil)
 }
@@ -195,11 +232,18 @@ func (h *MerchandisingHandler) saveBrand(w http.ResponseWriter, r *http.Request,
 	if !decode(w, r, &in) {
 		return
 	}
+	var before *models.Brand
+	action := "brand.create"
+	if id != nil {
+		before, _ = h.svc.GetBrand(r.Context(), *id)
+		action = "brand.update"
+	}
 	b, err := h.svc.SaveBrand(r.Context(), id, in)
 	if err != nil {
 		h.fail(w, err, "save brand")
 		return
 	}
+	h.record(r, action, "brand", b.ID.String(), b.Name, service.BrandSnapshot(before), service.BrandSnapshot(b))
 	response.Success(w, status, b, nil)
 }
 
@@ -218,9 +262,13 @@ func (h *MerchandisingHandler) DeleteBrand(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
+	before, _ := h.svc.GetBrand(r.Context(), id)
 	if err := h.svc.DeleteBrand(r.Context(), id); err != nil {
 		h.fail(w, err, "delete brand")
 		return
+	}
+	if before != nil {
+		h.record(r, "brand.delete", "brand", id.String(), before.Name, service.BrandSnapshot(before), nil)
 	}
 	response.Success(w, http.StatusOK, map[string]string{"message": "Brand deleted."}, nil)
 }

@@ -22,6 +22,9 @@ type MerchandisingService interface {
 	UpdateBanner(ctx context.Context, id uuid.UUID, in dto.BannerInput) (*models.Banner, error)
 	SetBannerActive(ctx context.Context, id uuid.UUID, active bool) error
 	DeleteBanner(ctx context.Context, id uuid.UUID) error
+	GetBanner(ctx context.Context, id uuid.UUID) (*models.Banner, error)
+	GetCategory(ctx context.Context, id uuid.UUID) (*models.Category, error)
+	GetBrand(ctx context.Context, id uuid.UUID) (*models.Brand, error)
 
 	ListCategories(ctx context.Context) ([]dto.AdminCategory, error)
 	SaveCategory(ctx context.Context, id *uuid.UUID, in dto.CategoryInput) (*models.Category, error)
@@ -312,4 +315,16 @@ func (s *merchandisingService) SaveBrand(ctx context.Context, id *uuid.UUID, in 
 
 func (s *merchandisingService) DeleteBrand(ctx context.Context, id uuid.UUID) error {
 	return s.repo.DeleteBrand(ctx, id)
+}
+
+func (s *merchandisingService) GetBanner(ctx context.Context, id uuid.UUID) (*models.Banner, error) {
+	return s.repo.GetBanner(ctx, id)
+}
+
+func (s *merchandisingService) GetCategory(ctx context.Context, id uuid.UUID) (*models.Category, error) {
+	return s.repo.GetCategory(ctx, id)
+}
+
+func (s *merchandisingService) GetBrand(ctx context.Context, id uuid.UUID) (*models.Brand, error) {
+	return s.repo.GetBrand(ctx, id)
 }

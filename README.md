@@ -63,6 +63,8 @@ make dev-web                  # หน้าเว็บที่ http://localho
 - ภาพรวม: รายได้ แนวโน้ม 30 วัน ยอดรายวัน 7 วัน ยอดตามหมวด และสต็อกใกล้หมด
 - สินค้าและสต็อก: เพิ่ม/แก้สินค้า variant รูป และปรับสต็อกพร้อมบันทึกประวัติทุกครั้ง
 - นำเข้า / ส่งออกสินค้าด้วย CSV: ดาวน์โหลด template และคู่มือส่งให้คนอื่นกรอกได้ ระบบจับคู่สินค้าด้วย slug และตัวเลือกด้วย SKU ถ้าชื่อซ้ำแต่ slug ต่างจะถามว่าเป็นสินค้าเดียวกันหรือไม่ และเลือกได้ทีละช่องว่าจะใช้ค่าจากไฟล์หรือค่าเดิม ก่อนบันทึกจริง
+- บันทึกการแก้ไข (Activity): ทุกการแก้ไขของ admin ต่อสินค้า สต็อก order แบนเนอร์ หมวดหมู่ แบรนด์ รีวิว และการนำเข้า CSV พร้อมค่าก่อน/หลัง ค้นหาและกรองได้
+- รายงานยอดขาย: ช่วงวันที่และจัดกลุ่มรายวัน/สัปดาห์/เดือน เทียบช่วงก่อนหน้า สินค้าขายดี ยอดตามหมวดและวิธีชำระเงิน ดาวน์โหลด CSV ได้
 - จัดส่ง: เปลี่ยนสถานะคำสั่งซื้อตามขั้นตอนที่อนุญาต บันทึก S/N รายเครื่อง และขนส่ง + เลขพัสดุตอนส่งของ
 - แบนเนอร์: สร้าง แก้ เปิด/ปิด ลบ และตั้งช่วงเวลาแสดง (hero, promo grid, ribbon ด้านบน) พร้อมพรีวิว
 - หมวดหมู่และแบรนด์: เพิ่ม แก้ ลบ (ลบได้เมื่อไม่มีสินค้า) และกำหนดเมนูด้านบน
@@ -140,6 +142,8 @@ On first start against an empty database the API creates the tables and loads sa
 - Overview: revenue, 30-day trend, last 7 days, revenue by category, low stock
 - Products & stock: create/edit products, variants and images; every stock change is recorded
 - Product CSV import / export: downloadable template and guide to hand to others; products match by slug and options by SKU; a same-name product with a different slug asks whether it is the same product; every changed field can keep its current value before anything is saved
+- Activity log: every admin change to products, stock, orders, banners, categories, brands, reviews and CSV imports, with before/after values; searchable and filterable
+- Sales report: any date range by day/week/month, compared with the previous period, top products, revenue by category and payment method, CSV downloads
 - Fulfilment: allowed status transitions only, one serial number per unit, carrier + tracking number on shipping
 - Banners: create, edit, switch on/off, delete and schedule (hero, promo grid, top ribbon) with a live preview
 - Categories and brands: add, edit, delete (only when no products use them) and set the top menu

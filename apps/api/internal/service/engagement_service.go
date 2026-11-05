@@ -24,6 +24,7 @@ type EngagementService interface {
 	DeleteReview(ctx context.Context, slug string, userID uuid.UUID) error
 	ListReviewsAdmin(ctx context.Context, filter dto.AdminReviewFilter) ([]dto.AdminReview, int64, error)
 	SetReviewHidden(ctx context.Context, id uuid.UUID, hidden bool) error
+	ReviewLabel(ctx context.Context, id uuid.UUID) (string, error)
 }
 
 type engagementService struct {
@@ -158,4 +159,8 @@ func (s *engagementService) ListReviewsAdmin(ctx context.Context, filter dto.Adm
 
 func (s *engagementService) SetReviewHidden(ctx context.Context, id uuid.UUID, hidden bool) error {
 	return s.repo.SetReviewHidden(ctx, id, hidden)
+}
+
+func (s *engagementService) ReviewLabel(ctx context.Context, id uuid.UUID) (string, error) {
+	return s.repo.ReviewLabel(ctx, id)
 }

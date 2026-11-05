@@ -30,6 +30,10 @@ func (m *mockAdminService) ListOrders(ctx context.Context, filter dto.OrderListF
 	return []models.Order{}, 0, nil
 }
 
+func (m *mockAdminService) GetOrder(ctx context.Context, id uuid.UUID) (*models.Order, error) {
+	return nil, nil
+}
+
 func (m *mockAdminService) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, req dto.UpdateOrderStatusRequest) error {
 	if m.updateOrderFunc != nil {
 		return m.updateOrderFunc(ctx, orderID, req)
@@ -47,7 +51,7 @@ func TestAdminUpdateOrderStatus_SerialNumberRequired(t *testing.T) {
 		},
 	}
 
-	adminHandler := handler.NewAdminHandler(mockSvc)
+	adminHandler := handler.NewAdminHandler(mockSvc, nil)
 
 	r := chi.NewRouter()
 	r.Patch("/admin/orders/{id}/status", adminHandler.UpdateOrderStatus)
