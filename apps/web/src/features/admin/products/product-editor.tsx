@@ -13,6 +13,8 @@ import {
   X,
 } from "lucide-react";
 import { apiClient, apiUpload, type ApiRequestError } from "@/lib/api-client";
+import { z } from "zod";
+import { validate, type FieldErrors } from "@/lib/validation";
 import { formatTHB } from "@/lib/currency";
 import { BENTO_ICON_NAMES } from "@/features/configurator/bento-highlights";
 import { BOX_ICON_NAMES } from "@/features/configurator/ports-and-box";
@@ -44,6 +46,60 @@ const RAM_OPTIONS = [0, 8, 16, 18, 24, 32, 36, 48, 64, 96, 128];
 const STORAGE_OPTIONS = [0, 256, 512, 1024, 2048, 4096, 8192];
 const storageText = (gb: number) => (gb === 0 ? "None" : gb >= 1024 ? `${gb / 1024}TB` : `${gb}GB`);
 
+
+/**
+ * Field rules, matching the API's product validation so most mistakes show before saving.
+ * Spec details and "SKU used by another product" are still checked by the API.
+ */
+const httpUrl = z.string().refine((s) => {
+  try {
+    const u = new URL(s);
+    return (u.protocol === "http:" || u.protocol === "https:") && s.length <= 500;
+  } catch {
+    return false;
+  }
+}, "Images must be uploaded files or http(s) links.");
+
+const variantSchema = z
+  .object({
+    sku: z.string().trim().toUpperCase().regex(/^[A-Z0-9][A-Z0-9-]{1,63}$/, "SKU: 2–64 letters, numbers or hyphens."),
+    color_name: z.string().trim().min(1, "Colour name is required (max 50).").max(50, "Colour name is required (max 50)."),
+    color_hex: z.string().trim().regex(/^#[0-9A-Fa-f]{6}$/, "Use a hex colour like #2E2C2E."),
+    price: z.number().int().positive("Price must be more than ฿0."),
+    compare_price: z.number().int().min(0),
+    images: z.array(httpUrl).max(10, "At most 10 images per variant."),
+    initial_stock: z.number().int().min(0, "Opening stock must be 0 or more.").max(100000, "Opening stock must be 0 or more."),
+  })
+  .loose()
+  .refine((v) => v.compare_price === 0 || v.compare_price > v.price, {
+    path: ["compare_price"],
+    message: "Compare-at price must be higher than the price, or empty.",
+  });
+
+const productSchema = z
+  .object({
+    name: z.string().trim().min(2, "Name must be 2–200 characters.").max(200, "Name must be 2–200 characters."),
+    slug: z
+      .string()
+      .trim()
+      .min(1, "Use lowercase letters, numbers and single hyphens (e.g. macbook-air-13).")
+      .max(120, "Use lowercase letters, numbers and single hyphens (e.g. macbook-air-13).")
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers and single hyphens (e.g. macbook-air-13)."),
+    category_id: z.string().min(1, "Choose a category."),
+    brand_id: z.string().min(1, "Choose a brand."),
+    tagline: z.string().trim().max(200, "Keep the tagline under 200 characters."),
+    short_description: z.string().trim().max(1000, "Keep the description under 1,000 characters."),
+    variants: z.array(variantSchema).min(1, "Add at least one variant.").max(50, "At most 50 variants per product."),
+  })
+  .loose()
+  .superRefine((p, ctx) => {
+    const seen = new Map<string, number>();
+    p.variants.forEach((v, i) => {
+      const first = seen.get(v.sku);
+      if (first !== undefined) ctx.addIssue({ code: "custom", path: ["variants", i, "sku"], message: `Same SKU as variant ${first + 1}.` });
+      else seen.set(v.sku, i);
+    });
+  });
 let keySeq = 0;
 const newKey = () => `v${++keySeq}`;
 
@@ -134,7 +190,7 @@ export function ProductEditor({ productId }: { productId: string | null }) {
   const [isLoading, setIsLoading] = useState(!!productId);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [banner, setBanner] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [stockFor, setStockFor] = useState<VariantDraft | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -186,11 +242,19 @@ export function ProductEditor({ productId }: { productId: string | null }) {
   };
 
   const save = async () => {
-    setIsSaving(true);
-    setErrors({});
     setBanner(null);
+    const input = toInput(draft);
+    const checked = validate(productSchema, input);
+    setErrors(checked.ok ? {} : checked.fields);
+    if (!checked.ok) {
+      const n = Object.keys(checked.fields).length;
+      setBanner({ kind: "error", text: `${n} field${n === 1 ? "" : "s"} need${n === 1 ? "s" : ""} attention.` });
+      topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    setIsSaving(true);
     try {
-      const body = JSON.stringify(toInput(draft));
+      const body = JSON.stringify(input);
       const res = productId
         ? await apiClient<Product>(`/admin/products/${productId}`, { method: "PUT", body })
         : await apiClient<Product>("/admin/products", { method: "POST", body });

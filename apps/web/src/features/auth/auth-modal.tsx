@@ -1,14 +1,28 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { X, Sparkles, Mail, Lock, User as UserIcon, Phone, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, type ApiRequestError } from "@/lib/api-client";
+import { z } from "zod";
+import { validate, email as emailRule, password as passwordRule, requiredText, optionalText, type FieldErrors } from "@/lib/validation";
 import { useAuthStore } from "@/stores/auth-store";
 import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 import type { AuthResponse } from "@/types/api";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import { ForgotPasswordPanel } from "./forgot-password-panel";
+
+const signInSchema = z.object({
+  email: emailRule(),
+  password: z.string().min(1, "Enter your password."),
+});
+
+const registerSchema = z.object({
+  full_name: requiredText("your name", 100),
+  email: emailRule(),
+  phone: optionalText(30),
+  password: passwordRule,
+});
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -22,6 +36,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  // Errors belong to the form they came from; switching sign-in / register / forgot clears them.
+  useEffect(() => setFieldErrors({}), [mode]);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -31,6 +48,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const loadWishlist = useWishlistStore((state) => state.loadWishlist);
 
   const resetForm = () => {
+    setFieldErrors({});
     setEmail("");
     setPassword("");
     setFullName("");
@@ -63,44 +81,20 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setError(null);
     setSuccessMsg(null);
 
-    if (mode === "signin") {
-      if (!email.trim() || !password) {
-        setError("Please enter your email and password.");
-        return;
-      }
-    } else {
-      if (!fullName.trim() || !email.trim() || !password) {
-        setError("Please complete all required fields.");
-        return;
-      }
-      if (password.length < 6) {
-        setError("Password must be at least 6 characters.");
-        return;
-      }
+    setFieldErrors({});
+    const checked =
+      mode === "signin" ? validate(signInSchema, { email, password }) : validate(registerSchema, { email, password, full_name: fullName, phone });
+    if (!checked.ok) {
+      setFieldErrors(checked.fields);
+      return;
     }
 
     setIsLoading(true);
     try {
-      let res: { data: AuthResponse };
-      if (mode === "signin") {
-        res = await apiClient<AuthResponse>("/auth/login", {
-          method: "POST",
-          body: JSON.stringify({
-            email: email.trim().toLowerCase(),
-            password,
-          }),
-        });
-      } else {
-        res = await apiClient<AuthResponse>("/auth/register", {
-          method: "POST",
-          body: JSON.stringify({
-            email: email.trim().toLowerCase(),
-            password,
-            full_name: fullName.trim(),
-            phone: phone.trim() || "080-000-0000",
-          }),
-        });
-      }
+      const res = await apiClient<AuthResponse>(mode === "signin" ? "/auth/login" : "/auth/register", {
+        method: "POST",
+        body: JSON.stringify(checked.data),
+      });
 
       setAuth(res.data.user, res.data.token);
       setSuccessMsg(
@@ -119,7 +113,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         handleClose();
       }, 700);
     } catch (err) {
-      setError((err as Error).message || "Authentication failed. Please check your credentials.");
+      const apiErr = err as ApiRequestError;
+      if (apiErr.fields) setFieldErrors(apiErr.fields);
+      else setError(apiErr.message || "Authentication failed. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }
@@ -247,7 +243,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
               {mode === "register" && (
                 <div>
                   <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
@@ -264,6 +260,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white transition-all"
                     />
                   </div>
+                {fieldErrors.full_name && <p className="mt-1 text-[11px] text-rose-600">{fieldErrors.full_name}</p>}
                 </div>
               )}
 
@@ -282,6 +279,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white transition-all"
                   />
                 </div>
+                {fieldErrors.email && <p className="mt-1 text-[11px] text-rose-600">{fieldErrors.email}</p>}
               </div>
 
               {mode === "register" && (
@@ -299,6 +297,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white transition-all"
                     />
                   </div>
+                {fieldErrors.phone && <p className="mt-1 text-[11px] text-rose-600">{fieldErrors.phone}</p>}
                 </div>
               )}
 
@@ -333,6 +332,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white transition-all"
                   />
                 </div>
+                {fieldErrors.password && <p className="mt-1 text-[11px] text-rose-600">{fieldErrors.password}</p>}
               </div>
 
               {/* Submit Button */}

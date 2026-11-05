@@ -18,6 +18,7 @@ const (
 	EmailOrderDelivered = "ORDER_DELIVERED"
 	EmailOrderCancelled = "ORDER_CANCELLED"
 	EmailPasswordReset  = "PASSWORD_RESET" // account email: link to choose a new password
+	EmailBackInStock    = "BACK_IN_STOCK"  // account email: a variant the customer waited for is available
 )
 
 // Why an order was cancelled; carried in an ORDER_CANCELLED email's data.

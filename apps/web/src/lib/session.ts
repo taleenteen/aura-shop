@@ -2,6 +2,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 import { useCompareStore } from "@/stores/compare-store";
+import { useStockAlertStore } from "@/stores/stock-alert-store";
 
 /**
  * Signs out and leaves the browser as a brand-new guest: every localStorage key is removed
@@ -19,6 +20,7 @@ export async function signOut(): Promise<void> {
   useCartStore.setState({ items: [], totalItems: 0, subtotalAmount: 0 });
   useWishlistStore.setState({ likedIds: [] });
   useCompareStore.getState().clearCompare();
+  useStockAlertStore.getState().reset();
 
   await Promise.all([useCartStore.getState().fetchCart(), useWishlistStore.getState().loadWishlist()]);
 }

@@ -56,6 +56,12 @@ route ประกาศไว้ใน `src/app/router.tsx`
 - **เงินเป็นสตางค์** แสดงผลด้วย `formatTHB()` ใน `lib/currency.ts`
 - สถานะ order ที่เปลี่ยนได้มาจาก backend (`allowed_transitions`) หน้าเว็บไม่ได้กำหนดเอง
 
+### ฟอร์ม
+- ทุกฟอร์มตรวจข้อมูลด้วย **zod**: ประกาศ schema ไว้ในไฟล์ของฟอร์ม แล้วเรียก `validate(schema, values)` จาก `lib/validation.ts` ก่อนส่ง
+- error ใช้ key เดียวกับ backend (`email`, `variants.0.sku`) จึงเก็บ error ของ zod และของ API (`error.fields`) ไว้ใน state เดียวกันแล้วแสดงใต้ช่องนั้นได้เลย
+- กฎที่ใช้ซ้ำ (อีเมล รหัสผ่าน ลิงก์ slug) อยู่ใน `lib/validation.ts` และต้องตรงกับฝั่ง backend เสมอ backend ยังตรวจซ้ำทุกครั้ง
+- ใส่ `noValidate` ที่ `<form>` เพื่อให้ข้อความ error มาจาก zod แทน browser
+
 ---
 
 ## English
@@ -107,3 +113,9 @@ Other data is fetched by the page that needs it through `lib/api-client.ts`:
 - All types live in `src/types/api.ts` and mirror the backend DTOs.
 - **Money is in satang**; display it with `formatTHB()` from `lib/currency.ts`.
 - Allowed order status changes come from the backend (`allowed_transitions`); the UI never hard-codes them.
+
+### Forms
+- Every form validates with **zod**: declare the schema next to the form and call `validate(schema, values)` from `lib/validation.ts` before submitting.
+- Error keys match the API (`email`, `variants.0.sku`), so zod errors and API `error.fields` share one state and show under the matching input.
+- Shared rules (email, password, link, slug) live in `lib/validation.ts` and must match the backend, which still validates every request.
+- Put `noValidate` on `<form>` so messages come from zod, not the browser.

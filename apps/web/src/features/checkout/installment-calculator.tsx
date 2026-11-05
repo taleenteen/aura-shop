@@ -2,6 +2,13 @@ import { useState } from "react";
 import { Check, ShieldCheck } from "lucide-react";
 import { formatTHB } from "@/lib/currency";
 import type { InstallmentPlanData } from "@/types/api";
+import { z } from "zod";
+import { validate } from "@/lib/validation";
+
+const planSchema = z.object({
+  bank_code: z.enum(["KBANK", "SCB", "KRUNGSRI", "BBL"]),
+  months: z.union([z.literal(3), z.literal(6), z.literal(10)]),
+});
 
 interface InstallmentCalculatorProps {
   totalSatang: number;
@@ -32,10 +39,14 @@ export function InstallmentCalculator({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // The choices come from fixed buttons; the schema keeps every form on the same pattern
+    // and matches the banks and tenures the API accepts.
+    const checked = validate(planSchema, { bank_code: selectedBank, months: selectedMonths });
+    if (!checked.ok) return;
     onPay({
-      bank_code: selectedBank,
+      bank_code: checked.data.bank_code,
       bank_name: bankName,
-      months: selectedMonths,
+      months: checked.data.months,
       interest_rate: 0,
       monthly_pay_satang: monthlyPaySatang,
     });

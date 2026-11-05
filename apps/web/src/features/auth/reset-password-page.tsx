@@ -7,6 +7,12 @@ import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 import { useUIStore } from "@/stores/ui-store";
 import type { AuthResponse } from "@/types/api";
+import { z } from "zod";
+import { validate, password as passwordRule } from "@/lib/validation";
+
+const resetSchema = z
+  .object({ password: passwordRule, confirm: z.string() })
+  .refine((d) => d.password === d.confirm, { path: ["confirm"], message: "Passwords don't match." });
 
 /** Landing page of the reset link in the password reset email. */
 export function ResetPasswordPage() {
@@ -25,8 +31,8 @@ export function ResetPasswordPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
-    if (password.length < 6) return setErrors({ password: "Use at least 6 characters." });
-    if (password !== confirm) return setErrors({ confirm: "Passwords don't match." });
+    const checked = validate(resetSchema, { password, confirm });
+    if (!checked.ok) return setErrors(checked.fields);
     setErrors({});
     setBusy(true);
     try {

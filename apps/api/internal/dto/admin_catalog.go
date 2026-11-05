@@ -145,3 +145,80 @@ type BannerInput struct {
 	StartAt          time.Time `json:"start_at"`
 	EndAt            time.Time `json:"end_at"`
 }
+
+// StockAlertView is a pending back-in-stock alert with the variant it waits for.
+type StockAlertView struct {
+	VariantID   uuid.UUID `json:"variant_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	ProductName string    `json:"product_name"`
+	ProductSlug string    `json:"product_slug"`
+	Variant     string    `json:"variant"`
+	Image       string    `json:"image"`
+	Price       int64     `json:"price"`
+}
+
+// ReviewSummary is a product's average rating and how many reviews gave each star (index 0 = 1 star).
+type ReviewSummary struct {
+	Average      float64 `json:"average"`
+	Count        int     `json:"count"`
+	Distribution [5]int  `json:"distribution"`
+}
+
+// ReviewView is a published review. AuthorName is shortened before it is sent.
+type ReviewView struct {
+	ID         uuid.UUID `json:"id"`
+	Rating     int       `json:"rating"`
+	Title      string    `json:"title"`
+	Body       string    `json:"body"`
+	AuthorName string    `json:"author_name"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+// ReviewViewer tells the signed-in visitor whether they can review the product, and shows
+// their own review (including one an admin hid).
+type ReviewViewer struct {
+	CanReview bool        `json:"can_review"`
+	MyReview  *ReviewMine `json:"my_review"`
+}
+
+type ReviewMine struct {
+	Rating   int    `json:"rating"`
+	Title    string `json:"title"`
+	Body     string `json:"body"`
+	IsHidden bool   `json:"is_hidden"`
+}
+
+// ProductReviews is one page of a product's reviews with its summary.
+type ProductReviews struct {
+	Summary ReviewSummary `json:"summary"`
+	Reviews []ReviewView  `json:"reviews"`
+	Viewer  *ReviewViewer `json:"viewer"` // nil for guests
+}
+
+type ReviewInput struct {
+	Rating int    `json:"rating"`
+	Title  string `json:"title"`
+	Body   string `json:"body"`
+}
+
+type AdminReviewFilter struct {
+	Status string // "", visible, hidden
+	Rating int
+	Search string
+	Page   int
+	Limit  int
+}
+
+type AdminReview struct {
+	ID          uuid.UUID `json:"id"`
+	Rating      int       `json:"rating"`
+	Title       string    `json:"title"`
+	Body        string    `json:"body"`
+	IsHidden    bool      `json:"is_hidden"`
+	CreatedAt   time.Time `json:"created_at"`
+	AuthorName  string    `json:"author_name"`
+	AuthorEmail string    `json:"author_email"`
+	ProductName string    `json:"product_name"`
+	ProductSlug string    `json:"product_slug"`
+}

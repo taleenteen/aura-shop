@@ -3,6 +3,10 @@ import { ArrowLeft, KeyRound, Loader2, Mail, MailCheck } from "lucide-react";
 import { apiClient, type ApiRequestError } from "@/lib/api-client";
 import type { EmailMessage } from "@/types/api";
 import { AccountEmailViewer } from "@/features/orders/email-viewer";
+import { z } from "zod";
+import { validate, email as emailRule } from "@/lib/validation";
+
+const forgotSchema = z.object({ email: emailRule() });
 
 interface Props {
   initialEmail: string;
@@ -23,14 +27,19 @@ export function ForgotPasswordPanel({ initialEmail, onBack, onLeave }: Props) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true);
     setError(null);
+    const checked = validate(forgotSchema, { email });
+    if (!checked.ok) {
+      setError(checked.fields.email);
+      return;
+    }
+    setBusy(true);
     try {
       const res = await apiClient<{ email_id?: string }>("/auth/forgot-password", {
         method: "POST",
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify(checked.data),
       });
-      setSentTo(email.trim());
+      setSentTo(checked.data.email);
       setEmailId(res.data.email_id ?? null);
     } catch (err) {
       const apiErr = err as ApiRequestError;

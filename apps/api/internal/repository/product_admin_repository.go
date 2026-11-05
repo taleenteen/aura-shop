@@ -294,14 +294,24 @@ func (r *productAdminRepository) UpdateProduct(ctx context.Context, p *models.Pr
 }
 
 func (r *productAdminRepository) SetActive(ctx context.Context, id uuid.UUID, active bool) error {
-	res := r.db.WithContext(ctx).Model(&models.Product{}).Where("id = ?", id).Update("is_active", active)
-	if res.Error != nil {
-		return fmt.Errorf("failed to update product status: %w", res.Error)
-	}
-	if res.RowsAffected == 0 {
-		return ErrProductNotFound
-	}
-	return nil
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&models.Product{}).Where("id = ?", id).Update("is_active", active)
+		if res.Error != nil {
+			return fmt.Errorf("failed to update product status: %w", res.Error)
+		}
+		if res.RowsAffected == 0 {
+			return ErrProductNotFound
+		}
+		if !active {
+			return nil
+		}
+		// Back on sale: customers waiting for an option that has stock can buy it now.
+		var variantIDs []uuid.UUID
+		if err := tx.Model(&models.ProductVariant{}).Where("product_id = ?", id).Pluck("id", &variantIDs).Error; err != nil {
+			return err
+		}
+		return notifyBackInStock(tx, variantIDs...)
+	})
 }
 
 func (r *productAdminRepository) AdjustStock(ctx context.Context, variantID uuid.UUID, req dto.StockAdjustmentRequest, actor Actor) (*dto.StockAdjustmentResponse, error) {
@@ -336,6 +346,9 @@ func (r *productAdminRepository) AdjustStock(ctx context.Context, variantID uuid
 			return fmt.Errorf("failed to update stock: %w", err)
 		}
 		if err := recordMovement(tx, v.ID, delta, next, req.Reason, req.Note, &actor, nil); err != nil {
+			return err
+		}
+		if err := notifyBackInStock(tx, v.ID); err != nil {
 			return err
 		}
 		resp = dto.StockAdjustmentResponse{

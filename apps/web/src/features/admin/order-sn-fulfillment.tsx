@@ -17,6 +17,20 @@ import { apiClient, type ApiRequestError } from "@/lib/api-client";
 import { formatTHB } from "@/lib/currency";
 import type { Carrier, Order, OrderStatus } from "@/types/api";
 import { CARRIERS, carrierName } from "@/features/orders/carriers";
+import { z } from "zod";
+import { validate, type FieldErrors } from "@/lib/validation";
+
+/** Matches the API: carrier from the list, tracking 6–40 letters, digits or dashes, a serial per unit. */
+const shipSchema = z.object({
+  carrier: z.enum(["KERRY", "FLASH", "DHL"], { message: "Choose a carrier." }),
+  tracking_number: z
+    .string()
+    .transform((s) => s.replace(/\s+/g, "").toUpperCase())
+    .pipe(z.string().min(6, "Tracking number must be 6–40 characters.").max(40, "Tracking number must be 6–40 characters.").regex(/^[A-Z0-9-]+$/, "Use only letters, digits and dashes.")),
+  serials: z
+    .record(z.string(), z.array(z.string()))
+    .refine((m) => Object.values(m).every((units) => units.every((s) => s.trim() !== "")), "Enter a serial number for every unit before shipping."),
+});
 
 const PAGE_SIZE = 25;
 
@@ -73,7 +87,7 @@ export function OrderSNFulfillment() {
   const [serialNumbers, setSerialNumbers] = useState<Record<string, string[]>>({});
   const [carrier, setCarrier] = useState<Carrier | "">("");
   const [trackingNumber, setTrackingNumber] = useState("");
-  const [shipErrors, setShipErrors] = useState<Record<string, string>>({});
+  const [shipErrors, setShipErrors] = useState<FieldErrors>({});
   const [isUpdating, setIsUpdating] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -139,11 +153,22 @@ export function OrderSNFulfillment() {
   const handleStatusSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOrder || !targetStatus) return;
-
-    setIsUpdating(true);
     setSuccessMsg(null);
     setErrorMsg(null);
-    setShipErrors({});
+
+    // Shipping needs a serial for every unit plus the carrier and tracking number.
+    if (targetStatus === "SHIPPED" && selectedOrder.status !== "SHIPPED") {
+      const checked = validate(shipSchema, { carrier, tracking_number: trackingNumber, serials: serialNumbers });
+      setShipErrors(checked.ok ? {} : checked.fields);
+      if (!checked.ok) {
+        setErrorMsg(checked.fields.serials ?? "Add the carrier and tracking number before marking as shipped.");
+        return;
+      }
+    } else {
+      setShipErrors({});
+    }
+
+    setIsUpdating(true);
 
     try {
       await apiClient<{ message: string; status: string }>(
@@ -433,7 +458,7 @@ export function OrderSNFulfillment() {
         {/* Selected Order Fulfillment & State Machine Panel */}
         <div className="lg:col-span-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
           {selectedOrder ? (
-            <form onSubmit={handleStatusSubmit} className="space-y-5">
+            <form onSubmit={handleStatusSubmit} noValidate className="space-y-5">
               <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">

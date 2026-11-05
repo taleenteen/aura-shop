@@ -266,6 +266,8 @@ export interface OrderItem {
   quantity: number;
   /** One warranty serial per unit; index i is unit i+1. */
   serial_numbers: string[] | null;
+  /** Product page slug; present in My Orders. */
+  product_slug?: string;
 }
 
 export interface Order {
@@ -423,7 +425,7 @@ export interface ProductInput {
   variants: VariantInput[];
 }
 
-export type EmailKind = "ORDER_CONFIRMED" | "ORDER_SHIPPED" | "ORDER_DELIVERED" | "ORDER_CANCELLED" | "PASSWORD_RESET";
+export type EmailKind = "ORDER_CONFIRMED" | "ORDER_SHIPPED" | "ORDER_DELIVERED" | "ORDER_CANCELLED" | "PASSWORD_RESET" | "BACK_IN_STOCK";
 export type CancelReason = "customer" | "expired" | "store";
 
 /** An email sent to the customer about an order. */
@@ -436,7 +438,7 @@ export interface EmailMessage {
   recipient: string;
   subject: string;
   preheader: string;
-  data?: { reason?: CancelReason; token?: string; expires_minutes?: number } | null;
+  data?: (Partial<BackInStockData> & { reason?: CancelReason; token?: string; expires_minutes?: number }) | null;
   sent_at: string;
 }
 
@@ -449,4 +451,65 @@ export interface AdminCategory extends Category {
 
 export interface AdminBrand extends Brand {
   product_count: number;
+}
+
+/** The variant described in a BACK_IN_STOCK email. */
+export interface BackInStockData {
+  product_name: string;
+  product_slug: string;
+  variant_id: string;
+  variant: string;
+  image: string;
+  price: number;
+}
+
+/** A pending "email me when it's back" request. */
+export interface StockAlert {
+  variant_id: string;
+  created_at: string;
+  product_name: string;
+  product_slug: string;
+  variant: string;
+  image: string;
+  price: number;
+}
+
+export interface ReviewSummary {
+  average: number;
+  count: number;
+  /** Reviews per star; index 0 is 1 star. */
+  distribution: [number, number, number, number, number];
+}
+
+export interface Review {
+  id: string;
+  rating: number;
+  title: string;
+  body: string;
+  author_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductReviews {
+  summary: ReviewSummary;
+  reviews: Review[];
+  /** Present when signed in. */
+  viewer: {
+    can_review: boolean;
+    my_review: { rating: number; title: string; body: string; is_hidden: boolean } | null;
+  } | null;
+}
+
+export interface AdminReview {
+  id: string;
+  rating: number;
+  title: string;
+  body: string;
+  is_hidden: boolean;
+  created_at: string;
+  author_name: string;
+  author_email: string;
+  product_name: string;
+  product_slug: string;
 }
