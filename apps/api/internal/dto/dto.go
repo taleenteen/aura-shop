@@ -26,8 +26,16 @@ type UserDTO struct {
 	Email     string    `json:"email"`
 	FullName  string    `json:"full_name"`
 	Phone     string    `json:"phone"`
+	Address   string    `json:"address"`
 	Role      string    `json:"role"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// UpdateProfileRequest replaces the signed-in user's editable profile fields.
+type UpdateProfileRequest struct {
+	FullName string `json:"full_name"`
+	Phone    string `json:"phone"`
+	Address  string `json:"address"`
 }
 
 type AuthResponse struct {

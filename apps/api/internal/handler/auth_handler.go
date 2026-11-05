@@ -2,6 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 
 	"aura-tech/api/internal/dto"
@@ -70,6 +72,36 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	profile, err := h.authService.GetProfile(r.Context(), user.ID)
 	if err != nil {
 		response.NotFound(w, "user profile not found")
+		return
+	}
+
+	response.Success(w, http.StatusOK, profile, nil)
+}
+
+func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		response.Unauthorized(w, "authentication required")
+		return
+	}
+
+	var req dto.UpdateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	profile, err := h.authService.UpdateProfile(r.Context(), user.ID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidProfile):
+			response.Error(w, http.StatusBadRequest, "INVALID_PROFILE", err.Error())
+		case errors.Is(err, service.ErrUserNotFound):
+			response.NotFound(w, "user profile not found")
+		default:
+			slog.Error("profile update failed", "user_id", user.ID, "error", err)
+			response.InternalServerError(w, "failed to update profile")
+		}
 		return
 	}
 

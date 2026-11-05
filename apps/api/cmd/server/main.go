@@ -123,6 +123,13 @@ func main() {
 			auth.Post("/register", authHandler.Register)
 			auth.Post("/login", authHandler.Login)
 			auth.With(appMiddleware.RequireAuth).Get("/me", authHandler.Me)
+			auth.With(appMiddleware.RequireAuth).Patch("/me", authHandler.UpdateMe)
+		})
+
+		// Signed-in customer account
+		api.Route("/account", func(acc chi.Router) {
+			acc.Use(appMiddleware.RequireAuth)
+			acc.Get("/orders", checkoutHandler.ListMyOrders)
 		})
 
 		// Dynamic Component-Driven Banners

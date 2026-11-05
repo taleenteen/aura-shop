@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"aura-tech/api/internal/dto"
 	"aura-tech/api/internal/middleware"
@@ -27,6 +29,7 @@ type AuthService interface {
 	Register(ctx context.Context, req dto.RegisterRequest, guestID *string) (*dto.AuthResponse, error)
 	Login(ctx context.Context, req dto.LoginRequest, guestID *string) (*dto.AuthResponse, error)
 	GetProfile(ctx context.Context, userID uuid.UUID) (*dto.UserDTO, error)
+	UpdateProfile(ctx context.Context, userID uuid.UUID, req dto.UpdateProfileRequest) (*dto.UserDTO, error)
 }
 
 type authService struct {
@@ -86,11 +89,7 @@ func (s *authService) Register(ctx context.Context, req dto.RegisterRequest, gue
 
 	// Guest-to-User Merge in DB transaction
 	if guestID != nil && *guestID != "" {
-		_ = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			_ = s.wishlistRepo.MergeGuestWishlist(ctx, tx, *guestID, user.ID)
-			_ = s.cartRepo.MergeGuestCart(ctx, tx, *guestID, user.ID)
-			return nil
-		})
+		s.mergeGuestIntoUser(ctx, *guestID, user.ID)
 	}
 
 	token, err := middleware.GenerateJWT(user, s.jwtSecret, 7*24*time.Hour)
@@ -100,14 +99,7 @@ func (s *authService) Register(ctx context.Context, req dto.RegisterRequest, gue
 
 	return &dto.AuthResponse{
 		Token: token,
-		User: dto.UserDTO{
-			ID:        user.ID,
-			Email:     user.Email,
-			FullName:  user.FullName,
-			Phone:     user.Phone,
-			Role:      user.Role,
-			CreatedAt: user.CreatedAt,
-		},
+		User:  *toUserDTO(user),
 	}, nil
 }
 
@@ -127,11 +119,7 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequest, guestID *
 
 	// Guest-to-User Merge in DB transaction
 	if guestID != nil && *guestID != "" {
-		_ = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			_ = s.wishlistRepo.MergeGuestWishlist(ctx, tx, *guestID, user.ID)
-			_ = s.cartRepo.MergeGuestCart(ctx, tx, *guestID, user.ID)
-			return nil
-		})
+		s.mergeGuestIntoUser(ctx, *guestID, user.ID)
 	}
 
 	token, err := middleware.GenerateJWT(user, s.jwtSecret, 7*24*time.Hour)
@@ -141,14 +129,7 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequest, guestID *
 
 	return &dto.AuthResponse{
 		Token: token,
-		User: dto.UserDTO{
-			ID:        user.ID,
-			Email:     user.Email,
-			FullName:  user.FullName,
-			Phone:     user.Phone,
-			Role:      user.Role,
-			CreatedAt: user.CreatedAt,
-		},
+		User:  *toUserDTO(user),
 	}, nil
 }
 
@@ -161,12 +142,60 @@ func (s *authService) GetProfile(ctx context.Context, userID uuid.UUID) (*dto.Us
 		return nil, ErrUserNotFound
 	}
 
+	return toUserDTO(user), nil
+}
+
+// mergeGuestIntoUser moves the browser's guest wishlist and cart onto the account in one
+// transaction. A failure is logged and rolled back but does not block sign-in: the guest rows
+// stay intact and merge on the next sign-in.
+func (s *authService) mergeGuestIntoUser(ctx context.Context, guestID string, userID uuid.UUID) {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := s.wishlistRepo.MergeGuestWishlist(ctx, tx, guestID, userID); err != nil {
+			return err
+		}
+		return s.cartRepo.MergeGuestCart(ctx, tx, guestID, userID)
+	})
+	if err != nil {
+		slog.Error("guest to user merge failed", "user_id", userID, "error", err)
+	}
+}
+
+// ErrInvalidProfile is returned when profile fields are missing or too long.
+var ErrInvalidProfile = errors.New("invalid profile")
+
+func toUserDTO(user *models.User) *dto.UserDTO {
 	return &dto.UserDTO{
 		ID:        user.ID,
 		Email:     user.Email,
 		FullName:  user.FullName,
 		Phone:     user.Phone,
+		Address:   user.Address,
 		Role:      user.Role,
 		CreatedAt: user.CreatedAt,
-	}, nil
+	}
+}
+
+// UpdateProfile saves the user's name, phone and free-text address after trimming them.
+func (s *authService) UpdateProfile(ctx context.Context, userID uuid.UUID, req dto.UpdateProfileRequest) (*dto.UserDTO, error) {
+	fullName := strings.TrimSpace(req.FullName)
+	phone := strings.TrimSpace(req.Phone)
+	address := strings.TrimSpace(req.Address)
+	switch {
+	case fullName == "":
+		return nil, fmt.Errorf("%w: full name is required", ErrInvalidProfile)
+	case utf8.RuneCountInString(fullName) > 100:
+		return nil, fmt.Errorf("%w: full name must be at most 100 characters", ErrInvalidProfile)
+	case utf8.RuneCountInString(phone) > 30:
+		return nil, fmt.Errorf("%w: phone must be at most 30 characters", ErrInvalidProfile)
+	case utf8.RuneCountInString(address) > 1000:
+		return nil, fmt.Errorf("%w: address must be at most 1000 characters", ErrInvalidProfile)
+	}
+
+	if err := s.userRepo.UpdateProfile(ctx, userID, fullName, phone, address); err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return s.GetProfile(ctx, userID)
 }

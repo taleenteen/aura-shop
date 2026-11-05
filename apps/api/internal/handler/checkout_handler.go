@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -184,4 +185,23 @@ func (h *CheckoutHandler) CalculateInstallments(w http.ResponseWriter, r *http.R
 
 	options := h.checkoutService.CalculateInstallments(amount)
 	response.Success(w, http.StatusOK, options, nil)
+}
+
+// ListMyOrders returns the signed-in user's orders, newest first.
+func (h *CheckoutHandler) ListMyOrders(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		response.Unauthorized(w, "authentication required")
+		return
+	}
+	orders, err := h.checkoutService.ListOrdersForUser(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("account orders failed", "user_id", user.ID, "error", err)
+		response.InternalServerError(w, "failed to load orders")
+		return
+	}
+	if orders == nil {
+		orders = []models.Order{}
+	}
+	response.Success(w, http.StatusOK, orders, nil)
 }

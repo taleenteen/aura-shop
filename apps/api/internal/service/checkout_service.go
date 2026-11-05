@@ -29,6 +29,7 @@ type CheckoutService interface {
 	ProcessPayment(ctx context.Context, req dto.PaymentProcessRequest) (*models.Order, error)
 	GeneratePromptPayQR(ctx context.Context, orderNumber string) (*dto.PromptPayQRResponse, error)
 	GetOrderByNumber(ctx context.Context, orderNumber string) (*models.Order, error)
+	ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error)
 	CalculateInstallments(satangAmount int64) []dto.InstallmentCalculationOption
 }
 
@@ -251,4 +252,8 @@ func newOrderNumber(now time.Time) (string, error) {
 		suffix[i] = orderNumberAlphabet[v%32]
 	}
 	return fmt.Sprintf("AURA-%s-%s", now.Format("20060102"), suffix), nil
+}
+
+func (s *checkoutService) ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error) {
+	return s.orderRepo.ListOrdersForUser(ctx, userID)
 }

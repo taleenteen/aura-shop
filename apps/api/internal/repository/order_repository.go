@@ -31,6 +31,7 @@ type OrderRepository interface {
 	GetOrderByNumber(ctx context.Context, orderNumber string) (*models.Order, error)
 	GetOrderByID(ctx context.Context, id uuid.UUID) (*models.Order, error)
 	ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error)
+	ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error)
 	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error
 	GetAdminOverview(ctx context.Context) (*dto.AdminOverviewStats, error)
 }
@@ -561,4 +562,22 @@ func fillDailyRevenue(from time.Time, n int, rows []struct {
 		}
 	}
 	return out
+}
+
+// maxAccountOrders caps the account order history; enough for any realistic customer.
+const maxAccountOrders = 200
+
+// ListOrdersForUser returns orders placed while signed in to this account, newest first.
+func (r *orderRepository) ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error) {
+	var orders []models.Order
+	err := r.db.WithContext(ctx).
+		Preload("Items").
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Limit(maxAccountOrders).
+		Find(&orders).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to list account orders: %w", err)
+	}
+	return orders, nil
 }

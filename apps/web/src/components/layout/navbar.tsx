@@ -10,6 +10,7 @@ import {
   ChevronDown,
   LogOut,
   Package,
+  UserRound,
   Shield,
   Menu,
   X,
@@ -19,6 +20,8 @@ import { useUIStore } from "@/stores/ui-store";
 import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { signOut } from "@/lib/session";
+import { SEARCH_SHORTCUT } from "@/lib/platform";
 
 export function Navbar() {
   const setCartOpen = useUIStore((state) => state.setCartOpen);
@@ -28,12 +31,9 @@ export function Navbar() {
   const setAuthOpen = useUIStore((state) => state.setAuthOpen);
 
   const cartTotalItems = useCartStore((state) => state.totalItems);
-  const fetchCart = useCartStore((state) => state.fetchCart);
   const wishlistCount = useWishlistStore((state) => state.likedIds.length);
-  const loadWishlist = useWishlistStore((state) => state.loadWishlist);
 
   const user = useAuthStore((state) => state.user);
-  const clearAuth = useAuthStore((state) => state.clearAuth);
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -54,8 +54,7 @@ export function Navbar() {
 
   const handleSignOut = async () => {
     setIsUserMenuOpen(false);
-    clearAuth();
-    await Promise.all([fetchCart(), loadWishlist()]);
+    await signOut();
   };
 
   const navLinks = [
@@ -98,11 +97,11 @@ export function Navbar() {
             <Menu className="w-5 h-5" />
           </button>
 
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" aria-label="AURA TECH home" className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-xl bg-zinc-950 dark:bg-white flex items-center justify-center text-white dark:text-zinc-950 shadow-xs group-hover:scale-105 transition-transform">
               <Sparkles className="w-4 h-4 fill-current" />
             </div>
-            <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-600 dark:from-white dark:via-zinc-200 dark:to-zinc-400 bg-clip-text text-transparent">
+            <span className="hidden sm:inline font-bold text-lg tracking-tight bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-600 dark:from-white dark:via-zinc-200 dark:to-zinc-400 bg-clip-text text-transparent">
               AURA TECH
             </span>
           </Link>
@@ -134,12 +133,13 @@ export function Navbar() {
           <button
             type="button"
             onClick={() => setCommandPaletteOpen(true)}
+            aria-keyshortcuts={SEARCH_SHORTCUT.aria}
             className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-xs font-medium border border-zinc-200 dark:border-zinc-800 transition-colors cursor-pointer"
           >
             <Search className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Search...</span>
             <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono rounded bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500">
-              ⌘K
+              {SEARCH_SHORTCUT.label}
             </kbd>
           </button>
 
@@ -214,12 +214,22 @@ export function Navbar() {
 
                   <div className="py-1">
                     <Link
-                      to="/catalog"
+                      to="/account"
+                      search={{ tab: "orders" }}
                       onClick={() => setIsUserMenuOpen(false)}
                       className="flex items-center gap-2 px-4 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors"
                     >
                       <Package className="w-3.5 h-3.5 text-zinc-400" />
-                      <span>Explore Catalog</span>
+                      <span>My Orders</span>
+                    </Link>
+                    <Link
+                      to="/account"
+                      search={{ tab: "profile" }}
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors"
+                    >
+                      <UserRound className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>Profile & Address</span>
                     </Link>
 
                     {user.role === "ADMIN" && (
@@ -351,6 +361,24 @@ export function Navbar() {
                         <p className="text-[11px] text-zinc-400 truncate">{user.email}</p>
                       </div>
                     </div>
+                    <Link
+                      to="/account"
+                      search={{ tab: "orders" }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-xs font-semibold rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      <Package className="w-4 h-4" />
+                      <span>My Orders</span>
+                    </Link>
+                    <Link
+                      to="/account"
+                      search={{ tab: "profile" }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-xs font-semibold rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      <UserRound className="w-4 h-4" />
+                      <span>Profile & Address</span>
+                    </Link>
                     {user.role === "ADMIN" && (
                       <Link
                         to="/admin"

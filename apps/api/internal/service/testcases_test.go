@@ -114,6 +114,10 @@ func (m *mockConcurrentOrderRepo) ListOrders(ctx context.Context, filter dto.Ord
 	return []models.Order{}, 0, nil
 }
 
+func (m *mockConcurrentOrderRepo) ListOrdersForUser(ctx context.Context, userID uuid.UUID) ([]models.Order, error) {
+	return nil, nil
+}
+
 func (m *mockConcurrentOrderRepo) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error {
 	return nil
 }

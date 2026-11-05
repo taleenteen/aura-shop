@@ -29,6 +29,8 @@ export interface User {
   email: string;
   full_name: string;
   phone: string;
+  /** Free-text delivery address saved on the profile. */
+  address: string;
   role: "CUSTOMER" | "ADMIN";
   created_at: string;
   updated_at: string;

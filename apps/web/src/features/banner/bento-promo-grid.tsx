@@ -95,17 +95,17 @@ export function BentoPromoGrid({ banners = [] }: BentoPromoGridProps) {
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: idx * 0.08 }}
               style={{ backgroundColor: card.background_color || "#18181B" }}
-              className={`group relative rounded-3xl p-6 sm:p-8 flex flex-col justify-between overflow-hidden border border-zinc-800 shadow-sm transition-transform hover:-translate-y-1 duration-200 ${
+              className={`group relative rounded-3xl p-6 sm:p-8 flex flex-col justify-between overflow-hidden border shadow-sm transition-transform hover:-translate-y-1 duration-200 ${isDark ? "border-zinc-800" : "border-amber-200/80"} ${
                 card.grid_span || "col-span-1"
               }`}
             >
               {/* Subtle Ambient Glow */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-indigo-500/15 transition-all" />
+              <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl pointer-events-none transition-all ${isDark ? "bg-indigo-500/10 group-hover:bg-indigo-500/15" : "bg-amber-400/20 group-hover:bg-amber-400/30"}`} />
 
               {/* Card Header & Badge */}
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/10 text-zinc-200 border border-white/10">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${isDark ? "bg-white/10 text-zinc-200 border-white/10" : "bg-amber-900/10 text-amber-900 border-amber-900/15"}`}>
                     {card.badge_text}
                   </span>
                 </div>
@@ -133,7 +133,7 @@ export function BentoPromoGrid({ banners = [] }: BentoPromoGridProps) {
               <div className="relative z-10 pt-4">
                 <Link
                   to={card.cta_primary_link || "/catalog"}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-white group-hover:underline underline-offset-4"
+                  className={`inline-flex items-center gap-1.5 text-xs font-semibold group-hover:underline underline-offset-4 ${isDark ? "text-white" : "text-zinc-950"}`}
                 >
                   <span>{card.cta_primary_text || "Learn More"}</span>
                   <ArrowUpRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

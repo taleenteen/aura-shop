@@ -4,6 +4,7 @@ import { LayoutDashboard, Image as ImageIcon, Package, ArrowLeft, Shield, LogIn,
 import { useAuthStore } from "@/stores/auth-store";
 import { apiClient } from "@/lib/api-client";
 import { DEMO_MODE } from "@/lib/demo-mode";
+import { signOut } from "@/lib/session";
 import { useUIStore } from "@/stores/ui-store";
 import type { User } from "@/types/api";
 import { AdminOverview } from "./admin-overview";
@@ -15,7 +16,6 @@ export function AdminLayout() {
   const pathname = location.pathname;
   const user = useAuthStore((state) => state.user);
   const setAuth = useAuthStore((state) => state.setAuth);
-  const clearAuth = useAuthStore((state) => state.clearAuth);
   const isRestoring = useAuthStore((state) => state.isRestoring);
   const setAuthOpen = useUIStore((state) => state.setAuthOpen);
 
@@ -75,7 +75,7 @@ export function AdminLayout() {
               </span>
               <button
                 type="button"
-                onClick={() => clearAuth()}
+                onClick={() => signOut()}
                 className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
               >
                 Sign Out

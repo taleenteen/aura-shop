@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { SlidersHorizontal, RotateCcw, Loader2, X } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
@@ -272,7 +273,33 @@ function FilterSidebarContent({
   );
 }
 
+type CatalogSearch = Record<string, unknown>;
+
+const asText = (v: unknown) => (typeof v === "string" ? v : v == null ? "" : String(v));
+const asNumber = (v: unknown) => Number(v) || 0;
+
+/** Filters as they appear in the URL. The URL is the source of truth for the catalog. */
+function filtersFromSearch(search: CatalogSearch) {
+  return {
+    category: asText(search.category),
+    brand: asText(search.brand),
+    persona: asText(search.persona),
+    cpu: asText(search.cpu),
+    ram: asNumber(search.ram),
+    storage: asNumber(search.storage),
+    minPrice: asNumber(search.min_price),
+    maxPrice: asNumber(search.max_price),
+    sort: asText(search.sort) || "newest",
+    page: Math.max(1, asNumber(search.page)),
+  };
+}
+
 export function CatalogPage() {
+  const navigate = useNavigate();
+  const search = useRouterState({ select: (s) => s.location.search as CatalogSearch });
+  const initial = filtersFromSearch(search);
+  const latestRequest = useRef(0);
+
   const [products, setProducts] = useState<Product[]>([]);
   const [facets, setFacets] = useState<FacetCounts | null>(null);
   const [totalItems, setTotalItems] = useState(0);
@@ -280,16 +307,17 @@ export function CatalogPage() {
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   // Filters state
-  const [category, setCategory] = useState<string>("");
-  const [brand, setBrand] = useState<string>("");
-  const [persona, setPersona] = useState<string>("");
-  const [cpu, setCpu] = useState<string>("");
-  const [ram, setRam] = useState<number>(0);
-  const [storage, setStorage] = useState<number>(0);
-  const [minPrice, setMinPrice] = useState<number>(0); // Satang
-  const [maxPrice, setMaxPrice] = useState<number>(0); // Satang
-  const [sort, setSort] = useState<string>("newest");
-  const [page, setPage] = useState<number>(1);
+  // Initialised from the URL so the first request is already filtered.
+  const [category, setCategory] = useState<string>(initial.category);
+  const [brand, setBrand] = useState<string>(initial.brand);
+  const [persona, setPersona] = useState<string>(initial.persona);
+  const [cpu, setCpu] = useState<string>(initial.cpu);
+  const [ram, setRam] = useState<number>(initial.ram);
+  const [storage, setStorage] = useState<number>(initial.storage);
+  const [minPrice, setMinPrice] = useState<number>(initial.minPrice); // Satang
+  const [maxPrice, setMaxPrice] = useState<number>(initial.maxPrice); // Satang
+  const [sort, setSort] = useState<string>(initial.sort);
+  const [page, setPage] = useState<number>(initial.page);
 
   // Count active filters for badge
   const activeFiltersCount =
@@ -301,19 +329,21 @@ export function CatalogPage() {
     (storage > 0 ? 1 : 0) +
     (minPrice > 0 || maxPrice > 0 ? 1 : 0);
 
-  // Read URL search params on mount
+  // Follow the URL: navbar links, footer links, back/forward and pasted links all change
+  // it while this page stays mounted, so re-read the filters on every change.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("category")) setCategory(params.get("category") || "");
-    if (params.get("brand")) setBrand(params.get("brand") || "");
-    if (params.get("persona")) setPersona(params.get("persona") || "");
-    if (params.get("cpu")) setCpu(params.get("cpu") || "");
-    if (params.get("ram")) setRam(Number(params.get("ram")) || 0);
-    if (params.get("storage")) setStorage(Number(params.get("storage")) || 0);
-    if (params.get("min_price")) setMinPrice(Number(params.get("min_price")) || 0);
-    if (params.get("max_price")) setMaxPrice(Number(params.get("max_price")) || 0);
-    if (params.get("sort")) setSort(params.get("sort") || "newest");
-  }, []);
+    const f = filtersFromSearch(search);
+    setCategory(f.category);
+    setBrand(f.brand);
+    setPersona(f.persona);
+    setCpu(f.cpu);
+    setRam(f.ram);
+    setStorage(f.storage);
+    setMinPrice(f.minPrice);
+    setMaxPrice(f.maxPrice);
+    setSort(f.sort);
+    setPage(f.page);
+  }, [search]);
 
   // Fetch catalog whenever filters change
   useEffect(() => {
@@ -331,13 +361,30 @@ export function CatalogPage() {
     q.set("page", page.toString());
     q.set("limit", "12");
 
-    // Sync to browser history
-    const newRelativePathQuery =
-      window.location.pathname + "?" + q.toString();
-    window.history.replaceState(null, "", newRelativePathQuery);
+    // Mirror filter changes made on this page into the URL through the router, so the router,
+    // the address bar and the back button agree. Skipped when the URL already matches.
+    const next: CatalogSearch = {};
+    if (category) next.category = category;
+    if (brand) next.brand = brand;
+    if (persona) next.persona = persona;
+    if (cpu) next.cpu = cpu;
+    if (ram > 0) next.ram = ram;
+    if (storage > 0) next.storage = storage;
+    if (minPrice > 0) next.min_price = minPrice;
+    if (maxPrice > 0) next.max_price = maxPrice;
+    if (sort !== "newest") next.sort = sort;
+    if (page > 1) next.page = page;
+    const current = filtersFromSearch(search);
+    const wanted = filtersFromSearch(next);
+    if (JSON.stringify(current) !== JSON.stringify(wanted)) {
+      navigate({ to: "/catalog", search: next, replace: true });
+    }
 
+    // Ignore responses that arrive after a newer request was sent.
+    const requestId = ++latestRequest.current;
     apiClient<Product[]>(`/catalog?${q.toString()}`)
       .then((res) => {
+        if (requestId !== latestRequest.current) return;
         setProducts(res.data || []);
         if (res.meta?.facets) {
           setFacets(res.meta.facets);
@@ -345,11 +392,13 @@ export function CatalogPage() {
         setTotalItems(res.meta?.total_items || 0);
       })
       .catch(() => {
-        setProducts([]);
+        if (requestId === latestRequest.current) setProducts([]);
       })
       .finally(() => {
-        setIsLoading(false);
+        if (requestId === latestRequest.current) setIsLoading(false);
       });
+    // `search` is read only to skip redundant navigation; filters drive the fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, brand, persona, cpu, ram, storage, minPrice, maxPrice, sort, page]);
 
   const resetFilters = () => {

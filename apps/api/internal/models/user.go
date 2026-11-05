@@ -12,6 +12,7 @@ type User struct {
 	PasswordHash string    `gorm:"not null" json:"-"`
 	FullName     string    `gorm:"not null" json:"full_name"`
 	Phone        string    `json:"phone"`
+	Address      string    `gorm:"type:text;not null;default:''" json:"address"`    // free-text delivery address
 	Role         string    `gorm:"type:varchar(20);default:'CUSTOMER'" json:"role"` // CUSTOMER, ADMIN
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`

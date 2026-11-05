@@ -156,7 +156,7 @@ func seedBanners(db *gorm.DB) error {
 			Placement:        "BENTO_GRID",
 			GridSpan:         "col-span-2 row-span-1",
 			ThemeMode:        "LIGHT",
-			BackgroundColor:  "#F4F4F5",
+			BackgroundColor:  "#FEF3C7",
 			BadgeText:        "EDUCATION PRICING",
 			Headline:         "Back to University Savings",
 			Subheadline:      "Save up to ฿5,500 on MacBook Air M3 with student identification.",

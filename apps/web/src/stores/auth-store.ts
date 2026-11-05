@@ -10,6 +10,8 @@ interface AuthState {
   isRestoring: boolean;
   setAuth: (user: User, token: string) => void;
   clearAuth: () => void;
+  /** Replaces the signed-in user after a profile update. */
+  setUser: (user: User) => void;
   /** Loads the profile for a token persisted in localStorage. Safe to call more than once. */
   restoreSession: () => Promise<void>;
 }
@@ -23,6 +25,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     setAuthToken(token);
     set({ user, token, isAuthenticated: true, isRestoring: false });
   },
+  setUser: (user: User) => set({ user }),
   clearAuth: () => {
     setAuthToken(null);
     set({ user: null, token: null, isAuthenticated: false, isRestoring: false });

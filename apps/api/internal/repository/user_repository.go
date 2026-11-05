@@ -11,10 +11,14 @@ import (
 	"gorm.io/gorm"
 )
 
+// ErrUserNotFound is returned when an update targets a user that does not exist.
+var ErrUserNotFound = errors.New("user not found")
+
 type UserRepository interface {
 	Create(ctx context.Context, user *models.User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	UpdateProfile(ctx context.Context, id uuid.UUID, fullName, phone, address string) error
 }
 
 type userRepository struct {
@@ -52,4 +56,19 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*models.
 		return nil, fmt.Errorf("failed to fetch user by email: %w", err)
 	}
 	return &user, nil
+}
+
+func (r *userRepository) UpdateProfile(ctx context.Context, id uuid.UUID, fullName, phone, address string) error {
+	res := r.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"full_name": fullName,
+		"phone":     phone,
+		"address":   address,
+	})
+	if res.Error != nil {
+		return fmt.Errorf("failed to update profile: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
 }

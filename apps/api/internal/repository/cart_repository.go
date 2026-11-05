@@ -41,7 +41,7 @@ func (r *cartRepository) GetCart(ctx context.Context, userID *uuid.UUID, guestID
 	if userID != nil {
 		query = query.Where("user_id = ?", *userID)
 	} else if guestID != nil && *guestID != "" {
-		query = query.Where("guest_session_id = ?", *guestID)
+		query = query.Where("guest_session_id = ? AND user_id IS NULL", *guestID)
 	} else {
 		return []models.CartItem{}, nil
 	}
@@ -73,7 +73,7 @@ func (r *cartRepository) AddToCart(ctx context.Context, userID *uuid.UUID, guest
 		if userID != nil {
 			q = q.Where("user_id = ?", *userID)
 		} else if guestID != nil {
-			q = q.Where("guest_session_id = ?", *guestID)
+			q = q.Where("guest_session_id = ? AND user_id IS NULL", *guestID)
 		} else {
 			return errors.New("no user or guest identifier for cart")
 		}
@@ -97,7 +97,7 @@ func (r *cartRepository) AddToCart(ctx context.Context, userID *uuid.UUID, guest
 			}
 			newItem := models.CartItem{
 				UserID:         userID,
-				GuestSessionID: guestID,
+				GuestSessionID: guestOnly(userID, guestID),
 				VariantID:      variantID,
 				Quantity:       quantity,
 			}
@@ -128,7 +128,7 @@ func (r *cartRepository) UpdateCartItemQuantity(ctx context.Context, userID *uui
 		if userID != nil {
 			q = q.Where("user_id = ?", *userID)
 		} else if guestID != nil {
-			q = q.Where("guest_session_id = ?", *guestID)
+			q = q.Where("guest_session_id = ? AND user_id IS NULL", *guestID)
 		}
 
 		if err := q.First(&item).Error; err != nil {
@@ -162,7 +162,7 @@ func (r *cartRepository) RemoveCartItem(ctx context.Context, userID *uuid.UUID, 
 	if userID != nil {
 		q = q.Where("user_id = ?", *userID)
 	} else if guestID != nil {
-		q = q.Where("guest_session_id = ?", *guestID)
+		q = q.Where("guest_session_id = ? AND user_id IS NULL", *guestID)
 	}
 	res := q.Delete(&models.CartItem{})
 	if res.Error != nil {
@@ -184,7 +184,7 @@ func (r *cartRepository) ClearCart(ctx context.Context, tx *gorm.DB, userID *uui
 	if userID != nil {
 		q = q.Where("user_id = ?", *userID)
 	} else if guestID != nil {
-		q = q.Where("guest_session_id = ?", *guestID)
+		q = q.Where("guest_session_id = ? AND user_id IS NULL", *guestID)
 	} else {
 		return nil
 	}
@@ -198,7 +198,7 @@ func (r *cartRepository) MergeGuestCart(ctx context.Context, tx *gorm.DB, guestI
 	}
 
 	var guestItems []models.CartItem
-	if err := tx.WithContext(ctx).Where("guest_session_id = ?", guestID).Find(&guestItems).Error; err != nil {
+	if err := tx.WithContext(ctx).Where("guest_session_id = ? AND user_id IS NULL", guestID).Find(&guestItems).Error; err != nil {
 		return fmt.Errorf("failed to fetch guest cart items: %w", err)
 	}
 

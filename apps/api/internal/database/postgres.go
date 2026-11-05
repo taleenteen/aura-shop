@@ -66,6 +66,10 @@ func AutoMigrate(db *gorm.DB) error {
 
 	slog.Info("database schema auto-migration succeeded")
 
+	if err := normalizeGuestOwnership(db); err != nil {
+		return fmt.Errorf("failed to normalize cart/wishlist ownership: %w", err)
+	}
+
 	if err := backfillOrderItemSerials(db); err != nil {
 		return fmt.Errorf("failed to backfill order item serials: %w", err)
 	}
@@ -75,6 +79,35 @@ func AutoMigrate(db *gorm.DB) error {
 	}
 
 	return nil
+}
+
+// normalizeGuestOwnership enforces that cart and wishlist rows belong to a user or a guest,
+// never both (see repository/ownership.go), removes duplicate hearts that the old behaviour
+// could create, and adds unique indexes so one owner cannot heart a product twice.
+// Idempotent; safe to run on every start.
+func normalizeGuestOwnership(db *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		stmts := []string{
+			`UPDATE wishlists SET guest_session_id = NULL WHERE user_id IS NOT NULL AND guest_session_id IS NOT NULL`,
+			`UPDATE cart_items SET guest_session_id = NULL WHERE user_id IS NOT NULL AND guest_session_id IS NOT NULL`,
+			`DELETE FROM wishlists w USING wishlists d
+			  WHERE w.user_id IS NOT NULL AND w.user_id = d.user_id AND w.product_id = d.product_id
+			    AND (w.created_at, w.id) > (d.created_at, d.id)`,
+			`DELETE FROM wishlists w USING wishlists d
+			  WHERE w.user_id IS NULL AND d.user_id IS NULL AND w.guest_session_id = d.guest_session_id
+			    AND w.product_id = d.product_id AND (w.created_at, w.id) > (d.created_at, d.id)`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS uniq_wishlists_user_product
+			  ON wishlists (user_id, product_id) WHERE user_id IS NOT NULL`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS uniq_wishlists_guest_product
+			  ON wishlists (guest_session_id, product_id) WHERE user_id IS NULL`,
+		}
+		for _, stmt := range stmts {
+			if err := tx.Exec(stmt).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // backfillOrderItemSerials copies the legacy single serial_number into the per-unit
