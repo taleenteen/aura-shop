@@ -75,15 +75,19 @@ export function AdminOverview() {
     );
   }
 
-  const paidOrders = stats.paid_orders_count;
+  // Default every list and count so an older or partial API response renders empty states
+  // instead of crashing the whole backoffice.
+  const paidOrders = stats.paid_orders_count ?? 0;
   const averageOrderValue = paidOrders > 0 ? Math.round(stats.total_revenue_satang / paidOrders) : 0;
+  const lowStock = stats.low_stock_alerts ?? [];
+  const ordersByStatus = stats.orders_by_status ?? {};
 
-  const days = stats.daily_revenue;
+  const days = stats.daily_revenue ?? [];
   const maxDay = Math.max(0, ...days.map((d) => d.revenue_satang));
   const weekRevenue = days.reduce((sum, d) => sum + d.revenue_satang, 0);
   const peakDay = maxDay > 0 ? days.find((d) => d.revenue_satang === maxDay) : undefined;
 
-  const categories = stats.category_revenue;
+  const categories = stats.category_revenue ?? [];
   const categoryTotal = categories.reduce((sum, c) => sum + c.revenue_satang, 0);
   const share = (satang: number) => (categoryTotal > 0 ? (satang / categoryTotal) * 100 : 0);
 
@@ -100,8 +104,8 @@ export function AdminOverview() {
             {formatTHB(stats.total_revenue_satang)}
           </div>
           <div className="space-y-0.5">
-            <RevenueTrend last30={stats.revenue_30d_satang} prev30={stats.revenue_prev_30d_satang} />
-            <p className="text-[11px] text-zinc-400">Last 30 days: {formatTHB(stats.revenue_30d_satang)}</p>
+            <RevenueTrend last30={stats.revenue_30d_satang ?? 0} prev30={stats.revenue_prev_30d_satang ?? 0} />
+            <p className="text-[11px] text-zinc-400">Last 30 days: {formatTHB(stats.revenue_30d_satang ?? 0)}</p>
           </div>
         </div>
 
@@ -117,7 +121,7 @@ export function AdminOverview() {
             {paidOrders} paid • average paid order {formatTHB(averageOrderValue)}
           </p>
           <div className="flex flex-wrap gap-2 text-[10px] text-zinc-500">
-            {Object.entries(stats.orders_by_status).map(([st, cnt]) => (
+            {Object.entries(ordersByStatus).map(([st, cnt]) => (
               <span key={st} className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-medium">
                 {st}: {cnt}
               </span>
@@ -131,7 +135,7 @@ export function AdminOverview() {
             <AlertTriangle className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-zinc-950 dark:text-white">
-            {stats.low_stock_alerts.length}
+            {lowStock.length}
           </div>
           <p className="text-[11px] text-zinc-400">Configurations with &le; 3 units available</p>
         </div>
@@ -252,8 +256,8 @@ export function AdminOverview() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-              {stats.low_stock_alerts.length > 0 ? (
-                stats.low_stock_alerts.map((item) => (
+              {lowStock.length > 0 ? (
+                lowStock.map((item) => (
                   <tr
                     key={item.variant_id}
                     className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-colors"

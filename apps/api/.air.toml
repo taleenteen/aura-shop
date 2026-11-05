@@ -8,3 +8,7 @@ tmp_dir = "tmp"
   exclude_dir = ["tmp", "vendor", "testdata"]
   include_ext = ["go", "tpl", "tmpl", "html"]
   kill_delay = "0s"
+  # Docker Desktop on Windows/macOS does not forward host file events into bind mounts,
+  # so watch by polling or edits made on the host never trigger a rebuild.
+  poll = true
+  poll_interval = 1000
