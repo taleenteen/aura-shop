@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -37,6 +38,13 @@ export function Navbar() {
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setIsMobileMenuOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isMobileMenuOpen]);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -134,6 +142,7 @@ export function Navbar() {
             type="button"
             onClick={() => setCommandPaletteOpen(true)}
             aria-keyshortcuts={SEARCH_SHORTCUT.aria}
+            aria-label="Search"
             className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-xs font-medium border border-zinc-200 dark:border-zinc-800 transition-colors cursor-pointer"
           >
             <Search className="w-3.5 h-3.5" />
@@ -261,6 +270,7 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => setAuthOpen(true)}
+              aria-label="Sign In"
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 shadow-xs transition-all cursor-pointer"
             >
               <UserIcon className="w-3.5 h-3.5" />
@@ -270,17 +280,21 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Slide-over Drawer Menu */}
+      {/* Mobile Slide-over Drawer Menu.
+          Rendered into <body>: the header's backdrop-blur makes it the containing block for
+          fixed children, which squeezed this drawer and its backdrop to the header's height. */}
+      {createPortal(
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <div className="fixed inset-0 z-50 md:hidden">
+          <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Main menu">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              aria-hidden
+              className="fixed inset-0 bg-zinc-950/40"
             />
 
             {/* Slide-over Drawer from Left */}
@@ -289,7 +303,8 @@ export function Navbar() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 250 }}
-              className="fixed inset-y-0 left-0 w-full max-w-xs bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col justify-between z-50 p-6"
+              className="fixed inset-y-0 left-0 w-[82%] max-w-xs bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col justify-between z-50 p-6 overflow-y-auto overscroll-contain"
+              data-lenis-prevent
             >
               {/* Drawer Header */}
               <div>
@@ -418,7 +433,9 @@ export function Navbar() {
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+      )}
     </header>
   );
 }
