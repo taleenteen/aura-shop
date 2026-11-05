@@ -5,6 +5,7 @@ import type { Product, ProductVariant } from "@/types/api";
 import { formatMonthlyInstallment, calculatePriceDelta } from "@/lib/currency";
 import { AnimatedPrice } from "@/components/ui/animated-price";
 import { HelpModal } from "@/features/configurator/help-modal";
+import { NotifyMe } from "./notify-me";
 import { useCartStore } from "@/stores/cart-store";
 import { useUIStore } from "@/stores/ui-store";
 
@@ -161,7 +162,7 @@ export function CTOSpecSelector({
           )}
           <span className="text-zinc-400">•</span>
           <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-            {availableStock > 0 ? "In Stock — Ready to ship" : "Backorder"}
+            {availableStock > 0 ? "In Stock — Ready to ship" : "Out of stock"}
           </span>
         </div>
 
@@ -429,12 +430,15 @@ export function CTOSpecSelector({
               </span>
             ) : (
               <span className="inline-block px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[11px] font-bold uppercase tracking-wider">
-                Temporarily Reserved
+                Out of stock
               </span>
             )}
           </div>
         </div>
 
+        {availableStock <= 0 ? (
+          <NotifyMe variantId={selectedVariant.id} />
+        ) : (
         <button
           type="button"
           disabled={availableStock <= 0 || isAdding}
@@ -454,6 +458,7 @@ export function CTOSpecSelector({
                 : "Currently Out of Stock"}
           </span>
         </button>
+        )}
 
         <div className="flex items-center justify-center gap-6 text-[11px] text-zinc-400 pt-2 border-t border-zinc-800">
           <div className="flex items-center gap-1.5">

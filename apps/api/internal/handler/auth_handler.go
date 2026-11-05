@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -14,6 +13,7 @@ import (
 	"aura-tech/api/internal/middleware"
 	"aura-tech/api/internal/response"
 	"aura-tech/api/internal/service"
+	"aura-tech/api/internal/validate"
 )
 
 type AuthHandler struct {
@@ -34,11 +34,16 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	guestID := middleware.GetGuestIDFromContext(r.Context())
 	authResp, err := h.authService.Register(r.Context(), req, guestID)
 	if err != nil {
-		if err == service.ErrUserAlreadyExists {
-			response.Conflict(w, "USER_ALREADY_EXISTS", err.Error())
-			return
+		var ve *service.ValidationError
+		switch {
+		case errors.As(err, &ve):
+			response.ValidationFailed(w, "Some fields need attention.", ve.Fields)
+		case errors.Is(err, service.ErrUserAlreadyExists):
+			response.Error(w, http.StatusConflict, "USER_ALREADY_EXISTS", "An account with this email already exists. Sign in instead.")
+		default:
+			slog.Error("registration failed", "error", err)
+			response.InternalServerError(w, "could not create the account")
 		}
-		response.BadRequest(w, err.Error())
 		return
 	}
 
@@ -97,9 +102,10 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 
 	profile, err := h.authService.UpdateProfile(r.Context(), user.ID, req)
 	if err != nil {
+		var ve *service.ValidationError
 		switch {
-		case errors.Is(err, service.ErrInvalidProfile):
-			response.Error(w, http.StatusBadRequest, "INVALID_PROFILE", err.Error())
+		case errors.As(err, &ve):
+			response.ValidationFailed(w, "Some fields need attention.", ve.Fields)
 		case errors.Is(err, service.ErrUserNotFound):
 			response.NotFound(w, "user profile not found")
 		default:
@@ -120,8 +126,8 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		response.BadRequest(w, "invalid request body")
 		return
 	}
-	email := strings.TrimSpace(req.Email)
-	if email == "" || !strings.Contains(email, "@") {
+	email, ok := validate.Email(req.Email)
+	if !ok {
 		response.ValidationFailed(w, "Enter the email you signed up with.", map[string]string{"email": "Enter a valid email address."})
 		return
 	}

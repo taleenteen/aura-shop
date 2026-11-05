@@ -80,6 +80,7 @@ func main() {
 	orderRepo := repository.NewOrderRepository(db)
 	productAdminRepo := repository.NewProductAdminRepository(db)
 	merchRepo := repository.NewMerchandisingRepository(db)
+	engagementRepo := repository.NewEngagementRepository(db)
 
 	// 2. Initialize Services
 	authService := service.NewAuthService(db, userRepo, wishlistRepo, cartRepo, cfg.JWTSecret)
@@ -89,6 +90,7 @@ func main() {
 	adminService := service.NewAdminService(orderRepo)
 	productAdminService := service.NewProductAdminService(productAdminRepo)
 	merchService := service.NewMerchandisingService(merchRepo)
+	engagementService := service.NewEngagementService(engagementRepo)
 
 	// 3. Initialize HTTP Handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -100,6 +102,7 @@ func main() {
 	adminHandler := handler.NewAdminHandler(adminService)
 	productAdminHandler := handler.NewProductAdminHandler(productAdminService, uploadImage)
 	merchHandler := handler.NewMerchandisingHandler(merchService)
+	engagementHandler := handler.NewEngagementHandler(engagementService)
 
 	// 4. Router Setup & Middleware Stack
 	r := chi.NewRouter()
@@ -147,6 +150,10 @@ func main() {
 		api.Route("/account", func(acc chi.Router) {
 			acc.Use(appMiddleware.RequireAuth)
 			acc.Get("/orders", checkoutHandler.ListMyOrders)
+			acc.Get("/emails", engagementHandler.ListAccountEmails)
+			acc.Get("/stock-alerts", engagementHandler.ListStockAlerts)
+			acc.Put("/stock-alerts/{variantID}", engagementHandler.SubscribeStockAlert)
+			acc.Delete("/stock-alerts/{variantID}", engagementHandler.UnsubscribeStockAlert)
 		})
 
 		// Dynamic Component-Driven Banners
@@ -158,6 +165,9 @@ func main() {
 		api.Get("/catalog", catalogHandler.GetCatalog)
 		api.Get("/products/compare", catalogHandler.CompareProducts)
 		api.Get("/products/{slug}", catalogHandler.GetProductBySlug)
+		api.Get("/products/{slug}/reviews", engagementHandler.ProductReviews)
+		api.Put("/products/{slug}/reviews/mine", engagementHandler.SaveReview)
+		api.Delete("/products/{slug}/reviews/mine", engagementHandler.DeleteReview)
 		api.Get("/search", catalogHandler.Search)
 
 		// Wishlist (Dual User & Guest Support)
@@ -215,6 +225,8 @@ func main() {
 			adm.Post("/brands", merchHandler.CreateBrand)
 			adm.Put("/brands/{id}", merchHandler.UpdateBrand)
 			adm.Delete("/brands/{id}", merchHandler.DeleteBrand)
+			adm.Get("/reviews", engagementHandler.ListReviewsAdmin)
+			adm.Patch("/reviews/{id}", engagementHandler.SetReviewHidden)
 		})
 	})
 

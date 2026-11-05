@@ -64,6 +64,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.StockMovement{},
 		&models.EmailMessage{},
 		&models.PasswordResetToken{},
+		&models.StockAlert{},
+		&models.Review{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to auto-migrate schemas: %w", err)
@@ -85,8 +87,12 @@ func AutoMigrate(db *gorm.DB) error {
 		return fmt.Errorf("failed to open stock ledger: %w", err)
 	}
 
-	if err := backfillOrderItemSerials(db); err != nil {
-		return fmt.Errorf("failed to backfill order item serials: %w", err)
+	if err := migrateLegacySerials(db); err != nil {
+		return fmt.Errorf("failed to migrate legacy serial numbers: %w", err)
+	}
+
+	if err := ensurePartialIndexes(db); err != nil {
+		return fmt.Errorf("failed to ensure partial indexes: %w", err)
 	}
 
 	// email_messages.order_id was NOT NULL before account emails existed; GORM does not relax it.
@@ -146,24 +152,34 @@ func OpenStockLedger(db *gorm.DB) error {
 	return nil
 }
 
-// backfillOrderItemSerials copies the legacy single serial_number into the per-unit
-// serial_numbers array. Idempotent: rows that already have serial_numbers are skipped.
-// The legacy column is left in place; nothing reads it any more.
-func backfillOrderItemSerials(db *gorm.DB) error {
+// migrateLegacySerials copies the legacy single serial_number into the per-unit serial_numbers
+// array, then drops the old column. It does both in one transaction and is a no-op once the
+// column is gone.
+func migrateLegacySerials(db *gorm.DB) error {
 	if !db.Migrator().HasColumn(&models.OrderItem{}, "serial_number") {
 		return nil
 	}
-	res := db.Exec(`UPDATE order_items
-		SET serial_numbers = jsonb_build_array(serial_number)
-		WHERE serial_number IS NOT NULL AND serial_number <> ''
-		  AND (serial_numbers IS NULL OR serial_numbers = '[]'::jsonb)`)
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected > 0 {
-		slog.Info("backfilled per-unit serial numbers from legacy column", "rows", res.RowsAffected)
-	}
-	return nil
+	return db.Transaction(func(tx *gorm.DB) error {
+		res := tx.Exec(`UPDATE order_items
+			SET serial_numbers = jsonb_build_array(serial_number)
+			WHERE serial_number IS NOT NULL AND serial_number <> ''
+			  AND (serial_numbers IS NULL OR serial_numbers = '[]'::jsonb)`)
+		if res.Error != nil {
+			return res.Error
+		}
+		if err := tx.Exec(`ALTER TABLE order_items DROP COLUMN serial_number`).Error; err != nil {
+			return err
+		}
+		slog.Info("moved legacy serial numbers to serial_numbers and dropped the old column", "rows", res.RowsAffected)
+		return nil
+	})
+}
+
+// ensurePartialIndexes adds indexes GORM tags cannot express.
+func ensurePartialIndexes(db *gorm.DB) error {
+	// One pending back-in-stock alert per customer per variant.
+	return db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_alerts_pending
+		ON stock_alerts (user_id, variant_id) WHERE notified_at IS NULL`).Error
 }
 
 func EnsureGINIndexes(db *gorm.DB) error {

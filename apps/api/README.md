@@ -54,6 +54,8 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | หน้าคำสั่งซื้อ + อีเมล (เจ้าของ, admin หรือผู้ค้นด้วยเลข order + อีเมล) | `GET /orders/{orderNumber}`, `GET /orders/{orderNumber}/emails`, `POST /orders/lookup` | `orders`, `order_items`, `email_messages` |
 | ยกเลิกคำสั่งซื้อที่ยังไม่จ่าย (เจ้าของ) | `POST /orders/{orderNumber}/cancel` | `orders`, `stock_reservations`, `product_variants`, `cart_items`, `email_messages` |
 | คำสั่งซื้อของฉัน | `GET /account/orders` | `orders`, `order_items` |
+| แจ้งเตือนสินค้ากลับมามีของ + กล่องข้อความ | `GET /account/stock-alerts`, `PUT/DELETE /account/stock-alerts/{variantID}`, `GET /account/emails` | `stock_alerts`, `email_messages` |
+| รีวิวสินค้า (เขียนได้เมื่อได้รับของแล้ว) | `GET /products/{slug}/reviews`, `PUT/DELETE /products/{slug}/reviews/mine` | `reviews`, `orders`, `order_items` |
 | แดชบอร์ด admin | `GET /admin/overview` | `orders`, `order_items`, `product_variants`, `products`, `categories` |
 | จัดการคำสั่งซื้อ | `GET /admin/orders`, `PATCH /admin/orders/{id}/status` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `stock_movements`, `email_messages` | (ส่งของต้องระบุ `carrier` KERRY/FLASH/DHL และ `tracking_number`)
 | จัดการสินค้า | `GET/POST /admin/products`, `GET/PUT /admin/products/{id}`, `PATCH /admin/products/{id}/status` | `products`, `product_variants`, `stock_movements`, `cart_items` |
@@ -61,6 +63,7 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | อัปโหลดรูป | `POST /admin/uploads/images` | MinIO bucket `aura-assets` |
 | จัดการแบนเนอร์ (หน้าแรก, promo grid, ribbon) | `GET/POST /admin/banners`, `PUT/DELETE /admin/banners/{id}`, `PATCH /admin/banners/{id}/status` | `banners` |
 | จัดการหมวดหมู่และแบรนด์ | `GET/POST /admin/categories`, `PUT/DELETE /admin/categories/{id}`, `GET/POST /admin/brands`, `PUT/DELETE /admin/brands/{id}` | `categories`, `brands` (นับ `products`) |
+| ดูและซ่อนรีวิว | `GET /admin/reviews`, `PATCH /admin/reviews/{id}` | `reviews` |
 
 ทุก path ขึ้นต้นด้วย `/api/v1` ยกเว้น `GET /health` และ `/admin/*` ต้องเป็นบัญชี ADMIN
 
@@ -80,6 +83,8 @@ Go 1.23 · chi · GORM · PostgreSQL 16 · MinIO
 | `email_messages` | อีเมลถึงลูกค้าทุกฉบับ (ยืนยันการจ่าย, จัดส่ง, ส่งถึง, ยกเลิก) เขียนใน transaction เดียวกับการเปลี่ยนสถานะ order |
 | `password_reset_tokens` | ลิงก์รีเซ็ตรหัสผ่าน (เก็บ SHA-256 ของ token) ใช้ได้ครั้งเดียว หมดอายุ 30 นาที |
 | `banners` | แบนเนอร์หน้าแรก แสดงเมื่อเปิดอยู่และอยู่ในช่วง `start_at`–`end_at` |
+| `stock_alerts` | คำขอแจ้งเตือนเมื่อสินค้ากลับมามีของ (รอส่งได้หนึ่งรายการต่อคนต่อตัวเลือก) ส่งอีเมลเมื่อสต็อกที่ซื้อได้กลับมามากกว่า 0 |
+| `reviews` | รีวิวหนึ่งรายการต่อคนต่อสินค้า คะแนน 1–5 admin ซ่อนได้ |
 
 ### กฎสำคัญ
 - **เงิน** เก็บเป็นสตางค์ (`int64`)
@@ -153,6 +158,8 @@ go test ./...            # test
 | Order page + emails (owner, admin, or anyone with order number + email) | `GET /orders/{orderNumber}`, `GET /orders/{orderNumber}/emails`, `POST /orders/lookup` | `orders`, `order_items`, `email_messages` |
 | Cancel an unpaid order (owner) | `POST /orders/{orderNumber}/cancel` | `orders`, `stock_reservations`, `product_variants`, `cart_items`, `email_messages` |
 | My orders | `GET /account/orders` | `orders`, `order_items` |
+| Back-in-stock alerts + inbox | `GET /account/stock-alerts`, `PUT/DELETE /account/stock-alerts/{variantID}`, `GET /account/emails` | `stock_alerts`, `email_messages` |
+| Product reviews (after delivery) | `GET /products/{slug}/reviews`, `PUT/DELETE /products/{slug}/reviews/mine` | `reviews`, `orders`, `order_items` |
 | Admin dashboard | `GET /admin/overview` | `orders`, `order_items`, `product_variants`, `products`, `categories` |
 | Order fulfilment | `GET /admin/orders`, `PATCH /admin/orders/{id}/status` | `orders`, `order_items`, `stock_reservations`, `product_variants`, `stock_movements`, `email_messages` | (shipping needs `carrier` KERRY/FLASH/DHL and `tracking_number`)
 | Product management | `GET/POST /admin/products`, `GET/PUT /admin/products/{id}`, `PATCH /admin/products/{id}/status` | `products`, `product_variants`, `stock_movements`, `cart_items` |
@@ -160,6 +167,7 @@ go test ./...            # test
 | Image upload | `POST /admin/uploads/images` | MinIO bucket `aura-assets` |
 | Banner management (hero, promo grid, ribbon) | `GET/POST /admin/banners`, `PUT/DELETE /admin/banners/{id}`, `PATCH /admin/banners/{id}/status` | `banners` |
 | Category and brand management | `GET/POST /admin/categories`, `PUT/DELETE /admin/categories/{id}`, `GET/POST /admin/brands`, `PUT/DELETE /admin/brands/{id}` | `categories`, `brands` (counts `products`) |
+| Review moderation | `GET /admin/reviews`, `PATCH /admin/reviews/{id}` | `reviews` |
 
 All paths are under `/api/v1` except `GET /health`; `/admin/*` requires an ADMIN account.
 
@@ -179,6 +187,8 @@ All paths are under `/api/v1` except `GET /health`; `/admin/*` requires an ADMIN
 | `email_messages` | Every customer email (payment confirmed, shipped, delivered, cancelled), written in the same transaction as the order change |
 | `password_reset_tokens` | Password reset links (SHA-256 of the token only), single use, 30-minute expiry |
 | `banners` | Home-page banners, shown while on and between `start_at` and `end_at` |
+| `stock_alerts` | Back-in-stock requests (one pending per customer per option); emailed when available stock rises above 0 |
+| `reviews` | One review per customer per product, 1–5 stars; admins can hide it |
 
 ### Key rules
 - **Money** is stored in satang (`int64`).

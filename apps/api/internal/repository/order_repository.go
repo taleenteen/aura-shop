@@ -204,6 +204,9 @@ func (r *orderRepository) ReleaseExpiredReservations(ctx context.Context) (int64
 					newReserved = 0
 				}
 				_ = tx.Model(&variant).Update("reserved_stock", newReserved).Error
+				if err := notifyBackInStock(tx, variant.ID); err != nil {
+					return err
+				}
 			}
 
 			_ = tx.Model(&res).Update("status", "RELEASED").Error
@@ -370,6 +373,7 @@ func releaseOrderStock(tx *gorm.DB, orderID uuid.UUID) error {
 		return fmt.Errorf("failed to load reservations: %w", err)
 	}
 
+	variantIDs := make([]uuid.UUID, 0, len(reservations))
 	for _, res := range reservations {
 		var variant models.ProductVariant
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, "id = ?", res.VariantID).Error; err != nil {
@@ -393,8 +397,9 @@ func releaseOrderStock(tx *gorm.DB, orderID uuid.UUID) error {
 		if err := tx.Model(&res).Update("status", "RELEASED").Error; err != nil {
 			return fmt.Errorf("failed to release reservation %s: %w", res.ID, err)
 		}
+		variantIDs = append(variantIDs, variant.ID)
 	}
-	return nil
+	return notifyBackInStock(tx, variantIDs...)
 }
 
 // storeZone is the business's local time (Thailand has no DST), used to bucket orders by day.
@@ -631,6 +636,33 @@ func (r *orderRepository) ListOrdersForUser(ctx context.Context, userID uuid.UUI
 		Find(&orders).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list account orders: %w", err)
+	}
+
+	// Product slugs let the account page link each line to its product (e.g. to review it).
+	var variantIDs []uuid.UUID
+	for _, o := range orders {
+		for _, it := range o.Items {
+			variantIDs = append(variantIDs, it.VariantID)
+		}
+	}
+	if len(variantIDs) > 0 {
+		var rows []struct {
+			ID   uuid.UUID
+			Slug string
+		}
+		if err := r.db.WithContext(ctx).Table("product_variants v").Select("v.id, p.slug").
+			Joins("JOIN products p ON p.id = v.product_id").Where("v.id IN ?", variantIDs).Scan(&rows).Error; err != nil {
+			return nil, fmt.Errorf("failed to load product links: %w", err)
+		}
+		slugs := make(map[uuid.UUID]string, len(rows))
+		for _, row := range rows {
+			slugs[row.ID] = row.Slug
+		}
+		for i := range orders {
+			for j := range orders[i].Items {
+				orders[i].Items[j].ProductSlug = slugs[orders[i].Items[j].VariantID]
+			}
+		}
 	}
 	return orders, nil
 }

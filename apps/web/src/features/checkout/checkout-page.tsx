@@ -3,7 +3,9 @@ import { useNavigate, useRouterState, Link } from "@tanstack/react-router";
 import { CreditCard, QrCode, Percent, ArrowLeft, Loader2, AlertCircle, MapPin } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { useAuthStore } from "@/stores/auth-store";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, type ApiRequestError } from "@/lib/api-client";
+import { z } from "zod";
+import { validate, email as emailRule, requiredText, type FieldErrors } from "@/lib/validation";
 import type { PromptPayQRResponse, InstallmentPlanData, Order, PaymentMethod, User } from "@/types/api";
 import { formatTHB } from "@/lib/currency";
 import { isPayable } from "@/features/orders/order-status";
@@ -26,6 +28,24 @@ interface SummaryLine {
 }
 
 const POSTAL_CODE = /\b\d{5}\b/;
+
+const contactSchema = z.object({
+  customer_email: emailRule(),
+  recipient_name: requiredText("the recipient's name", 100),
+  phone: z
+    .string()
+    .trim()
+    .min(1, "Enter a phone number for the courier.")
+    .max(30, "Keep the phone number under 30 characters.")
+    .regex(/^[0-9+\-\s()]*$/, "Use digits only, e.g. 081-234-5678."),
+});
+
+const deliverySchema = contactSchema.extend({
+  address_line_1: requiredText("the street address", 200),
+  district: requiredText("the district", 100),
+  province: requiredText("the province", 100),
+  postal_code: z.string().trim().regex(/^\d{5}$/, "Postal codes have 5 digits."),
+});
 
 export function CheckoutPage() {
   const navigate = useNavigate();
@@ -58,6 +78,8 @@ export function CheckoutPage() {
   const [isPaying, setIsPaying] = useState(false);
   const [reserveError, setReserveError] = useState<string | null>(null);
   const [cardError, setCardError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const fieldError = (key: string) => fieldErrors[key] && <p className="mt-1 text-[11px] text-rose-600">{fieldErrors[key]}</p>;
   // Locking stock turns the bag into an order and empties it on the server. Keep the lines for
   // the Order Summary while paying, and refresh the cart so the navbar shows it empty.
   const [lockedLines, setLockedLines] = useState<SummaryLine[] | null>(null);
@@ -139,24 +161,36 @@ export function CheckoutPage() {
   const handleCreateReservation = async (e: React.FormEvent) => {
     e.preventDefault();
     const deliverToSaved = useSavedAddress && !!savedAddress;
-    if (!email || !recipientName || !phone || (!deliverToSaved && (!addressLine1 || !district || !postalCode))) {
-      setReserveError("Please fill in all required delivery fields.");
+    const checked = deliverToSaved
+      ? validate(contactSchema, { customer_email: email, recipient_name: recipientName, phone })
+      : validate(deliverySchema, {
+          customer_email: email,
+          recipient_name: recipientName,
+          phone,
+          address_line_1: addressLine1,
+          district,
+          province,
+          postal_code: postalCode,
+        });
+    setFieldErrors(checked.ok ? {} : checked.fields);
+    if (!checked.ok) {
+      setReserveError("Please check the highlighted delivery fields.");
       return;
     }
 
     setIsReserving(true);
     setReserveError(null);
 
+    const { customer_email: customerEmail, ...contact } = checked.data;
     const shippingAddress = deliverToSaved
       ? {
-          recipient_name: recipientName,
-          phone,
+          ...contact,
           address_line_1: savedAddress,
           district: "",
           province: "",
           postal_code: savedAddress.match(POSTAL_CODE)?.[0] ?? "",
         }
-      : { recipient_name: recipientName, phone, address_line_1: addressLine1, district, province, postal_code: postalCode };
+      : contact;
 
     try {
       const res = await apiClient<{
@@ -166,7 +200,7 @@ export function CheckoutPage() {
         payment_method: PaymentTab;
       }>("/checkout/reserve", {
         method: "POST",
-        body: JSON.stringify({ customer_email: email, shipping_address: shippingAddress, payment_method: activeTab }),
+        body: JSON.stringify({ customer_email: customerEmail, shipping_address: shippingAddress, payment_method: activeTab }),
       });
 
       beginPayment(res.data.order_number, res.data.reservation_expires_at, res.data.grand_total_satang, cartLines, activeTab);
@@ -184,7 +218,9 @@ export function CheckoutPage() {
           .catch(() => {});
       }
     } catch (err) {
-      setReserveError((err as Error).message || "We couldn't hold these items. Someone may have just bought the last one.");
+      const apiErr = err as ApiRequestError;
+      if (apiErr.fields) setFieldErrors(apiErr.fields);
+      setReserveError(apiErr.message || "We couldn't hold these items. Someone may have just bought the last one.");
     } finally {
       setIsReserving(false);
     }
@@ -335,6 +371,7 @@ export function CheckoutPage() {
             /* Step 1: Delivery details */
             <form
               onSubmit={handleCreateReservation}
+              noValidate
               className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-5 shadow-xs"
             >
               <h2 className="text-base font-bold text-zinc-950 dark:text-white uppercase tracking-wider">1. Delivery Details</h2>
@@ -342,17 +379,20 @@ export function CheckoutPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="checkout-email" className={label}>Customer Email</label>
-                  <input id="checkout-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="somchai@company.co.th" autoComplete="email" className={input} />
+                  <input id="checkout-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="somchai@company.co.th" autoComplete="email" className={input} />
+                  {fieldError("customer_email")}
                 </div>
                 <div>
                   <label htmlFor="checkout-name" className={label}>Recipient Full Name</label>
-                  <input id="checkout-name" type="text" required value={recipientName} onChange={(e) => setRecipientName(e.target.value)} placeholder="Somchai Prommin" autoComplete="name" className={input} />
+                  <input id="checkout-name" type="text" value={recipientName} onChange={(e) => setRecipientName(e.target.value)} placeholder="Somchai Prommin" autoComplete="name" className={input} />
+                  {fieldError("recipient_name")}
                 </div>
               </div>
 
               <div>
                 <label htmlFor="checkout-phone" className={label}>Mobile Phone Number</label>
-                <input id="checkout-phone" type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="081-234-5678" autoComplete="tel" className={input} />
+                <input id="checkout-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="081-234-5678" autoComplete="tel" className={input} />
+                  {fieldError("phone")}
               </div>
 
               {savedAddress && (
@@ -387,21 +427,25 @@ export function CheckoutPage() {
                 <>
                   <div>
                     <label htmlFor="checkout-address" className={label}>Street Address & Building</label>
-                    <input id="checkout-address" type="text" required value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} placeholder="88/12 Sukhumvit Soi 55, Thonglor" autoComplete="street-address" className={input} />
+                    <input id="checkout-address" type="text" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} placeholder="88/12 Sukhumvit Soi 55, Thonglor" autoComplete="street-address" className={input} />
+                  {fieldError("address_line_1")}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label htmlFor="checkout-district" className={label}>District</label>
-                      <input id="checkout-district" type="text" required value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Watthana" className={input} />
+                      <input id="checkout-district" type="text" value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Watthana" className={input} />
+                  {fieldError("district")}
                     </div>
                     <div>
                       <label htmlFor="checkout-province" className={label}>Province</label>
-                      <input id="checkout-province" type="text" required value={province} onChange={(e) => setProvince(e.target.value)} autoComplete="address-level1" className={input} />
+                      <input id="checkout-province" type="text" value={province} onChange={(e) => setProvince(e.target.value)} autoComplete="address-level1" className={input} />
+                  {fieldError("province")}
                     </div>
                     <div>
                       <label htmlFor="checkout-postal" className={label}>Postal Code</label>
-                      <input id="checkout-postal" type="text" inputMode="numeric" required value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="10110" autoComplete="postal-code" className={input} />
+                      <input id="checkout-postal" type="text" inputMode="numeric" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="10110" autoComplete="postal-code" className={input} />
+                  {fieldError("postal_code")}
                     </div>
                   </div>
 

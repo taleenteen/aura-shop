@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { Loader2, X } from "lucide-react";
 import { apiClient, type ApiRequestError } from "@/lib/api-client";
 import type { StockAdjustmentResult, StockMovement, StockReason } from "@/types/api";
+import { z } from "zod";
+import { validate, type FieldErrors } from "@/lib/validation";
 
 const REASON_LABEL: Record<StockReason, string> = {
   INITIAL: "Opening stock",
@@ -14,6 +16,23 @@ const REASON_LABEL: Record<StockReason, string> = {
   CANCEL_RESTOCK: "Order cancelled, restocked",
 };
 const MANUAL_REASONS: StockReason[] = ["RECEIVE", "RETURN", "DAMAGE", "COUNT"];
+
+/** Field rules, matching the API. Whether the result keeps stock above reserved units is checked live below. */
+const stockSchema = z
+  .object({
+    reason: z.enum(["RECEIVE", "RETURN", "DAMAGE", "COUNT"], { message: "Choose a reason." }),
+    quantity: z
+      .string()
+      .trim()
+      .min(1, "Enter how many units.")
+      .regex(/^\d+$/, "Use whole units, e.g. 12.")
+      .refine((q) => Number(q) <= 100000, "At most 100,000 units per change."),
+    note: z.string().trim().max(500, "Keep the note under 500 characters."),
+  })
+  .refine((d) => !["DAMAGE", "COUNT"].includes(d.reason) || d.note.length > 0, {
+    path: ["note"],
+    message: "Add a short note for write-offs and count corrections.",
+  });
 
 interface Props {
   variantId: string;
@@ -32,7 +51,7 @@ export function StockDialog({ variantId, sku, stock: initialStock, reserved: ini
   const [reason, setReason] = useState<StockReason>("RECEIVE");
   const [note, setNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [history, setHistory] = useState<StockMovement[] | null>(null);
 
@@ -65,9 +84,10 @@ export function StockDialog({ variantId, sku, stock: initialStock, reserved: ini
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!valid || problem) return;
+    const checked = validate(stockSchema, { reason, quantity, note });
+    setErrors(checked.ok ? {} : checked.fields);
+    if (!checked.ok || problem) return;
     setIsSaving(true);
-    setErrors({});
     setMessage(null);
     try {
       const res = await apiClient<StockAdjustmentResult>(`/admin/variants/${variantId}/stock-adjustments`, {
@@ -130,7 +150,7 @@ export function StockDialog({ variantId, sku, stock: initialStock, reserved: ini
           ))}
         </dl>
 
-        <form onSubmit={submit} className="space-y-3">
+        <form onSubmit={submit} noValidate className="space-y-3">
           <div>
             <label htmlFor="stock-reason" className="block text-xs font-semibold mb-1">Reason</label>
             <select id="stock-reason" value={reason} onChange={(e) => setReason(e.target.value as StockReason)} className={fieldCls}>

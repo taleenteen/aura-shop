@@ -5,6 +5,24 @@ import { apiClient, type ApiRequestError } from "@/lib/api-client";
 import { useStorefrontStore } from "@/stores/storefront-store";
 import type { AdminBrand, AdminCategory } from "@/types/api";
 import { ImageField } from "./image-field";
+import { z } from "zod";
+import { validate, slug as slugRule, link, type FieldErrors } from "@/lib/validation";
+
+const name = z.string().trim().min(1, "Enter a name.").max(60, "Keep the name under 60 characters.");
+
+const categorySchema = z.object({
+  name,
+  slug: slugRule,
+  nav_label: z.string().trim().max(20, "Keep the menu label under 20 characters."),
+  icon_name: z.string().trim().max(40).regex(/^[A-Za-z0-9]*$/, "Use an icon name such as Laptop or Monitor."),
+  sort_order: z.number({ message: "Enter a number." }).int("Use a whole number."),
+});
+
+const brandSchema = z.object({
+  name,
+  slug: slugRule,
+  logo_url: z.union([z.literal(""), link("Use an uploaded image or an https:// link.")]),
+});
 
 type Kind = "category" | "brand";
 type Draft = { id?: string; name: string; slug: string; nav_label: string; icon_name: string; sort_order: number; logo_url: string };
@@ -249,7 +267,7 @@ function TableRow({ row, onDeleted }: { row: Row; onDeleted: () => void }) {
 
 function EditDialog({ kind, initial, onClose, onSaved }: { kind: Kind; initial: Draft; onClose: () => void; onSaved: () => void }) {
   const [draft, setDraft] = useState(initial);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const isNew = !initial.id;
@@ -263,14 +281,16 @@ function EditDialog({ kind, initial, onClose, onSaved }: { kind: Kind; initial: 
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    setErrors({});
     setMessage(null);
-    const base = kind === "category" ? "/admin/categories" : "/admin/brands";
-    const body =
+    const checked =
       kind === "category"
-        ? { name: draft.name, slug: draft.slug, nav_label: draft.nav_label, icon_name: draft.icon_name, sort_order: Number(draft.sort_order) || 0 }
-        : { name: draft.name, slug: draft.slug, logo_url: draft.logo_url };
+        ? validate(categorySchema, { name: draft.name, slug: draft.slug, nav_label: draft.nav_label, icon_name: draft.icon_name, sort_order: draft.sort_order })
+        : validate(brandSchema, { name: draft.name, slug: draft.slug, logo_url: draft.logo_url });
+    setErrors(checked.ok ? {} : checked.fields);
+    if (!checked.ok) return;
+    setBusy(true);
+    const base = kind === "category" ? "/admin/categories" : "/admin/brands";
+    const body = checked.data;
     try {
       await apiClient(isNew ? base : `${base}/${initial.id}`, { method: isNew ? "POST" : "PUT", body: JSON.stringify(body) });
       onSaved();

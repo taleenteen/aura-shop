@@ -7,6 +7,8 @@ import { HeroSplitBanner } from "@/features/banner/hero-split-banner";
 import { BentoPromoGrid } from "@/features/banner/bento-promo-grid";
 import { TopRibbon } from "@/components/layout/top-ribbon";
 import { ImageField } from "./image-field";
+import { z } from "zod";
+import { validate, optionalText, link, type FieldErrors } from "@/lib/validation";
 
 const PLACEMENTS: { id: BannerPlacement; label: string; note: string }[] = [
   { id: "HERO_SPLIT", label: "Home hero", note: "The live hero with the lowest order is shown at the top of the home page." },
@@ -20,6 +22,44 @@ const TILE_SIZES = [
   { value: "col-span-1 md:col-span-2 md:row-span-2", label: "Large" },
 ];
 
+
+/** Field rules, matching the API's banner validation. */
+const bannerSchema = z
+  .object({
+    placement: z.enum(["HERO_SPLIT", "BENTO_GRID", "TOP_RIBBON"], { message: "Choose where the banner appears." }),
+    grid_span: z.string(),
+    headline: z.string().trim().min(1, "Enter a headline.").max(140, "Keep the headline under 140 characters."),
+    badge_text: optionalText(40, "Keep the badge under 40 characters."),
+    subheadline: optionalText(300, "Keep the subheadline under 300 characters."),
+    background_color: z
+      .string()
+      .trim()
+      .max(200, "Use a colour such as #09090B or a CSS gradient.")
+      .refine((v) => !/[;{}<>]/.test(v), "Use a colour such as #09090B or a CSS gradient."),
+    product_image_url: z.string().trim(),
+    cta_primary_text: optionalText(40, "Keep the button text under 40 characters."),
+    cta_primary_link: z.string().trim(),
+    cta_secondary_text: z.string().trim(),
+    cta_secondary_link: z.string().trim(),
+    start_at: z.string().min(1, "Choose when the banner starts."),
+    end_at: z.string().min(1, "Choose when the banner ends."),
+  })
+  .superRefine((b, ctx) => {
+    const issue = (path: string, message: string) => ctx.addIssue({ code: "custom", path: [path], message });
+    const checkLink = (path: string, value: string) => {
+      if (value && !link().safeParse(value).success) issue(path, "Use a site path like /catalog or an https:// link.");
+    };
+    if (b.placement !== "TOP_RIBBON") {
+      if (!b.product_image_url) issue("product_image_url", "Upload or link a product image.");
+      else checkLink("product_image_url", b.product_image_url);
+      if (!b.cta_primary_link) issue("cta_primary_link", "Where should the button go? e.g. /catalog?category=mac");
+    }
+    checkLink("cta_primary_link", b.cta_primary_link);
+    checkLink("cta_secondary_link", b.cta_secondary_link);
+    if (b.cta_secondary_text && !b.cta_secondary_link) issue("cta_secondary_link", "Add a link for the second button.");
+    if (b.placement === "BENTO_GRID" && !TILE_SIZES.some((s) => s.value === b.grid_span)) issue("grid_span", "Choose a tile size.");
+    if (new Date(b.end_at) <= new Date(b.start_at)) issue("end_at", "The end must be after the start.");
+  });
 type Status = "live" | "scheduled" | "ended" | "hidden";
 const STATUS_STYLE: Record<Status, string> = {
   live: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
@@ -244,7 +284,7 @@ function BannerRow({ banner, onEdit, onChanged }: { banner: Banner; onEdit: () =
 
 function BannerEditor({ initial, onBack, onSaved }: { initial: Draft; onBack: () => void; onSaved: () => void }) {
   const [d, setD] = useState<Draft>(initial);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const isNew = !initial.id;
@@ -253,9 +293,11 @@ function BannerEditor({ initial, onBack, onSaved }: { initial: Draft; onBack: ()
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    setErrors({});
     setMessage(null);
+    const checked = validate(bannerSchema, d);
+    setErrors(checked.ok ? {} : checked.fields);
+    if (!checked.ok) return;
+    setBusy(true);
     try {
       const { id, ...body } = d;
       await apiClient(isNew ? "/admin/banners" : `/admin/banners/${id}`, { method: isNew ? "POST" : "PUT", body: JSON.stringify(body) });

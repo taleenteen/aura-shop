@@ -14,6 +14,7 @@ import (
 	"aura-tech/api/internal/repository"
 	"aura-tech/api/internal/response"
 	"aura-tech/api/internal/service"
+	"aura-tech/api/internal/validate"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -43,10 +44,12 @@ func (h *CheckoutHandler) Reserve(w http.ResponseWriter, r *http.Request) {
 	}
 	guestID := middleware.GetGuestIDFromContext(r.Context())
 
-	if strings.TrimSpace(req.CustomerEmail) == "" {
-		response.BadRequest(w, "customer_email is required")
+	email, ok := validate.Email(req.CustomerEmail)
+	if !ok {
+		response.ValidationFailed(w, "Enter a valid email address.", map[string]string{"customer_email": "Enter a valid email address."})
 		return
 	}
+	req.CustomerEmail = email
 
 	res, err := h.checkoutService.CreateReservation(r.Context(), userID, guestID, req)
 	if err != nil {
@@ -212,6 +215,8 @@ func (h *CheckoutHandler) LookupOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(req.Email) == "" {
 		fields["email"] = "Enter the email you ordered with."
+	} else if _, ok := validate.Email(req.Email); !ok {
+		fields["email"] = "Enter a valid email address."
 	}
 	if len(fields) > 0 {
 		response.ValidationFailed(w, "Enter your order number and email.", fields)

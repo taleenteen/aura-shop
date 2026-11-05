@@ -55,6 +55,8 @@ make dev-web                  # หน้าเว็บที่ http://localho
 - Checkout: จองสต็อก 15 นาที แล้วจ่ายด้วย PromptPay บัตรเครดิต หรือผ่อน 0% (จำลองทั้งหมด ไม่ตัดเงินจริง) กลับมาจ่ายต่อหรือยกเลิกได้ ใช้ที่อยู่ที่บันทึกไว้ได้
 - อีเมลแจ้งลูกค้า (ยืนยันการจ่าย จัดส่ง ส่งถึง ยกเลิก) เปิดอ่านได้ในหน้าคำสั่งซื้อ
 - ติดตามคำสั่งซื้อด้วยเลข order + อีเมล ที่ `/orders/lookup` สำหรับคนที่ซื้อแบบไม่ล็อกอิน
+- แจ้งเตือนทางอีเมลเมื่อตัวเลือกที่หมดกลับมามีของ (ต้องล็อกอิน) และกล่องข้อความในหน้าบัญชี
+- รีวิวและให้ดาวสินค้า เขียนได้เมื่อได้รับของแล้ว
 - หน้าบัญชีผู้ใช้: ติดตามคำสั่งซื้อตามสถานะ และแก้ชื่อ เบอร์โทร ที่อยู่ เปลี่ยนรหัสผ่าน และติดตามพัสดุ; ลืมรหัสผ่านรีเซ็ตผ่านอีเมลได้
 
 **หลังบ้าน (`/admin`)**
@@ -63,6 +65,7 @@ make dev-web                  # หน้าเว็บที่ http://localho
 - จัดส่ง: เปลี่ยนสถานะคำสั่งซื้อตามขั้นตอนที่อนุญาต บันทึก S/N รายเครื่อง และขนส่ง + เลขพัสดุตอนส่งของ
 - แบนเนอร์: สร้าง แก้ เปิด/ปิด ลบ และตั้งช่วงเวลาแสดง (hero, promo grid, ribbon ด้านบน) พร้อมพรีวิว
 - หมวดหมู่และแบรนด์: เพิ่ม แก้ ลบ (ลบได้เมื่อไม่มีสินค้า) และกำหนดเมนูด้านบน
+- รีวิว: ค้นหา กรองตามดาว และซ่อนรีวิวที่ไม่เหมาะสม
 
 ### คำสั่งที่ใช้บ่อย
 
@@ -128,6 +131,8 @@ On first start against an empty database the API creates the tables and loads sa
 - Checkout: 15-minute stock hold, then PromptPay, card or 0% instalments (all simulated; no money moves); resume or cancel unpaid orders; deliver to the saved address
 - Customer emails (payment confirmed, shipped, delivered, cancelled), readable on the order page
 - Order lookup by order number + email at `/orders/lookup` for guest checkouts
+- Back-in-stock email alerts for sold-out options (signed in) and an account inbox
+- Product reviews and star ratings, open to customers whose order was delivered
 - Account page: orders grouped by status, editable name, phone and address, password change, parcel tracking; password reset by email
 
 **Backoffice (`/admin`)**
@@ -136,6 +141,7 @@ On first start against an empty database the API creates the tables and loads sa
 - Fulfilment: allowed status transitions only, one serial number per unit, carrier + tracking number on shipping
 - Banners: create, edit, switch on/off, delete and schedule (hero, promo grid, top ribbon) with a live preview
 - Categories and brands: add, edit, delete (only when no products use them) and set the top menu
+- Reviews: search, filter by stars, hide reviews that break the guidelines
 
 ### Common commands
 

@@ -231,6 +231,38 @@ export function AccountEmailViewer({ email, onClose, onFollow }: { email: EmailM
     navigate({ to: "/reset-password", search: { token: email.data?.token ?? "" } });
   };
 
+  if (email.kind === "BACK_IN_STOCK") {
+    const item = email.data ?? {};
+    const openProduct = () => {
+      onClose();
+      onFollow?.();
+      navigate({ to: "/products/$slug", params: { slug: item.product_slug ?? "" }, search: item.variant_id ? { variant: item.variant_id } : {} });
+    };
+    return (
+      <EmailShell email={email} onClose={onClose} label="Back in stock">
+        <div className="space-y-3">
+          <h3 className="text-2xl font-black tracking-tight text-zinc-950">It's back</h3>
+          <p className="text-sm leading-relaxed text-zinc-600">
+            Good news: the {item.product_name} you asked us to watch is available again. Stock is limited, and we can't hold it until you order.
+          </p>
+        </div>
+        <div className="flex items-center gap-4 rounded-2xl border border-zinc-200 p-4">
+          <div className="w-20 h-20 shrink-0 rounded-xl bg-zinc-50 flex items-center justify-center overflow-hidden">
+            {item.image && <img src={item.image} alt="" className="max-w-full max-h-full object-contain" />}
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-zinc-950">{item.product_name}</p>
+            <p className="text-xs text-zinc-500">{item.variant}</p>
+            {item.price ? <p className="mt-1 text-sm font-bold text-zinc-950">{formatTHB(item.price)}</p> : null}
+          </div>
+        </div>
+        <button type="button" onClick={openProduct} className={ctaClass}>
+          Shop now
+        </button>
+      </EmailShell>
+    );
+  }
+
   return (
     <EmailShell email={email} onClose={onClose} label="Account security">
       <div className="space-y-3">

@@ -5,6 +5,18 @@ import { apiClient, type ApiRequestError } from "@/lib/api-client";
 import { rememberOrderLookup } from "@/lib/order-access";
 import { useAuthStore } from "@/stores/auth-store";
 import type { Order } from "@/types/api";
+import { z } from "zod";
+import { validate, email as emailRule } from "@/lib/validation";
+
+const lookupSchema = z.object({
+  order_number: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .min(1, "Enter your order number.")
+    .regex(/^AURA-\d{8}-[0-9A-Z]{8}$/,"Order numbers look like AURA-20261105-7KQ2M9XA."),
+  email: emailRule(),
+});
 
 /** Find an order by number and email: for guest checkouts, or orders placed on another device. */
 export function OrderLookupPage() {
@@ -19,15 +31,17 @@ export function OrderLookupPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    setErrors({});
     setMessage(null);
+    const checked = validate(lookupSchema, { order_number: orderNumber, email });
+    setErrors(checked.ok ? {} : checked.fields);
+    if (!checked.ok) return;
+    setBusy(true);
     try {
       const res = await apiClient<Order>("/orders/lookup", {
         method: "POST",
-        body: JSON.stringify({ order_number: orderNumber.trim(), email: email.trim() }),
+        body: JSON.stringify(checked.data),
       });
-      rememberOrderLookup(res.data.order_number, email.trim());
+      rememberOrderLookup(res.data.order_number, checked.data.email);
       navigate({ to: "/orders/$orderNumber", params: { orderNumber: res.data.order_number } });
     } catch (err) {
       const apiErr = err as ApiRequestError;

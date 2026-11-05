@@ -13,6 +13,7 @@ import (
 	"aura-tech/api/internal/middleware"
 	"aura-tech/api/internal/models"
 	"aura-tech/api/internal/repository"
+	"aura-tech/api/internal/validate"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -61,9 +62,24 @@ func NewAuthService(
 }
 
 func (s *authService) Register(ctx context.Context, req dto.RegisterRequest, guestID *string) (*dto.AuthResponse, error) {
-	email := strings.ToLower(strings.TrimSpace(req.Email))
-	if email == "" || len(req.Password) < 6 {
-		return nil, errors.New("valid email and password of at least 6 characters required")
+	email, emailOK := validate.Email(req.Email)
+	fields := map[string]string{}
+	if !emailOK {
+		fields["email"] = "Enter a valid email address."
+	}
+	if len(req.Password) < minPasswordLength {
+		fields["password"] = "Use at least 6 characters."
+	}
+	if name := strings.TrimSpace(req.FullName); name == "" {
+		fields["full_name"] = "Enter your name."
+	} else if utf8.RuneCountInString(name) > 100 {
+		fields["full_name"] = "Keep your name under 100 characters."
+	}
+	if utf8.RuneCountInString(strings.TrimSpace(req.Phone)) > 30 {
+		fields["phone"] = "Keep the phone number under 30 characters."
+	}
+	if len(fields) > 0 {
+		return nil, &ValidationError{Fields: fields}
 	}
 
 	existing, err := s.userRepo.GetByEmail(ctx, email)
@@ -164,8 +180,6 @@ func (s *authService) mergeGuestIntoUser(ctx context.Context, guestID string, us
 	}
 }
 
-// ErrInvalidProfile is returned when profile fields are missing or too long.
-var ErrInvalidProfile = errors.New("invalid profile")
 
 func toUserDTO(user *models.User) *dto.UserDTO {
 	return &dto.UserDTO{
@@ -184,15 +198,20 @@ func (s *authService) UpdateProfile(ctx context.Context, userID uuid.UUID, req d
 	fullName := strings.TrimSpace(req.FullName)
 	phone := strings.TrimSpace(req.Phone)
 	address := strings.TrimSpace(req.Address)
-	switch {
-	case fullName == "":
-		return nil, fmt.Errorf("%w: full name is required", ErrInvalidProfile)
-	case utf8.RuneCountInString(fullName) > 100:
-		return nil, fmt.Errorf("%w: full name must be at most 100 characters", ErrInvalidProfile)
-	case utf8.RuneCountInString(phone) > 30:
-		return nil, fmt.Errorf("%w: phone must be at most 30 characters", ErrInvalidProfile)
-	case utf8.RuneCountInString(address) > 1000:
-		return nil, fmt.Errorf("%w: address must be at most 1000 characters", ErrInvalidProfile)
+	fields := map[string]string{}
+	if fullName == "" {
+		fields["full_name"] = "Full name is required."
+	} else if utf8.RuneCountInString(fullName) > 100 {
+		fields["full_name"] = "Keep your name under 100 characters."
+	}
+	if utf8.RuneCountInString(phone) > 30 {
+		fields["phone"] = "Keep the phone number under 30 characters."
+	}
+	if utf8.RuneCountInString(address) > 1000 {
+		fields["address"] = "Keep the address under 1,000 characters."
+	}
+	if len(fields) > 0 {
+		return nil, &ValidationError{Fields: fields}
 	}
 
 	if err := s.userRepo.UpdateProfile(ctx, userID, fullName, phone, address); err != nil {

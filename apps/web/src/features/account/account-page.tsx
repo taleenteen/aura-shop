@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Loader2, Package, UserRound } from "lucide-react";
 import { apiClient, type ApiRequestError } from "@/lib/api-client";
+import { z } from "zod";
+import { validate, password as passwordRule, optionalText, type FieldErrors } from "@/lib/validation";
 import { formatTHB } from "@/lib/currency";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -9,8 +11,23 @@ import type { Order, OrderStatus, User } from "@/types/api";
 import { STATUS_META, STEPS, STEP_REACHED, formatTime, isPayable } from "@/features/orders/order-status";
 import { CancelOrderButton } from "@/features/orders/cancel-order-button";
 import { carrierName } from "@/features/orders/carriers";
+import { InboxSection } from "./inbox-section";
 
-type AccountTab = "orders" | "profile";
+type AccountTab = "orders" | "inbox" | "profile";
+
+const profileSchema = z.object({
+  full_name: z.string().trim().min(1, "Full name is required.").max(100, "Keep your name under 100 characters."),
+  phone: optionalText(30, "Keep the phone number under 30 characters."),
+  address: optionalText(1000, "Keep the address under 1,000 characters."),
+});
+
+const changePasswordSchema = z
+  .object({
+    current_password: z.string().min(1, "Enter your current password."),
+    new_password: passwordRule,
+    confirm: z.string(),
+  })
+  .refine((d) => d.new_password === d.confirm, { path: ["confirm"], message: "Passwords don't match." });
 
 /** Customer-facing order stages. Each groups one or more backend statuses. */
 type Stage = "all" | "to_pay" | "to_ship" | "shipping" | "delivered" | "cancelled";
@@ -33,7 +50,7 @@ export function AccountPage() {
   const setAuthOpen = useUIStore((state) => state.setAuthOpen);
   const navigate = useNavigate();
   const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
-  const tab: AccountTab = search.tab === "profile" ? "profile" : "orders";
+  const tab: AccountTab = search.tab === "profile" ? "profile" : search.tab === "inbox" ? "inbox" : "orders";
 
   if (isRestoring) {
     return (
@@ -95,9 +112,20 @@ export function AccountPage() {
         >
           Profile & Address
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "inbox"}
+          className={tabClass(tab === "inbox")}
+          onClick={() => navigate({ to: "/account", search: { tab: "inbox" }, replace: true })}
+        >
+          Inbox
+        </button>
       </div>
 
-      {tab === "orders" ? (
+      {tab === "inbox" ? (
+        <InboxSection />
+      ) : tab === "orders" ? (
         <OrdersSection />
       ) : (
         <div className="space-y-6">
@@ -258,6 +286,11 @@ function OrderCard({ order, onChange }: { order: Order; onChange: (order: Order)
                 <p className="text-xs text-zinc-500 truncate">
                   {item.spec_summary} • Qty {item.quantity}
                 </p>
+                {order.status === "DELIVERED" && item.product_slug && (
+                  <Link to="/products/$slug" params={{ slug: item.product_slug }} hash="reviews" className="text-xs font-semibold text-amber-700 dark:text-amber-400 hover:underline underline-offset-2">
+                    Rate &amp; review
+                  </Link>
+                )}
               </div>
               <span className="shrink-0 text-zinc-700 dark:text-zinc-300">{formatTHB(item.unit_price * item.quantity)}</span>
             </li>
@@ -326,17 +359,24 @@ function ProfileSection({ user }: { user: User }) {
   const [address, setAddress] = useState(user.address ?? "");
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
 
   const dirty = fullName !== user.full_name || phone !== (user.phone ?? "") || address !== (user.address ?? "");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
     setMessage(null);
+    const checked = validate(profileSchema, { full_name: fullName, phone, address });
+    if (!checked.ok) {
+      setErrors(checked.fields);
+      return;
+    }
+    setErrors({});
+    setIsSaving(true);
     try {
       const res = await apiClient<User>("/auth/me", {
         method: "PATCH",
-        body: JSON.stringify({ full_name: fullName, phone, address }),
+        body: JSON.stringify(checked.data),
       });
       setUser({ ...user, ...res.data });
       setFullName(res.data.full_name);
@@ -344,26 +384,31 @@ function ProfileSection({ user }: { user: User }) {
       setAddress(res.data.address ?? "");
       setMessage({ kind: "ok", text: "Profile saved." });
     } catch (err) {
-      setMessage({ kind: "error", text: (err as Error).message || "Could not save your profile." });
+      const apiErr = err as ApiRequestError;
+      setErrors(apiErr.fields ?? {});
+      setMessage({ kind: "error", text: apiErr.message || "Could not save your profile." });
     } finally {
       setIsSaving(false);
     }
   };
+  const fieldError = (key: string) => errors[key] && <p className="mt-1 text-[11px] text-rose-600">{errors[key]}</p>;
 
   const input =
     "w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white";
   const label = "block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5";
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-5 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 sm:p-8 shadow-xs">
+    <form onSubmit={handleSubmit} noValidate className="max-w-2xl space-y-5 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 sm:p-8 shadow-xs">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
           <label htmlFor="profile-name" className={label}>Full name</label>
-          <input id="profile-name" required maxLength={100} value={fullName} onChange={(e) => setFullName(e.target.value)} className={input} autoComplete="name" />
+          <input id="profile-name" maxLength={100} value={fullName} onChange={(e) => setFullName(e.target.value)} className={input} autoComplete="name" />
+          {fieldError("full_name")}
         </div>
         <div>
           <label htmlFor="profile-phone" className={label}>Mobile phone</label>
           <input id="profile-phone" type="tel" maxLength={30} value={phone} onChange={(e) => setPhone(e.target.value)} className={input} autoComplete="tel" />
+          {fieldError("phone")}
         </div>
       </div>
 
@@ -386,6 +431,7 @@ function ProfileSection({ user }: { user: User }) {
           autoComplete="street-address"
         />
         <p className="mt-1 text-[11px] text-zinc-400">{address.length}/1000</p>
+        {fieldError("address")}
       </div>
 
       <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -411,15 +457,15 @@ function ChangePasswordSection() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
-    if (next.length < 6) return setErrors({ new_password: "Use at least 6 characters." });
-    if (next !== confirm) return setErrors({ confirm: "Passwords don't match." });
+    const checked = validate(changePasswordSchema, { current_password: current, new_password: next, confirm });
+    if (!checked.ok) return setErrors(checked.fields);
     setErrors({});
     setBusy(true);
     try {

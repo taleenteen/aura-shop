@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronRight, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import type { Product, ProductVariant } from "@/types/api";
@@ -9,6 +9,7 @@ import { BentoHighlights } from "./bento-highlights";
 import { PortsAndBox } from "./ports-and-box";
 import { BoughtTogether } from "./bought-together";
 import { FullSpecMatrix } from "./full-spec-matrix";
+import { ProductReviewsSection } from "@/features/reviews/product-reviews";
 
 interface ProductDetailPageProps {
   slug: string;
@@ -21,6 +22,9 @@ export function ProductDetailPage({ slug }: ProductDetailPageProps) {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // ?variant=<id> opens a specific option, e.g. from a back-in-stock email.
+  const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
+  const wantedVariant = typeof search.variant === "string" ? search.variant : null;
 
   useEffect(() => {
     setIsLoading(true);
@@ -28,8 +32,9 @@ export function ProductDetailPage({ slug }: ProductDetailPageProps) {
     apiClient<Product>(`/products/${slug}`)
       .then((res) => {
         setProduct(res.data);
-        if (res.data?.variants && res.data.variants.length > 0) {
-          setSelectedVariant(res.data.variants[0]);
+        const variants = res.data?.variants ?? [];
+        if (variants.length > 0) {
+          setSelectedVariant(variants.find((v) => v.id === wantedVariant) ?? variants[0]);
         }
       })
       .catch((err) => {
@@ -138,6 +143,9 @@ export function ProductDetailPage({ slug }: ProductDetailPageProps) {
 
       {/* Full Technical Specifications Matrix */}
       <FullSpecMatrix specGroups={product.full_spec_matrix} />
+
+      {/* Customer reviews */}
+      <ProductReviewsSection slug={product.slug} />
     </div>
   );
 }

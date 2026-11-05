@@ -1,6 +1,22 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
 import { CreditCard, Lock, AlertCircle } from "lucide-react";
+import { z } from "zod";
+import { validate, type FieldErrors } from "@/lib/validation";
+
+/** Card fields. The number is not Luhn-checked: the payment gateway decides (and declines cards ending 0000). */
+const cardSchema = z.object({
+  number: z.string().regex(/^\d{16}$/, "Enter the 16-digit card number."),
+  holder: z.string().trim().min(2, "Enter the name printed on the card.").max(60, "Keep the name under 60 characters."),
+  expiry: z
+    .string()
+    .regex(/^(0[1-9]|1[0-2])\/\d{2}$/, "Use MM/YY, e.g. 08/29.")
+    .refine((v) => {
+      const [mm, yy] = v.split("/").map(Number);
+      return new Date(2000 + yy, mm, 1) > new Date(); // valid through the end of its month
+    }, "This card has expired."),
+  cvv: z.string().regex(/^\d{3,4}$/, "Enter the 3 or 4 digits on the back."),
+});
 
 interface InteractiveCardFormProps {
   onPay: (cardData: {
@@ -23,6 +39,7 @@ export function InteractiveCardForm({
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCVV, setCardCVV] = useState("");
   const [isFlipped, setIsFlipped] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
 
   // Card brand detection
   const cleanNumber = cardNumber.replace(/\s+/g, "");
@@ -49,14 +66,17 @@ export function InteractiveCardForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cleanNumber || cleanNumber.length < 16) return;
+    const checked = validate(cardSchema, { number: cleanNumber, holder: cardHolder, expiry: cardExpiry, cvv: cardCVV });
+    setErrors(checked.ok ? {} : checked.fields);
+    if (!checked.ok) return;
     onPay({
-      cardNumber: cleanNumber,
-      cardHolder,
-      cardExpiry,
-      cardCVV,
+      cardNumber: checked.data.number,
+      cardHolder: checked.data.holder,
+      cardExpiry: checked.data.expiry,
+      cardCVV: checked.data.cvv,
     });
   };
+  const fieldError = (key: string) => errors[key] && <p className="mt-1 text-[11px] text-rose-600">{errors[key]}</p>;
 
   return (
     <div className="space-y-6">
@@ -129,7 +149,7 @@ export function InteractiveCardForm({
       )}
 
       {/* Inputs Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <div>
           <label htmlFor="card-number" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
             Card Number
@@ -138,7 +158,6 @@ export function InteractiveCardForm({
             <input
                     id="card-number"
               type="text"
-              required
               value={cardNumber}
               onChange={handleNumberChange}
               onFocus={() => setIsFlipped(false)}
@@ -147,6 +166,7 @@ export function InteractiveCardForm({
             />
             <CreditCard className="w-4 h-4 text-zinc-400 absolute left-3 top-3.5" />
           </div>
+          {fieldError("number")}
         </div>
 
         <div>
@@ -156,13 +176,13 @@ export function InteractiveCardForm({
           <input
                     id="card-name"
             type="text"
-            required
             value={cardHolder}
             onChange={(e) => setCardHolder(e.target.value)}
             onFocus={() => setIsFlipped(false)}
             placeholder="SOMCHAI PROMMIN"
             className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white uppercase outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white"
           />
+          {fieldError("holder")}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -173,13 +193,13 @@ export function InteractiveCardForm({
             <input
                     id="card-expiry"
               type="text"
-              required
               value={cardExpiry}
               onChange={handleExpiryChange}
               onFocus={() => setIsFlipped(false)}
               placeholder="12/28"
               className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white"
             />
+          {fieldError("expiry")}
           </div>
 
           <div>
@@ -190,7 +210,6 @@ export function InteractiveCardForm({
               <input
                     id="card-cvv"
                 type="password"
-                required
                 maxLength={4}
                 value={cardCVV}
                 onChange={(e) => setCardCVV(e.target.value.replace(/\D/g, ""))}
@@ -201,12 +220,13 @@ export function InteractiveCardForm({
               />
               <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-3.5" />
             </div>
+          {fieldError("cvv")}
           </div>
         </div>
 
         <button
           type="submit"
-          disabled={isLoading || cleanNumber.length < 16}
+          disabled={isLoading}
           className="w-full mt-4 py-3.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-100 dark:text-zinc-950 font-bold text-sm shadow-md transition-colors cursor-pointer disabled:opacity-50"
         >
           {isLoading ? "Processing Gateway Transaction..." : "Complete Card Payment"}

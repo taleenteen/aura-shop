@@ -88,8 +88,8 @@ type Order struct {
 	TrackingNumber string     `gorm:"type:varchar(40);not null;default:''" json:"tracking_number"`
 	ShippedAt      *time.Time `json:"shipped_at"`
 	DeliveredAt    *time.Time `json:"delivered_at"`
-	CreatedAt            time.Time      `json:"created_at"`
-	UpdatedAt            time.Time      `json:"updated_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 type OrderItem struct {
@@ -102,8 +102,10 @@ type OrderItem struct {
 	UnitPrice    int64     `gorm:"not null" json:"unit_price"`
 	Quantity     int       `gorm:"not null" json:"quantity"`
 	// One warranty serial per unit (index i = unit i+1). Every unit needs one before SHIPPED.
-	// Replaces the legacy single-value serial_number column, which is backfilled on migration.
+	// Replaced the legacy single-value serial_number column (copied over, then dropped, on migration).
 	SerialNumbers datatypes.JSONSlice[string] `gorm:"type:jsonb" json:"serial_numbers"`
+	// ProductSlug links the line to its product page; filled for account order listings.
+	ProductSlug string `gorm:"-" json:"product_slug,omitempty"`
 }
 
 // Carriers the store ships with, by code.
