@@ -56,3 +56,20 @@ func TestErrorResponse(t *testing.T) {
 		t.Fatalf("expected error code INVALID_INPUT, got %+v", env.Error)
 	}
 }
+
+func TestPaginationMetaKeepsZeroCounts(t *testing.T) {
+	rec := httptest.NewRecorder()
+	response.Success(rec, http.StatusOK, []string{}, &response.Meta{Page: 1, Limit: 20})
+
+	var body struct {
+		Meta map[string]any `json:"meta"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"total_items", "total_pages"} {
+		if v, ok := body.Meta[key]; !ok || v != float64(0) {
+			t.Errorf("meta.%s = %v (present %v), want 0", key, v, ok)
+		}
+	}
+}

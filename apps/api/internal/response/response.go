@@ -6,10 +6,11 @@ import (
 )
 
 type Meta struct {
-	Page       int `json:"page,omitempty"`
-	Limit      int `json:"limit,omitempty"`
-	TotalItems int `json:"total_items,omitempty"`
-	TotalPages int `json:"total_pages,omitempty"`
+	// Pagination counts are always sent: zero results is a real answer, not a missing field.
+	Page       int `json:"page"`
+	Limit      int `json:"limit"`
+	TotalItems int `json:"total_items"`
+	TotalPages int `json:"total_pages"`
 	Facets     any `json:"facets,omitempty"`
 }
 
