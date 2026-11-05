@@ -66,10 +66,34 @@ func AutoMigrate(db *gorm.DB) error {
 
 	slog.Info("database schema auto-migration succeeded")
 
+	if err := backfillOrderItemSerials(db); err != nil {
+		return fmt.Errorf("failed to backfill order item serials: %w", err)
+	}
+
 	if err := EnsureGINIndexes(db); err != nil {
 		return fmt.Errorf("failed to ensure gin indexes: %w", err)
 	}
 
+	return nil
+}
+
+// backfillOrderItemSerials copies the legacy single serial_number into the per-unit
+// serial_numbers array. Idempotent: rows that already have serial_numbers are skipped.
+// The legacy column is left in place; nothing reads it any more.
+func backfillOrderItemSerials(db *gorm.DB) error {
+	if !db.Migrator().HasColumn(&models.OrderItem{}, "serial_number") {
+		return nil
+	}
+	res := db.Exec(`UPDATE order_items
+		SET serial_numbers = jsonb_build_array(serial_number)
+		WHERE serial_number IS NOT NULL AND serial_number <> ''
+		  AND (serial_numbers IS NULL OR serial_numbers = '[]'::jsonb)`)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected > 0 {
+		slog.Info("backfilled per-unit serial numbers from legacy column", "rows", res.RowsAffected)
+	}
 	return nil
 }
 

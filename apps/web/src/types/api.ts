@@ -258,7 +258,8 @@ export interface OrderItem {
   spec_summary: string;
   unit_price: number; // Satang
   quantity: number;
-  serial_number: string;
+  /** One warranty serial per unit; index i is unit i+1. */
+  serial_numbers: string[] | null;
 }
 
 export interface Order {

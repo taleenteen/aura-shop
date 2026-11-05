@@ -83,7 +83,6 @@ func (s *checkoutService) CreateReservation(ctx context.Context, userID *uuid.UU
 			SpecSummary:  specSummary,
 			UnitPrice:    itemPrice,
 			Quantity:     item.Quantity,
-			SerialNumber: "", // Empty at creation; assigned by admin prior to SHIPPED
 		})
 
 		reservations = append(reservations, models.StockReservation{

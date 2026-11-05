@@ -186,6 +186,14 @@ type LowStockItem struct {
 	AvailableStock int       `json:"available_stock"`
 }
 
+// OrderListFilter selects a page of admin orders. Page and Limit are already validated.
+type OrderListFilter struct {
+	Status string // empty or "ALL" means every status
+	Search string // case-insensitive match on order number or customer email
+	Page   int
+	Limit  int
+}
+
 type AdminOverviewStats struct {
 	TotalRevenueSatang int64                `json:"total_revenue_satang"`
 	TotalOrdersCount   int64                `json:"total_orders_count"`
@@ -195,5 +203,6 @@ type AdminOverviewStats struct {
 
 type UpdateOrderStatusRequest struct {
 	Status        string            `json:"status"` // PENDING_PAYMENT, PAID_PROCESSING, SN_ASSIGNED, SHIPPED, DELIVERED, CANCELLED
-	SerialNumbers map[string]string `json:"serial_numbers,omitempty"` // item/variant ID or "primary" -> serial number string
+	// Order item ID -> one serial per unit. A blank entry keeps the saved serial for that unit.
+	SerialNumbers map[string][]string `json:"serial_numbers,omitempty"`
 }

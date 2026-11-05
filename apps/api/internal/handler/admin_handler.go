@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"aura-tech/api/internal/dto"
 	"aura-tech/api/internal/models"
@@ -42,6 +43,7 @@ func (h *AdminHandler) GetOverview(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
+	search := strings.TrimSpace(r.URL.Query().Get("q"))
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if page < 1 {
@@ -54,7 +56,7 @@ func (h *AdminHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		limit = maxOrdersPageSize
 	}
 
-	orders, total, err := h.adminService.ListOrders(r.Context(), status, page, limit)
+	orders, total, err := h.adminService.ListOrders(r.Context(), dto.OrderListFilter{Status: status, Search: search, Page: page, Limit: limit})
 	if err != nil {
 		response.InternalServerError(w, "failed to list orders: "+err.Error())
 		return
@@ -124,6 +126,10 @@ func (h *AdminHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		if errors.Is(err, repository.ErrSerialNumberRequired) {
 			response.Error(w, http.StatusBadRequest, "SERIAL_NUMBER_REQUIRED", "Serial number is required for all order items before marking as SHIPPED.")
+			return
+		}
+		if errors.Is(err, repository.ErrInvalidSerialNumbers) {
+			response.Error(w, http.StatusBadRequest, "INVALID_SERIAL_NUMBERS", err.Error())
 			return
 		}
 		if errors.Is(err, repository.ErrInvalidOrderTransition) {

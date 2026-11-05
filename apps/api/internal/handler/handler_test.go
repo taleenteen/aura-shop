@@ -26,7 +26,7 @@ func (m *mockAdminService) GetOverview(ctx context.Context) (*dto.AdminOverviewS
 	return &dto.AdminOverviewStats{}, nil
 }
 
-func (m *mockAdminService) ListOrders(ctx context.Context, status string, page, limit int) ([]models.Order, int64, error) {
+func (m *mockAdminService) ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error) {
 	return []models.Order{}, 0, nil
 }
 

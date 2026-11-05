@@ -45,6 +45,11 @@ func CanAdminTransitionOrder(from, to string) bool {
 	return false
 }
 
+// SerialsEditable reports whether serial numbers may still be recorded for an order in this status.
+func SerialsEditable(status string) bool {
+	return status == OrderStatusPaidProcessing || status == OrderStatusSNAssigned
+}
+
 // AdminOrderTransitions returns the statuses an admin may move an order to from its current status.
 func AdminOrderTransitions(from string) []string {
 	return append([]string(nil), adminOrderTransitions[from]...)
@@ -79,5 +84,7 @@ type OrderItem struct {
 	SpecSummary  string    `json:"spec_summary"` // e.g., "Space Black / M4 Pro / 24GB / 512GB"
 	UnitPrice    int64     `gorm:"not null" json:"unit_price"`
 	Quantity     int       `gorm:"not null" json:"quantity"`
-	SerialNumber string    `gorm:"index" json:"serial_number"` // Mandatory before status can transition to SHIPPED
+	// One warranty serial per unit (index i = unit i+1). Every unit needs one before SHIPPED.
+	// Replaces the legacy single-value serial_number column, which is backfilled on migration.
+	SerialNumbers datatypes.JSONSlice[string] `gorm:"type:jsonb" json:"serial_numbers"`
 }

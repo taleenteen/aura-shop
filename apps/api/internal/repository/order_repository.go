@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"aura-tech/api/internal/dto"
@@ -20,6 +21,7 @@ var (
 	ErrOrderNotFound          = errors.New("order not found")
 	ErrSerialNumberRequired   = errors.New("serial number is required for all items before shipping")
 	ErrInvalidOrderTransition = errors.New("invalid order status transition")
+	ErrInvalidSerialNumbers   = errors.New("invalid serial numbers")
 )
 
 type OrderRepository interface {
@@ -28,8 +30,8 @@ type OrderRepository interface {
 	ReleaseExpiredReservations(ctx context.Context) (int64, error)
 	GetOrderByNumber(ctx context.Context, orderNumber string) (*models.Order, error)
 	GetOrderByID(ctx context.Context, id uuid.UUID) (*models.Order, error)
-	ListOrders(ctx context.Context, status string, page, limit int) ([]models.Order, int64, error)
-	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string]string) error
+	ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error)
+	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error
 	GetAdminOverview(ctx context.Context) (*dto.AdminOverviewStats, error)
 }
 
@@ -232,13 +234,17 @@ func (r *orderRepository) GetOrderByID(ctx context.Context, id uuid.UUID) (*mode
 	return &order, nil
 }
 
-func (r *orderRepository) ListOrders(ctx context.Context, status string, page, limit int) ([]models.Order, int64, error) {
-	// page and limit are validated by the handler, which also reports them in the response meta.
-	offset := (page - 1) * limit
+func (r *orderRepository) ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error) {
+	// Page and Limit are validated by the handler, which also reports them in the response meta.
+	offset := (filter.Page - 1) * filter.Limit
 
 	query := r.db.WithContext(ctx).Model(&models.Order{})
-	if status != "" && status != "ALL" {
-		query = query.Where("status = ?", status)
+	if filter.Status != "" && filter.Status != "ALL" {
+		query = query.Where("status = ?", filter.Status)
+	}
+	if filter.Search != "" {
+		pattern := "%" + escapeLikePattern(filter.Search) + "%"
+		query = query.Where("order_number ILIKE ? OR customer_email ILIKE ?", pattern, pattern)
 	}
 
 	var total int64
@@ -251,7 +257,7 @@ func (r *orderRepository) ListOrders(ctx context.Context, status string, page, l
 		Preload("Items").
 		Order("created_at DESC").
 		Offset(offset).
-		Limit(limit).
+		Limit(filter.Limit).
 		Find(&orders).Error
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list orders: %w", err)
@@ -264,7 +270,7 @@ func (r *orderRepository) ListOrders(ctx context.Context, status string, page, l
 	return orders, total, nil
 }
 
-func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string]string) error {
+func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string, serialNumbers map[string][]string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var order models.Order
 		// Lock the order row so a concurrent checkout payment or cancel sees the final status.
@@ -285,39 +291,18 @@ func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UU
 			}
 		}
 
-		// Apply Serial Numbers if provided
-		if len(serialNumbers) > 0 {
-			for key, sn := range serialNumbers {
-				for i := range order.Items {
-					// Match either by direct UUID string or if single item in order
-					if order.Items[i].ID.String() == key || (len(order.Items) == 1 && (key == "primary" || key == "default" || key == order.Items[i].VariantID.String())) {
-						order.Items[i].SerialNumber = sn
-						if err := tx.Model(&order.Items[i]).Update("serial_number", sn).Error; err != nil {
-							return fmt.Errorf("failed to save serial number for item %s: %w", order.Items[i].ID, err)
-						}
-					}
-				}
+		changed, err := mergeSerialNumbers(order.Items, serialNumbers, models.SerialsEditable(order.Status))
+		if err != nil {
+			return err
+		}
+		for _, i := range changed {
+			if err := tx.Model(&order.Items[i]).Update("serial_numbers", order.Items[i].SerialNumbers).Error; err != nil {
+				return fmt.Errorf("failed to save serial numbers for item %s: %w", order.Items[i].ID, err)
 			}
 		}
 
-		// State Machine Validation:
-		// When transitioning to SHIPPED, all items MUST have a serial number assigned
-		if newStatus == "SHIPPED" {
-			for _, item := range order.Items {
-				hasSN := item.SerialNumber != ""
-				if sn, ok := serialNumbers[item.ID.String()]; ok && sn != "" {
-					hasSN = true
-				} else if len(order.Items) == 1 {
-					for _, snVal := range serialNumbers {
-						if snVal != "" {
-							hasSN = true
-						}
-					}
-				}
-				if !hasSN {
-					return ErrSerialNumberRequired
-				}
-			}
+		if newStatus == models.OrderStatusShipped && !allUnitsHaveSerials(order.Items) {
+			return ErrSerialNumberRequired
 		}
 
 		if err := tx.Model(&order).Update("status", newStatus).Error; err != nil {
@@ -426,4 +411,82 @@ func (r *orderRepository) GetAdminOverview(ctx context.Context) (*dto.AdminOverv
 	}
 
 	return stats, nil
+}
+
+// likeEscaper makes user input match literally inside a LIKE/ILIKE pattern (Postgres escape char is \).
+var likeEscaper = strings.NewReplacer(`\`, `\`, `%`, `\%`, `_`, `\_`)
+
+func escapeLikePattern(s string) string {
+	return likeEscaper.Replace(s)
+}
+
+// mergeSerialNumbers applies per-unit serials from input (order item ID -> serials) onto items
+// and returns the indexes of items that changed. A blank entry keeps the saved serial for that
+// unit, so a partially filled form never erases data. Serials must be unique within the order.
+// When editable is false, input is accepted only if it would change nothing.
+func mergeSerialNumbers(items []models.OrderItem, input map[string][]string, editable bool) ([]int, error) {
+	byID := make(map[string]int, len(items))
+	for i := range items {
+		byID[items[i].ID.String()] = i
+	}
+
+	var changed []int
+	for id, serials := range input {
+		i, ok := byID[id]
+		if !ok {
+			return nil, fmt.Errorf("%w: item %s is not part of this order", ErrInvalidSerialNumbers, id)
+		}
+		item := &items[i]
+		if len(serials) > item.Quantity {
+			return nil, fmt.Errorf("%w: %d serials given for %s but quantity is %d", ErrInvalidSerialNumbers, len(serials), item.SKUSnapshot, item.Quantity)
+		}
+
+		merged := make([]string, item.Quantity)
+		copy(merged, item.SerialNumbers)
+		differs := false
+		for u, sn := range serials {
+			sn = strings.ToUpper(strings.TrimSpace(sn))
+			if sn != "" && sn != merged[u] {
+				merged[u] = sn
+				differs = true
+			}
+		}
+		if !differs {
+			continue
+		}
+		if !editable {
+			return nil, fmt.Errorf("%w: serial numbers can only be changed before the order ships", ErrInvalidSerialNumbers)
+		}
+		item.SerialNumbers = merged
+		changed = append(changed, i)
+	}
+
+	seen := map[string]string{}
+	for _, item := range items {
+		for _, sn := range item.SerialNumbers {
+			if sn == "" {
+				continue
+			}
+			if other, dup := seen[sn]; dup {
+				return nil, fmt.Errorf("%w: serial %s is used for both %s and %s", ErrInvalidSerialNumbers, sn, other, item.SKUSnapshot)
+			}
+			seen[sn] = item.SKUSnapshot
+		}
+	}
+	return changed, nil
+}
+
+// allUnitsHaveSerials reports whether every unit of every item has a non-empty serial.
+func allUnitsHaveSerials(items []models.OrderItem) bool {
+	for _, item := range items {
+		if len(item.SerialNumbers) < item.Quantity {
+			return false
+		}
+		for _, sn := range item.SerialNumbers[:item.Quantity] {
+			if sn == "" {
+				return false
+			}
+		}
+	}
+	return true
 }

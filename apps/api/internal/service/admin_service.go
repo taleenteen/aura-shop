@@ -12,7 +12,7 @@ import (
 
 type AdminService interface {
 	GetOverview(ctx context.Context) (*dto.AdminOverviewStats, error)
-	ListOrders(ctx context.Context, status string, page, limit int) ([]models.Order, int64, error)
+	ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error)
 	CreateBanner(ctx context.Context, banner *models.Banner) error
 	CreateProduct(ctx context.Context, product *models.Product) error
 	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, req dto.UpdateOrderStatusRequest) error
@@ -40,8 +40,8 @@ func (s *adminService) GetOverview(ctx context.Context) (*dto.AdminOverviewStats
 	return s.orderRepo.GetAdminOverview(ctx)
 }
 
-func (s *adminService) ListOrders(ctx context.Context, status string, page, limit int) ([]models.Order, int64, error) {
-	return s.orderRepo.ListOrders(ctx, status, page, limit)
+func (s *adminService) ListOrders(ctx context.Context, filter dto.OrderListFilter) ([]models.Order, int64, error) {
+	return s.orderRepo.ListOrders(ctx, filter)
 }
 
 func (s *adminService) CreateBanner(ctx context.Context, banner *models.Banner) error {
