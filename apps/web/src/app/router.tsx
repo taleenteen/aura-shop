@@ -11,6 +11,7 @@ import { ProductDetailPage } from "@/features/configurator/product-detail-page";
 import { CheckoutPage } from "@/features/checkout/checkout-page";
 import { OrderReceiptPage } from "@/features/checkout/order-receipt-page";
 import { AdminLayout } from "@/features/admin/admin-layout";
+import { WishlistPage } from "@/features/wishlist/wishlist-page";
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -45,6 +46,12 @@ const checkoutRoute = createRoute({
   component: CheckoutPage,
 });
 
+const wishlistRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/wishlist",
+  component: WishlistPage,
+});
+
 function OrderReceiptWrapper() {
   const { orderNumber } = useParams({ from: orderReceiptRoute.id });
   return <OrderReceiptPage orderNumber={orderNumber} />;
@@ -65,6 +72,7 @@ const adminRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   catalogRoute,
+  wishlistRoute,
   productDetailRoute,
   checkoutRoute,
   orderReceiptRoute,

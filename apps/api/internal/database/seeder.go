@@ -127,7 +127,7 @@ func seedBanners(db *gorm.DB) error {
 			ProductImageURL:  "http://localhost:9000/aura-assets/banners/macbook-pro-14-with-m4-pro.png",
 			CTAPrimaryText:   "Configure Now",
 			CTAPrimaryLink:   "/products/macbook-pro-14-m4",
-			CTASecondaryText: "Compare Specs",
+			CTASecondaryText: "Browse Mac Lineup",
 			CTASecondaryLink: "/catalog?category=mac",
 			SortOrder:        1,
 			IsActive:         true,

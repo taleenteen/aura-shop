@@ -2,12 +2,14 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"aura-tech/api/internal/dto"
 	"aura-tech/api/internal/middleware"
+	"aura-tech/api/internal/models"
 	"aura-tech/api/internal/repository"
 	"aura-tech/api/internal/response"
 	"aura-tech/api/internal/service"
@@ -75,6 +77,10 @@ func (h *CheckoutHandler) Pay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.requesterOwnsOrder(w, r, req.OrderNumber, false) {
+		return
+	}
+
 	order, err := h.checkoutService.ProcessPayment(r.Context(), req)
 	if err != nil {
 		if err == service.ErrCardDeclined {
@@ -104,6 +110,10 @@ func (h *CheckoutHandler) GetPromptPayQR(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if !h.requesterOwnsOrder(w, r, orderNumber, false) {
+		return
+	}
+
 	qrResp, err := h.checkoutService.GeneratePromptPayQR(r.Context(), orderNumber)
 	if err != nil {
 		if err == repository.ErrOrderNotFound {
@@ -124,17 +134,44 @@ func (h *CheckoutHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	order, err := h.checkoutService.GetOrderByNumber(r.Context(), orderNumber)
-	if err != nil {
-		if err == repository.ErrOrderNotFound {
-			response.NotFound(w, "order not found")
-			return
-		}
-		response.InternalServerError(w, err.Error())
+	order, ok := h.loadOwnedOrder(w, r, orderNumber, true)
+	if !ok {
 		return
 	}
 
 	response.Success(w, http.StatusOK, order, nil)
+}
+
+// loadOwnedOrder fetches an order and writes a 404 unless the requester placed it (same user or
+// same guest session), or allowAdmin is set and the requester is an admin. Orders that belong to
+// someone else are reported as not found so order numbers cannot be probed.
+func (h *CheckoutHandler) loadOwnedOrder(w http.ResponseWriter, r *http.Request, orderNumber string, allowAdmin bool) (*models.Order, bool) {
+	order, err := h.checkoutService.GetOrderByNumber(r.Context(), orderNumber)
+	if err != nil {
+		if errors.Is(err, repository.ErrOrderNotFound) {
+			response.NotFound(w, "order not found")
+			return nil, false
+		}
+		response.InternalServerError(w, err.Error())
+		return nil, false
+	}
+
+	var userID *uuid.UUID
+	user := middleware.GetUserFromContext(r.Context())
+	if user != nil {
+		userID = &user.ID
+	}
+	if order.IsVisibleTo(userID, middleware.GetGuestIDFromContext(r.Context())) ||
+		(allowAdmin && user != nil && user.Role == "ADMIN") {
+		return order, true
+	}
+	response.NotFound(w, "order not found")
+	return nil, false
+}
+
+func (h *CheckoutHandler) requesterOwnsOrder(w http.ResponseWriter, r *http.Request, orderNumber string, allowAdmin bool) bool {
+	_, ok := h.loadOwnedOrder(w, r, orderNumber, allowAdmin)
+	return ok
 }
 
 func (h *CheckoutHandler) CalculateInstallments(w http.ResponseWriter, r *http.Request) {

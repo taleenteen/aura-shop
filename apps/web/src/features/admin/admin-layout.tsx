@@ -3,6 +3,8 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { LayoutDashboard, Image as ImageIcon, Package, ArrowLeft, Shield, LogIn, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { apiClient } from "@/lib/api-client";
+import { DEMO_MODE } from "@/lib/demo-mode";
+import { useUIStore } from "@/stores/ui-store";
 import type { User } from "@/types/api";
 import { AdminOverview } from "./admin-overview";
 import { BannerManager } from "./banner-manager";
@@ -15,6 +17,7 @@ export function AdminLayout() {
   const setAuth = useAuthStore((state) => state.setAuth);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const isRestoring = useAuthStore((state) => state.isRestoring);
+  const setAuthOpen = useUIStore((state) => state.setAuthOpen);
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -80,7 +83,7 @@ export function AdminLayout() {
             </div>
           ) : isRestoring ? (
             <span className="text-xs text-zinc-500">Restoring session…</span>
-          ) : (
+          ) : DEMO_MODE && (
             <button
               type="button"
               onClick={handleAdminQuickLogin}
@@ -107,16 +110,17 @@ export function AdminLayout() {
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
             <span>
-              Admin authentication is required for backoffice API access (admin@auratech.co.th / password123).
+              {user
+                ? `You are signed in as ${user.email}, which is not an admin account.`
+                : "Sign in with an admin account to use the backoffice."}
             </span>
           </div>
           <button
             type="button"
-            onClick={handleAdminQuickLogin}
-            disabled={isLoggingIn}
+            onClick={() => setAuthOpen(true)}
             className="px-3 py-1.5 rounded-lg bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
           >
-            Authenticate Session
+            {user ? "Switch Account" : "Sign In"}
           </button>
         </div>
       )}
@@ -127,57 +131,62 @@ export function AdminLayout() {
         </div>
       )}
 
-      {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3 overflow-x-auto">
-        <Link
-          to="/admin"
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            pathname === "/admin"
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-              : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          }`}
-        >
-          <LayoutDashboard className="w-4 h-4" />
-          <span>Overview & Low Stock</span>
-        </Link>
+      {/* Backoffice tabs and data are rendered for admins only. */}
+      {isAdmin && (
+        <>
+          {/* Navigation Sub-Tabs */}
+          <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3 overflow-x-auto">
+            <Link
+              to="/admin"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                pathname === "/admin"
+                  ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                  : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Overview & Low Stock</span>
+            </Link>
 
-        <Link
-          to="/admin"
-          search={{ tab: "banners" }}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            location.searchStr.includes("tab=banners")
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-              : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          }`}
-        >
-          <ImageIcon className="w-4 h-4" />
-          <span>Dynamic Banners</span>
-        </Link>
+            <Link
+              to="/admin"
+              search={{ tab: "banners" }}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                location.searchStr.includes("tab=banners")
+                  ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                  : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <ImageIcon className="w-4 h-4" />
+              <span>Dynamic Banners</span>
+            </Link>
 
-        <Link
-          to="/admin"
-          search={{ tab: "orders" }}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            location.searchStr.includes("tab=orders")
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-              : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          }`}
-        >
-          <Package className="w-4 h-4" />
-          <span>Order S/N Fulfillment</span>
-        </Link>
-      </div>
+            <Link
+              to="/admin"
+              search={{ tab: "orders" }}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                location.searchStr.includes("tab=orders")
+                  ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                  : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <Package className="w-4 h-4" />
+              <span>Order S/N Fulfillment</span>
+            </Link>
+          </div>
 
-      {/* Tab Switcher Content */}
-      <div className="pt-2">
-        {location.searchStr.includes("tab=banners") ? (
-          <BannerManager />
-        ) : location.searchStr.includes("tab=orders") ? (
-          <OrderSNFulfillment />
-        ) : (
-          <AdminOverview />
-        )}
-      </div>
+          {/* Tab Switcher Content */}
+          <div className="pt-2">
+            {location.searchStr.includes("tab=banners") ? (
+              <BannerManager />
+            ) : location.searchStr.includes("tab=orders") ? (
+              <OrderSNFulfillment />
+            ) : (
+              <AdminOverview />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

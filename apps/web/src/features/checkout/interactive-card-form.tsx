@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
 import { CreditCard, Lock, AlertCircle } from "lucide-react";
+import { DEMO_MODE } from "@/lib/demo-mode";
 
 interface InteractiveCardFormProps {
   onPay: (cardData: {
@@ -120,11 +121,13 @@ export function InteractiveCardForm({
         </motion.div>
       </div>
 
-      {/* Simulator Guidance Alert */}
-      <div className="p-3 rounded-xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300">
-        💡 <strong className="text-zinc-900 dark:text-white">Developer Simulation Tip:</strong> Enter card number ending in{" "}
-        <span className="font-mono font-bold text-rose-500">0000</span> to test bank decline simulation without losing your 15-minute stock hold.
-      </div>
+      {/* Simulator Guidance Alert (demo builds only) */}
+      {DEMO_MODE && (
+        <div className="p-3 rounded-xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300">
+          💡 <strong className="text-zinc-900 dark:text-white">Developer Simulation Tip:</strong> Enter card number ending in{" "}
+          <span className="font-mono font-bold text-rose-500">0000</span> to test bank decline simulation without losing your 15-minute stock hold.
+        </div>
+      )}
 
       {/* Decline Error Banner */}
       {errorMessage && (
@@ -137,11 +140,12 @@ export function InteractiveCardForm({
       {/* Inputs Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+          <label htmlFor="card-number" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
             Card Number
           </label>
           <div className="relative">
             <input
+                    id="card-number"
               type="text"
               required
               value={cardNumber}
@@ -155,10 +159,11 @@ export function InteractiveCardForm({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+          <label htmlFor="card-name" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
             Name on Card
           </label>
           <input
+                    id="card-name"
             type="text"
             required
             value={cardHolder}
@@ -171,10 +176,11 @@ export function InteractiveCardForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+            <label htmlFor="card-expiry" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Expiration (MM/YY)
             </label>
             <input
+                    id="card-expiry"
               type="text"
               required
               value={cardExpiry}
@@ -186,11 +192,12 @@ export function InteractiveCardForm({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+            <label htmlFor="card-cvv" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Security CVV / CVC
             </label>
             <div className="relative">
               <input
+                    id="card-cvv"
                 type="password"
                 required
                 maxLength={4}

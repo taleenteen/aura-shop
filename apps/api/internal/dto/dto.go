@@ -127,18 +127,18 @@ type ShippingAddressDTO struct {
 }
 
 type CheckoutReserveRequest struct {
-	CustomerEmail   string             `json:"customer_email"`
-	ShippingAddress ShippingAddressDTO `json:"shipping_address"`
-	PaymentMethod   string             `json:"payment_method"` // PROMPTPAY_QR, CREDIT_CARD, INSTALLMENT_0
+	CustomerEmail   string              `json:"customer_email"`
+	ShippingAddress ShippingAddressDTO  `json:"shipping_address"`
+	PaymentMethod   string              `json:"payment_method"` // PROMPTPAY_QR, CREDIT_CARD, INSTALLMENT_0
 	InstallmentPlan *InstallmentPlanDTO `json:"installment_plan,omitempty"`
 }
 
 type InstallmentPlanDTO struct {
-	BankCode           string `json:"bank_code"` // KBANK, SCB, KRUNGSRI, BBL
-	BankName           string `json:"bank_name"`
-	Months             int    `json:"months"` // 3, 6, 10
-	InterestRate       int    `json:"interest_rate"`
-	MonthlyPaySatang   int64  `json:"monthly_pay_satang"`
+	BankCode         string `json:"bank_code"` // KBANK, SCB, KRUNGSRI, BBL
+	BankName         string `json:"bank_name"`
+	Months           int    `json:"months"` // 3, 6, 10
+	InterestRate     int    `json:"interest_rate"`
+	MonthlyPaySatang int64  `json:"monthly_pay_satang"`
 }
 
 type CheckoutReserveResponse struct {
@@ -195,14 +195,14 @@ type OrderListFilter struct {
 }
 
 type AdminOverviewStats struct {
-	TotalRevenueSatang int64                `json:"total_revenue_satang"`
-	TotalOrdersCount   int64                `json:"total_orders_count"`
-	OrdersByStatus     map[string]int64     `json:"orders_by_status"`
-	LowStockAlerts     []LowStockItem       `json:"low_stock_alerts"`
+	TotalRevenueSatang int64            `json:"total_revenue_satang"`
+	TotalOrdersCount   int64            `json:"total_orders_count"`
+	OrdersByStatus     map[string]int64 `json:"orders_by_status"`
+	LowStockAlerts     []LowStockItem   `json:"low_stock_alerts"`
 }
 
 type UpdateOrderStatusRequest struct {
-	Status        string            `json:"status"` // PENDING_PAYMENT, PAID_PROCESSING, SN_ASSIGNED, SHIPPED, DELIVERED, CANCELLED
+	Status string `json:"status"` // PENDING_PAYMENT, PAID_PROCESSING, SN_ASSIGNED, SHIPPED, DELIVERED, CANCELLED
 	// Order item ID -> one serial per unit. A blank entry keeps the saved serial for that unit.
 	SerialNumbers map[string][]string `json:"serial_numbers,omitempty"`
 }

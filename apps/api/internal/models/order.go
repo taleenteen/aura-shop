@@ -55,6 +55,15 @@ func AdminOrderTransitions(from string) []string {
 	return append([]string(nil), adminOrderTransitions[from]...)
 }
 
+// IsVisibleTo reports whether the requester owns this order: the signed-in user who placed it,
+// or the browser (guest session) it was placed from.
+func (o *Order) IsVisibleTo(userID *uuid.UUID, guestSessionID *string) bool {
+	if userID != nil && o.UserID != nil && *o.UserID == *userID {
+		return true
+	}
+	return guestSessionID != nil && o.GuestSessionID != nil && *o.GuestSessionID == *guestSessionID
+}
+
 type Order struct {
 	ID                   uuid.UUID      `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
 	OrderNumber          string         `gorm:"uniqueIndex;not null" json:"order_number"` // Format: AURA-YYYYMMDD-XXXX

@@ -145,7 +145,7 @@ export function Navbar() {
 
           {/* Wishlist Link with count badge */}
           <Link
-            to="/catalog"
+            to="/wishlist"
             className="relative p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 transition-colors"
             aria-label="Wishlist"
           >
@@ -172,13 +172,15 @@ export function Navbar() {
             )}
           </button>
 
-          {/* Admin Console Shortcut */}
-          <Link
-            to="/admin"
-            className="hidden sm:inline-flex px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 transition-colors"
-          >
-            Admin
-          </Link>
+          {/* Admin Console Shortcut (admins only) */}
+          {user?.role === "ADMIN" && (
+            <Link
+              to="/admin"
+              className="hidden sm:inline-flex px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 transition-colors"
+            >
+              Admin
+            </Link>
+          )}
 
           {/* User Account / Profile Dropdown */}
           {user ? (

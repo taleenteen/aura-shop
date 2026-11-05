@@ -281,10 +281,11 @@ export function CheckoutPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label htmlFor="checkout-email" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Customer Email
                   </label>
                   <input
+                    id="checkout-email"
                     type="email"
                     required
                     value={email}
@@ -295,10 +296,11 @@ export function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label htmlFor="checkout-name" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Recipient Full Name
                   </label>
                   <input
+                    id="checkout-name"
                     type="text"
                     required
                     value={recipientName}
@@ -310,10 +312,11 @@ export function CheckoutPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                <label htmlFor="checkout-phone" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                   Mobile Phone Number
                 </label>
                 <input
+                    id="checkout-phone"
                   type="tel"
                   required
                   value={phone}
@@ -324,10 +327,11 @@ export function CheckoutPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                <label htmlFor="checkout-address" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                   Street Address & Building
                 </label>
                 <input
+                    id="checkout-address"
                   type="text"
                   required
                   value={addressLine1}
@@ -339,10 +343,11 @@ export function CheckoutPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label htmlFor="checkout-district" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     District
                   </label>
                   <input
+                    id="checkout-district"
                     type="text"
                     required
                     value={district}
@@ -353,10 +358,11 @@ export function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label htmlFor="checkout-province" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Province
                   </label>
                   <input
+                    id="checkout-province"
                     type="text"
                     required
                     value={province}
@@ -366,10 +372,11 @@ export function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label htmlFor="checkout-postal" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Postal Code
                   </label>
                   <input
+                    id="checkout-postal"
                     type="text"
                     required
                     value={postalCode}

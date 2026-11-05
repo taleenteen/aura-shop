@@ -10,8 +10,10 @@ import {
   Award,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { useAuthStore } from "@/stores/auth-store";
 
 export function Footer() {
+  const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
   const valueProps = [
     {
       icon: ShieldCheck,
@@ -135,27 +137,27 @@ export function Footer() {
           </h4>
           <ul className="space-y-2.5 text-xs">
             <li>
-              <span className="hover:text-white cursor-pointer transition-colors">
+              <span>
                 0% Installment Guide
               </span>
             </li>
             <li>
-              <span className="hover:text-white cursor-pointer transition-colors">
+              <span>
                 Education Pricing (U-Store)
               </span>
             </li>
             <li>
-              <span className="hover:text-white cursor-pointer transition-colors">
+              <span>
                 Laptop Trade-In Value Estimator
               </span>
             </li>
             <li>
-              <span className="hover:text-white cursor-pointer transition-colors">
+              <span>
                 Corporate B2B Quotations
               </span>
             </li>
             <li>
-              <span className="hover:text-white cursor-pointer transition-colors">
+              <span>
                 Same-Day Express Courier
               </span>
             </li>
@@ -169,32 +171,34 @@ export function Footer() {
           </h4>
           <ul className="space-y-2.5 text-xs">
             <li>
-              <span className="hover:text-white cursor-pointer transition-colors">
+              <span>
                 Track Order Status
               </span>
             </li>
             <li>
-              <span className="hover:text-white cursor-pointer transition-colors">
+              <span>
                 Serial Number (S/N) Warranty Check
               </span>
             </li>
             <li>
-              <span className="hover:text-white cursor-pointer transition-colors">
+              <span>
                 7-Day Dead-Pixel Replacement Policy
               </span>
             </li>
             <li>
-              <span className="hover:text-white cursor-pointer transition-colors">
+              <span>
                 Authorized Service Center Locations
               </span>
             </li>
+            {isAdmin && (
+              <li>
+                <Link to="/admin" className="text-amber-400 hover:text-amber-300 transition-colors font-medium">
+                  Admin Console
+                </Link>
+              </li>
+            )}
             <li>
-              <Link to="/admin" className="text-amber-400 hover:text-amber-300 transition-colors font-medium">
-                Admin Console
-              </Link>
-            </li>
-            <li>
-              <span className="hover:text-white cursor-pointer transition-colors">
+              <span>
                 Frequently Asked Questions
               </span>
             </li>
@@ -244,9 +248,9 @@ export function Footer() {
       <div className="border-t border-zinc-900 py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
         <div>© 2026 AURA TECH CO., LTD. All Rights Reserved.</div>
         <div className="flex items-center gap-6">
-          <span className="hover:text-zinc-400 cursor-pointer">Privacy Policy</span>
-          <span className="hover:text-zinc-400 cursor-pointer">Terms of Service</span>
-          <span className="hover:text-zinc-400 cursor-pointer">Cookie Preferences</span>
+          <span>Privacy Policy</span>
+          <span>Terms of Service</span>
+          <span>Cookie Preferences</span>
         </div>
       </div>
     </footer>

@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 import type { AuthResponse } from "@/types/api";
+import { DEMO_MODE } from "@/lib/demo-mode";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -326,7 +327,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </button>
             </form>
 
-            {/* Quick Demo Helper Section */}
+            {/* Quick Demo Helper Section (demo builds only) */}
+            {DEMO_MODE && (
             <div className="mt-6 pt-5 border-t border-zinc-100 dark:border-zinc-800/80">
               <div className="flex items-center justify-between text-[11px] text-zinc-500 mb-2.5">
                 <span className="font-semibold uppercase tracking-wider text-[10px] text-zinc-400">
@@ -357,6 +359,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </button>
               </div>
             </div>
+            )}
           </motion.div>
         </div>
       )}

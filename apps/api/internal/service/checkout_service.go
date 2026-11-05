@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"strings"
 	"time"
 
@@ -19,10 +18,10 @@ import (
 )
 
 var (
-	ErrEmptyCart                 = errors.New("cannot checkout with an empty cart")
-	ErrCardDeclined              = errors.New("CARD_DECLINED_INSUFFICIENT_FUNDS")
-	ErrInvalidInstallmentPlan    = errors.New("invalid installment bank or tenure")
-	ErrUnsupportedPaymentMethod  = errors.New("unsupported payment method")
+	ErrEmptyCart                = errors.New("cannot checkout with an empty cart")
+	ErrCardDeclined             = errors.New("CARD_DECLINED_INSUFFICIENT_FUNDS")
+	ErrInvalidInstallmentPlan   = errors.New("invalid installment bank or tenure")
+	ErrUnsupportedPaymentMethod = errors.New("unsupported payment method")
 )
 
 type CheckoutService interface {
@@ -54,10 +53,10 @@ func (s *checkoutService) CreateReservation(ctx context.Context, userID *uuid.UU
 		return nil, ErrEmptyCart
 	}
 
-	// Generate Order Number: AURA-YYYYMMDD-XXXX
-	n, _ := rand.Int(rand.Reader, big.NewInt(9000))
-	randNum := n.Int64() + 1000
-	orderNumber := fmt.Sprintf("AURA-%s-%04d", time.Now().Format("20060102"), randNum)
+	orderNumber, err := newOrderNumber(time.Now())
+	if err != nil {
+		return nil, err
+	}
 
 	var subtotal int64
 	var orderItems []models.OrderItem
@@ -235,4 +234,21 @@ func (s *checkoutService) CalculateInstallments(satangAmount int64) []dto.Instal
 	}
 
 	return options
+}
+
+// orderNumberAlphabet is Crockford base32: no I, L, O or U, so numbers read back unambiguously.
+const orderNumberAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+// newOrderNumber returns AURA-YYYYMMDD-XXXXXXXX with 40 random bits. The receipt is reachable by
+// order number, so it must be infeasible to guess and must not collide within a day.
+func newOrderNumber(now time.Time) (string, error) {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", fmt.Errorf("failed to generate order number: %w", err)
+	}
+	suffix := make([]byte, len(b))
+	for i, v := range b {
+		suffix[i] = orderNumberAlphabet[v%32]
+	}
+	return fmt.Sprintf("AURA-%s-%s", now.Format("20060102"), suffix), nil
 }
