@@ -7,6 +7,7 @@
     "infra:down": "docker compose down",
     "seed": "cd apps/api && go run cmd/seeder/main.go",
     "dev:api": "cd apps/api && go run cmd/server/main.go",
+    "swagger": "cd apps/api && go run github.com/swaggo/swag/cmd/swag@v1.16.4 fmt -d ./cmd/server,./internal/handler && go run github.com/swaggo/swag/cmd/swag@v1.16.4 init -d ./cmd/server,./internal/handler -g main.go -o docs --parseInternal --parseDependency --parseDependencyLevel 1 --outputTypes go,json,yaml",
     "dev:web": "cd apps/web && npm run dev",
     "build:web": "cd apps/web && npm run build"
   },

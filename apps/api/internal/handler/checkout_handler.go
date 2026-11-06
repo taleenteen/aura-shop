@@ -28,6 +28,22 @@ func NewCheckoutHandler(checkoutService service.CheckoutService) *CheckoutHandle
 	return &CheckoutHandler{checkoutService: checkoutService}
 }
 
+// Reserve godoc
+//
+//	@Summary		Reserve the bag and open an order
+//	@Description	Turns the current bag (of the signed-in customer, or of the guest session) into a PENDING_PAYMENT order and holds its stock for 15 minutes.
+//	@Description	When signed in and `customer_email` is empty, the account email is used. Pay with POST /checkout/pay before the reservation expires.
+//	@Tags			Checkout
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Security		GuestSession
+//	@Param			body	body		dto.CheckoutReserveRequest	true	"Contact email, shipping address and payment method (PROMPTPAY_QR, CREDIT_CARD, INSTALLMENT_0)"
+//	@Success		201		{object}	response.Envelope{data=dto.CheckoutReserveResponse}
+//	@Failure		400		{object}	response.Envelope	"BAD_REQUEST (invalid body or empty bag) or VALIDATION_FAILED (error.fields.customer_email)"
+//	@Failure		409		{object}	response.Envelope	"PRODUCT_UNAVAILABLE or INSUFFICIENT_STOCK"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/checkout/reserve [post]
 func (h *CheckoutHandler) Reserve(w http.ResponseWriter, r *http.Request) {
 	var req dto.CheckoutReserveRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -73,6 +89,25 @@ func (h *CheckoutHandler) Reserve(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusCreated, res, nil)
 }
 
+// Pay godoc
+//
+//	@Summary		Pay for a reserved order
+//	@Description	Processes the simulated payment for a PENDING_PAYMENT order placed by the same customer or guest session. On success the reserved stock is committed,
+//	@Description	the order moves to PAID_PROCESSING and the order-confirmation email is written. Card numbers ending in 0000 are declined (402) and the reservation is kept.
+//	@Description	INSTALLMENT_0 requires `installment_plan` with bank KBANK, SCB, KRUNGSRI or BBL and 3, 6 or 10 months.
+//	@Tags			Checkout
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Security		GuestSession
+//	@Param			body	body		dto.PaymentProcessRequest	true	"Order number, payment method and card or installment details"
+//	@Success		200		{object}	response.Envelope{data=models.Order}
+//	@Failure		400		{object}	response.Envelope	"BAD_REQUEST: invalid body, missing order_number, unsupported method, invalid installment plan or order not payable"
+//	@Failure		402		{object}	response.Envelope	"CARD_DECLINED_INSUFFICIENT_FUNDS"
+//	@Failure		404		{object}	response.Envelope	"Order not found or not placed by this customer"
+//	@Failure		409		{object}	response.Envelope	"RESERVATION_EXPIRED"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/checkout/pay [post]
 func (h *CheckoutHandler) Pay(w http.ResponseWriter, r *http.Request) {
 	var req dto.PaymentProcessRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -111,6 +146,20 @@ func (h *CheckoutHandler) Pay(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, order, nil)
 }
 
+// GetPromptPayQR godoc
+//
+//	@Summary		Get the PromptPay QR for an order
+//	@Description	Returns the PromptPay payload and a QR code image (data URL) for the order total. Only the customer or guest session that placed the order may request it.
+//	@Tags			Checkout
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Security		GuestSession
+//	@Param			orderNumber	path		string	true	"Order number"
+//	@Success		200			{object}	response.Envelope{data=dto.PromptPayQRResponse}
+//	@Failure		400			{object}	response.Envelope
+//	@Failure		404			{object}	response.Envelope	"Order not found or not placed by this customer"
+//	@Failure		500			{object}	response.Envelope
+//	@Router			/checkout/promptpay/{orderNumber} [get]
 func (h *CheckoutHandler) GetPromptPayQR(w http.ResponseWriter, r *http.Request) {
 	orderNumber := chi.URLParam(r, "orderNumber")
 	if orderNumber == "" {
@@ -135,6 +184,22 @@ func (h *CheckoutHandler) GetPromptPayQR(w http.ResponseWriter, r *http.Request)
 	response.Success(w, http.StatusOK, qrResp, nil)
 }
 
+// GetOrder godoc
+//
+//	@Summary		Get an order
+//	@Description	Returns the order with its items. Visible to the customer or guest session that placed it, to admins, and to anyone sending the order email in `X-Order-Email`.
+//	@Description	`viewer_can_manage` is true only for the customer or guest session that placed it. Orders the requester may not see return 404.
+//	@Tags			Orders
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Security		GuestSession
+//	@Param			orderNumber		path		string	true	"Order number"
+//	@Param			X-Order-Email	header		string	false	"Email the order was placed with (from an order lookup)"
+//	@Success		200				{object}	response.Envelope{data=models.Order}
+//	@Failure		400				{object}	response.Envelope
+//	@Failure		404				{object}	response.Envelope
+//	@Failure		500				{object}	response.Envelope
+//	@Router			/orders/{orderNumber} [get]
 func (h *CheckoutHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	orderNumber := chi.URLParam(r, "orderNumber")
 	if orderNumber == "" {
@@ -201,7 +266,22 @@ func emailMatches(orderEmail, given string) bool {
 	return given != "" && strings.EqualFold(strings.TrimSpace(orderEmail), given)
 }
 
-// LookupOrder finds an order by number and the email it was placed with.
+// LookupOrder godoc
+//
+//	@Summary		Look up an order by number and email
+//	@Description	Finds an order by its number and the email it was placed with, for customers who checked out as guests or on another device.
+//	@Description	`viewer_can_manage` is true only when the requester also placed the order.
+//	@Tags			Orders
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Security		GuestSession
+//	@Param			body	body		dto.OrderLookupRequest	true	"Order number and email"
+//	@Success		200		{object}	response.Envelope{data=models.Order}
+//	@Failure		400		{object}	response.Envelope	"BAD_REQUEST (invalid body) or VALIDATION_FAILED (error.fields.order_number, error.fields.email)"
+//	@Failure		404		{object}	response.Envelope	"No order with that number and email"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/orders/lookup [post]
 func (h *CheckoutHandler) LookupOrder(w http.ResponseWriter, r *http.Request) {
 	var req dto.OrderLookupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -239,7 +319,20 @@ func (h *CheckoutHandler) LookupOrder(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, order, nil)
 }
 
-// CancelOrder lets the customer who placed an unpaid order cancel it.
+// CancelOrder godoc
+//
+//	@Summary		Cancel an unpaid order
+//	@Description	Lets the customer or guest session that placed a PENDING_PAYMENT order cancel it, releasing its reserved stock.
+//	@Tags			Orders
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Security		GuestSession
+//	@Param			orderNumber	path		string	true	"Order number"
+//	@Success		200			{object}	response.Envelope{data=models.Order}
+//	@Failure		404			{object}	response.Envelope	"Order not found or not placed by this customer"
+//	@Failure		409			{object}	response.Envelope	"ORDER_NOT_CANCELLABLE (already paid or already cancelled)"
+//	@Failure		500			{object}	response.Envelope
+//	@Router			/orders/{orderNumber}/cancel [post]
 func (h *CheckoutHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 	orderNumber := chi.URLParam(r, "orderNumber")
 	current, ok := h.loadOrder(w, r, orderNumber, accessOwner)
@@ -267,7 +360,21 @@ func (h *CheckoutHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, order, nil)
 }
 
-// ListOrderEmails returns the emails sent to the customer about an order.
+// ListOrderEmails godoc
+//
+//	@Summary		List emails sent about an order
+//	@Description	Returns the emails sent to the customer about the order (confirmation, shipping and so on), newest first.
+//	@Description	Same visibility as GET /orders/{orderNumber}: the customer or guest session that placed it, admins, or a matching `X-Order-Email`.
+//	@Tags			Orders
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Security		GuestSession
+//	@Param			orderNumber		path		string	true	"Order number"
+//	@Param			X-Order-Email	header		string	false	"Email the order was placed with (from an order lookup)"
+//	@Success		200				{object}	response.Envelope{data=[]models.EmailMessage}
+//	@Failure		404				{object}	response.Envelope
+//	@Failure		500				{object}	response.Envelope
+//	@Router			/orders/{orderNumber}/emails [get]
 func (h *CheckoutHandler) ListOrderEmails(w http.ResponseWriter, r *http.Request) {
 	order, ok := h.loadOrder(w, r, chi.URLParam(r, "orderNumber"), accessViewer)
 	if !ok {
@@ -282,6 +389,16 @@ func (h *CheckoutHandler) ListOrderEmails(w http.ResponseWriter, r *http.Request
 	response.Success(w, http.StatusOK, msgs, nil)
 }
 
+// CalculateInstallments godoc
+//
+//	@Summary		Calculate 0% installment options
+//	@Description	Returns the monthly payment for each supported bank and term (3, 6 or 10 months) for the given amount.
+//	@Tags			Checkout
+//	@Produce		json
+//	@Param			satangAmount	path		integer	true	"Amount in satang (greater than 0)"
+//	@Success		200				{object}	response.Envelope{data=[]dto.InstallmentCalculationOption}
+//	@Failure		400				{object}	response.Envelope
+//	@Router			/checkout/installments/{satangAmount} [get]
 func (h *CheckoutHandler) CalculateInstallments(w http.ResponseWriter, r *http.Request) {
 	amountStr := chi.URLParam(r, "satangAmount")
 	amount, err := strconv.ParseInt(amountStr, 10, 64)
@@ -294,7 +411,17 @@ func (h *CheckoutHandler) CalculateInstallments(w http.ResponseWriter, r *http.R
 	response.Success(w, http.StatusOK, options, nil)
 }
 
-// ListMyOrders returns the signed-in user's orders, newest first.
+// ListMyOrders godoc
+//
+//	@Summary		List my orders
+//	@Description	Returns every order of the signed-in customer, newest first.
+//	@Tags			Account
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	response.Envelope{data=[]models.Order}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/account/orders [get]
 func (h *CheckoutHandler) ListMyOrders(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r.Context())
 	if user == nil {

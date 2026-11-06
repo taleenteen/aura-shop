@@ -78,6 +78,16 @@ func pageMeta(page, limit int, total int64) *response.Meta {
 
 // ---------------------------------------------------------------- stock alerts & inbox
 
+// ListStockAlerts godoc
+//
+//	@Summary	List back-in-stock alerts
+//	@Tags		Account
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Success	200	{object}	response.Envelope{data=[]dto.StockAlertView}
+//	@Failure	401	{object}	response.Envelope
+//	@Failure	500	{object}	response.Envelope
+//	@Router		/account/stock-alerts [get]
 func (h *EngagementHandler) ListStockAlerts(w http.ResponseWriter, r *http.Request) {
 	userID, ok := signedIn(w, r)
 	if !ok {
@@ -100,6 +110,20 @@ func (h *EngagementHandler) variantParam(w http.ResponseWriter, r *http.Request)
 	return id, true
 }
 
+// SubscribeStockAlert godoc
+//
+//	@Summary		Subscribe to a back-in-stock alert
+//	@Description	Emails the customer when the out-of-stock option is restocked. Subscribing again while an alert is pending has no effect. Returns `{ "message": string }`.
+//	@Tags			Account
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			variantID	path		string	true	"Variant ID (UUID)"
+//	@Success		200			{object}	response.Envelope{data=object}
+//	@Failure		401			{object}	response.Envelope
+//	@Failure		404			{object}	response.Envelope	"Product option not found"
+//	@Failure		409			{object}	response.Envelope	"IN_STOCK"
+//	@Failure		500			{object}	response.Envelope
+//	@Router			/account/stock-alerts/{variantID} [put]
 func (h *EngagementHandler) SubscribeStockAlert(w http.ResponseWriter, r *http.Request) {
 	userID, ok := signedIn(w, r)
 	if !ok {
@@ -116,6 +140,19 @@ func (h *EngagementHandler) SubscribeStockAlert(w http.ResponseWriter, r *http.R
 	response.Success(w, http.StatusOK, map[string]string{"message": "We'll email you when it's back."}, nil)
 }
 
+// UnsubscribeStockAlert godoc
+//
+//	@Summary		Cancel a back-in-stock alert
+//	@Description	Returns `{ "message": string }`. Succeeds even when no alert was pending.
+//	@Tags			Account
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			variantID	path		string	true	"Variant ID (UUID)"
+//	@Success		200			{object}	response.Envelope{data=object}
+//	@Failure		401			{object}	response.Envelope
+//	@Failure		404			{object}	response.Envelope	"Invalid variant ID"
+//	@Failure		500			{object}	response.Envelope
+//	@Router			/account/stock-alerts/{variantID} [delete]
 func (h *EngagementHandler) UnsubscribeStockAlert(w http.ResponseWriter, r *http.Request) {
 	userID, ok := signedIn(w, r)
 	if !ok {
@@ -132,6 +169,17 @@ func (h *EngagementHandler) UnsubscribeStockAlert(w http.ResponseWriter, r *http
 	response.Success(w, http.StatusOK, map[string]string{"message": "Alert cancelled."}, nil)
 }
 
+// ListAccountEmails godoc
+//
+//	@Summary		List account emails
+//	@Description	Returns the 50 most recent emails sent to the signed-in customer, newest first.
+//	@Tags			Account
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	response.Envelope{data=[]models.EmailMessage}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/account/emails [get]
 func (h *EngagementHandler) ListAccountEmails(w http.ResponseWriter, r *http.Request) {
 	userID, ok := signedIn(w, r)
 	if !ok {
@@ -147,6 +195,20 @@ func (h *EngagementHandler) ListAccountEmails(w http.ResponseWriter, r *http.Req
 
 // ---------------------------------------------------------------- reviews
 
+// ProductReviews godoc
+//
+//	@Summary		List a product's reviews
+//	@Description	Returns the rating summary and one page of visible reviews. When signed in, data.viewer says whether the customer can review the product and includes their own review (even if hidden); it is null for guests. meta carries pagination (page, limit, total_items, total_pages).
+//	@Tags			Reviews
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			slug	path		string	true	"Product slug"
+//	@Param			page	query		int		false	"Page number"			default(1)	minimum(1)
+//	@Param			limit	query		int		false	"Page size (max 20)"	default(5)	minimum(1)	maximum(20)
+//	@Success		200		{object}	response.Envelope{data=dto.ProductReviews}
+//	@Failure		404		{object}	response.Envelope
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/products/{slug}/reviews [get]
 func (h *EngagementHandler) ProductReviews(w http.ResponseWriter, r *http.Request) {
 	page, limit := pageParams(r, 5, 20)
 	var viewer *uuid.UUID
@@ -161,6 +223,23 @@ func (h *EngagementHandler) ProductReviews(w http.ResponseWriter, r *http.Reques
 	response.Success(w, http.StatusOK, out, pageMeta(page, limit, total))
 }
 
+// SaveReview godoc
+//
+//	@Summary		Write or update my review
+//	@Description	Creates or replaces the signed-in customer's review. Allowed only after an order containing the product has been delivered. Rating 1 to 5, title up to 120 characters, body up to 2,000 characters. Returns `{ "message": string }`.
+//	@Tags			Reviews
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			slug	path		string			true	"Product slug"
+//	@Param			body	body		dto.ReviewInput	true	"Review"
+//	@Success		200		{object}	response.Envelope{data=object}
+//	@Failure		400		{object}	response.Envelope	"VALIDATION_FAILED with per-field error.fields, or invalid body"
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		403		{object}	response.Envelope	"REVIEW_NOT_ALLOWED"
+//	@Failure		404		{object}	response.Envelope	"Product not found"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/products/{slug}/reviews/mine [put]
 func (h *EngagementHandler) SaveReview(w http.ResponseWriter, r *http.Request) {
 	userID, ok := signedIn(w, r)
 	if !ok {
@@ -177,6 +256,19 @@ func (h *EngagementHandler) SaveReview(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, map[string]string{"message": "Thanks for your review."}, nil)
 }
 
+// DeleteReview godoc
+//
+//	@Summary		Delete my review
+//	@Description	Returns `{ "message": string }`.
+//	@Tags			Reviews
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			slug	path		string	true	"Product slug"
+//	@Success		200		{object}	response.Envelope{data=object}
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope	"Product or review not found"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/products/{slug}/reviews/mine [delete]
 func (h *EngagementHandler) DeleteReview(w http.ResponseWriter, r *http.Request) {
 	userID, ok := signedIn(w, r)
 	if !ok {
@@ -189,6 +281,23 @@ func (h *EngagementHandler) DeleteReview(w http.ResponseWriter, r *http.Request)
 	response.Success(w, http.StatusOK, map[string]string{"message": "Review deleted."}, nil)
 }
 
+// ListReviewsAdmin godoc
+//
+//	@Summary		List reviews (admin)
+//	@Description	Returns reviews newest first, including hidden ones. Requires an admin account. meta carries pagination (page, limit, total_items, total_pages).
+//	@Tags			Admin · Reviews
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			status	query		string	false	"Visibility filter; all reviews when omitted"	Enums(visible, hidden)
+//	@Param			rating	query		int		false	"Star rating"									minimum(1)	maximum(5)
+//	@Param			q		query		string	false	"Matches product name, author email, review title or body"
+//	@Param			page	query		int		false	"Page number"			default(1)	minimum(1)
+//	@Param			limit	query		int		false	"Page size (max 100)"	default(20)	minimum(1)	maximum(100)
+//	@Success		200		{object}	response.Envelope{data=[]dto.AdminReview}
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		403		{object}	response.Envelope
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/reviews [get]
 func (h *EngagementHandler) ListReviewsAdmin(w http.ResponseWriter, r *http.Request) {
 	page, limit := pageParams(r, 20, 100)
 	q := r.URL.Query()
@@ -208,6 +317,23 @@ func (h *EngagementHandler) ListReviewsAdmin(w http.ResponseWriter, r *http.Requ
 	response.Success(w, http.StatusOK, rows, pageMeta(page, limit, total))
 }
 
+// SetReviewHidden godoc
+//
+//	@Summary		Hide or show a review (admin)
+//	@Description	Body is `{ "is_hidden": boolean }`. Hidden reviews are left out of the storefront list and rating summary; the author still sees their own review. Records an activity log entry. Requires an admin account. Returns `{ "is_hidden": boolean }`.
+//	@Tags			Admin · Reviews
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string	true	"Review ID (UUID)"
+//	@Param			body	body		object	true	"Object with is_hidden (boolean)"
+//	@Success		200		{object}	response.Envelope{data=object}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		403		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/reviews/{id} [patch]
 func (h *EngagementHandler) SetReviewHidden(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {

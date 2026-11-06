@@ -23,6 +23,17 @@ func NewCartHandler(interactionService service.InteractionService) *CartHandler 
 	return &CartHandler{interactionService: interactionService}
 }
 
+// GetCart godoc
+//
+//	@Summary		Get the bag
+//	@Description	Returns the bag of the signed-in customer, or of the guest session when signed out.
+//	@Tags			Cart
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Security		GuestSession
+//	@Success		200	{object}	response.Envelope{data=dto.CartResponse}
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/cart [get]
 func (h *CartHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 	var userID *uuid.UUID
 	if user := middleware.GetUserFromContext(r.Context()); user != nil {
@@ -39,6 +50,20 @@ func (h *CartHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, cart, nil)
 }
 
+// AddToCart godoc
+//
+//	@Summary		Add an option to the bag
+//	@Description	Adds the variant (and any bundled accessories) to the bag and returns the updated bag.
+//	@Tags			Cart
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Security		GuestSession
+//	@Param			body	body		dto.AddToCartRequest	true	"Variant and quantity"
+//	@Success		200		{object}	response.Envelope{data=dto.CartResponse}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		409		{object}	response.Envelope	"PRODUCT_UNAVAILABLE or INSUFFICIENT_STOCK"
+//	@Router			/cart/items [post]
 func (h *CartHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 	var req dto.AddToCartRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -74,6 +99,21 @@ func (h *CartHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, cart, nil)
 }
 
+// UpdateQuantity godoc
+//
+//	@Summary	Change a bag line quantity
+//	@Tags		Cart
+//	@Accept		json
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Security	GuestSession
+//	@Param		id		path		string							true	"Cart item ID (UUID)"
+//	@Param		body	body		dto.UpdateCartQuantityRequest	true	"New quantity"
+//	@Success	200		{object}	response.Envelope{data=dto.CartResponse}
+//	@Failure	400		{object}	response.Envelope
+//	@Failure	404		{object}	response.Envelope
+//	@Failure	409		{object}	response.Envelope	"INSUFFICIENT_STOCK"
+//	@Router		/cart/items/{id} [patch]
 func (h *CartHandler) UpdateQuantity(w http.ResponseWriter, r *http.Request) {
 	itemIDStr := chi.URLParam(r, "id")
 	itemID, err := uuid.Parse(itemIDStr)
@@ -111,6 +151,18 @@ func (h *CartHandler) UpdateQuantity(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, cart, nil)
 }
 
+// RemoveItem godoc
+//
+//	@Summary	Remove a bag line
+//	@Tags		Cart
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Security	GuestSession
+//	@Param		id	path		string	true	"Cart item ID (UUID)"
+//	@Success	200	{object}	response.Envelope{data=dto.CartResponse}
+//	@Failure	400	{object}	response.Envelope
+//	@Failure	404	{object}	response.Envelope
+//	@Router		/cart/items/{id} [delete]
 func (h *CartHandler) RemoveItem(w http.ResponseWriter, r *http.Request) {
 	itemIDStr := chi.URLParam(r, "id")
 	itemID, err := uuid.Parse(itemIDStr)

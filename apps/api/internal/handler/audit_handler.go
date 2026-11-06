@@ -20,8 +20,26 @@ func NewAuditHandler(svc service.AuditService) *AuditHandler {
 	return &AuditHandler{svc: svc}
 }
 
-// List returns a page of the log. Filters: type, actor (email), q (record name), from and to
-// (YYYY-MM-DD, store time; to is inclusive).
+// List godoc
+//
+//	@Summary		List the activity log
+//	@Description	Returns a page of admin activity, newest first, with the before and after values of each change. `meta` carries page, limit, total_items and total_pages.
+//	@Description	Dates are store dates (Thailand time); `to` is inclusive. Invalid dates are ignored.
+//	@Tags			Admin · Activity
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			type	query		string	false	"Record type, e.g. order, product, banner"
+//	@Param			actor	query		string	false	"Admin email (partial match)"
+//	@Param			q		query		string	false	"Search by record name or ID (partial match)"
+//	@Param			from	query		string	false	"Start date (YYYY-MM-DD)"							format(date)
+//	@Param			to		query		string	false	"End date, inclusive (YYYY-MM-DD)"					format(date)
+//	@Param			page	query		int		false	"Page number"										default(1)	minimum(1)
+//	@Param			limit	query		int		false	"Page size (values outside 1-100 fall back to 30)"	default(30)	minimum(1)	maximum(100)
+//	@Success		200		{object}	response.Envelope{data=[]models.AuditLog}
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		403		{object}	response.Envelope
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/audit-logs [get]
 func (h *AuditHandler) List(w http.ResponseWriter, r *http.Request) {
 	page, limit := pageParams(r, 30, 100)
 	q := r.URL.Query()

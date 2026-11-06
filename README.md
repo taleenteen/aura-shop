@@ -79,9 +79,11 @@ make dev-web                  # หน้าเว็บที่ http://localho
 | `make psql` | เข้า Postgres |
 | `cd apps/api && go test ./...` | รัน test ฝั่ง backend |
 | `cd apps/web && npx tsc --noEmit` | ตรวจ type ฝั่ง frontend |
+| `make swagger` (หรือ `npm run swagger`) | สร้างเอกสาร API (Swagger) ใหม่จาก comment ใน handler |
 
 ### เอกสารอื่น
 
+- **API reference (Swagger UI)** ที่ http://localhost:8080/swagger/ (ปิดได้ด้วย `SWAGGER_ENABLED=false`) ไฟล์ OpenAPI อยู่ที่ `apps/api/docs/swagger.yaml`
 - `PROJECT_SPEC.md` สเปกตั้งต้นของโปรเจกต์
 - `docs/01-project-genesis-and-asset-pipeline.md` ที่มาของโปรเจกต์และไปป์ไลน์สร้างรูปสินค้า
 - `IMAGE_GEN_TRACKER.md` สถานะการสร้างรูปสินค้า (เขียนโดย `cmd/assetgen`)
@@ -158,9 +160,11 @@ On first start against an empty database the API creates the tables and loads sa
 | `make psql` | Open a Postgres shell |
 | `cd apps/api && go test ./...` | Backend tests |
 | `cd apps/web && npx tsc --noEmit` | Frontend type check |
+| `make swagger` (or `npm run swagger`) | Regenerate the API reference from handler annotations |
 
 ### Other documents
 
+- **API reference (Swagger UI)** at http://localhost:8080/swagger/ (disable with `SWAGGER_ENABLED=false`); the OpenAPI file is `apps/api/docs/swagger.yaml`
 - `PROJECT_SPEC.md` — the original project specification
 - `docs/01-project-genesis-and-asset-pipeline.md` — project history and the product-image pipeline
 - `IMAGE_GEN_TRACKER.md` — product-image generation status (written by `cmd/assetgen`)

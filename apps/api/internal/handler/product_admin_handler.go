@@ -45,6 +45,23 @@ func actorFrom(r *http.Request) repository.Actor {
 	return repository.Actor{}
 }
 
+// ListProducts godoc
+//
+//	@Summary		List products
+//	@Description	Returns one page of products with category, brand, variant count, stock totals, low-stock count, lowest price and thumbnail. Pagination is returned in meta (page, limit, total_items, total_pages).
+//	@Tags			Admin · Products
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			q			query		string	false	"Search by product name, slug or brand name"
+//	@Param			category	query		string	false	"Category slug"
+//	@Param			status		query		string	false	"On sale or hidden; anything else lists all"	Enums(active, inactive)
+//	@Param			page		query		int		false	"Page number (default 1)"						minimum(1)
+//	@Param			limit		query		int		false	"Page size, 1-100 (default 20)"					minimum(1)	maximum(100)
+//	@Success		200			{object}	response.Envelope{data=[]dto.AdminProductSummary}
+//	@Failure		401			{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403			{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		500			{object}	response.Envelope
+//	@Router			/admin/products [get]
 func (h *ProductAdminHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	page, _ := strconv.Atoi(q.Get("page"))
@@ -72,6 +89,21 @@ func (h *ProductAdminHandler) ListProducts(w http.ResponseWriter, r *http.Reques
 	})
 }
 
+// GetProduct godoc
+//
+//	@Summary		Get a product
+//	@Description	Returns the full product with its category, brand and variants, for the admin editor.
+//	@Tags			Admin · Products
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Product ID"	Format(uuid)
+//	@Success		200	{object}	response.Envelope{data=models.Product}
+//	@Failure		400	{object}	response.Envelope	"Invalid id"
+//	@Failure		401	{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404	{object}	response.Envelope	"Product not found"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/products/{id} [get]
 func (h *ProductAdminHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r, "id")
 	if !ok {
@@ -85,6 +117,22 @@ func (h *ProductAdminHandler) GetProduct(w http.ResponseWriter, r *http.Request)
 	response.Success(w, http.StatusOK, p, nil)
 }
 
+// CreateProduct godoc
+//
+//	@Summary		Create a product
+//	@Description	Creates a product with its variants. An empty slug is generated from the name. New variants may set initial_stock, which is written to the stock ledger as INITIAL. Unknown JSON fields are rejected. The change is written to the audit log.
+//	@Tags			Admin · Products
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		dto.ProductInput	true	"Product and variants"
+//	@Success		201		{object}	response.Envelope{data=models.Product}
+//	@Failure		400		{object}	response.Envelope	"Malformed body or unknown field"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED: per-field messages in error.fields, e.g. slug already used, duplicate SKU, missing name or variants"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/products [post]
 func (h *ProductAdminHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	var in dto.ProductInput
 	if err := decodeStrict(r, &in); err != nil {
@@ -103,6 +151,25 @@ func (h *ProductAdminHandler) CreateProduct(w http.ResponseWriter, r *http.Reque
 	response.Success(w, http.StatusCreated, p, nil)
 }
 
+// UpdateProduct godoc
+//
+//	@Summary		Update a product
+//	@Description	Replaces the product and its variants. Variants are matched by id; variants left out are removed, unless they are referenced by orders. Stock is not changed here (use stock adjustments), except initial_stock on new variants. Unknown JSON fields are rejected. Changed fields are written to the audit log.
+//	@Tags			Admin · Products
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string				true	"Product ID"	Format(uuid)
+//	@Param			body	body		dto.ProductInput	true	"Product and variants"
+//	@Success		200		{object}	response.Envelope{data=models.Product}
+//	@Failure		400		{object}	response.Envelope	"Invalid id, malformed body or unknown field"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404		{object}	response.Envelope	"Product or variant not found"
+//	@Failure		409		{object}	response.Envelope	"VARIANT_IN_USE: a removed variant is referenced by orders"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED: per-field messages in error.fields, e.g. slug already used, duplicate SKU"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/products/{id} [put]
 func (h *ProductAdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r, "id")
 	if !ok {
@@ -127,6 +194,23 @@ func (h *ProductAdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Reque
 	response.Success(w, http.StatusOK, p, nil)
 }
 
+// SetStatus godoc
+//
+//	@Summary		Show or hide a product
+//	@Description	Puts the product on sale (is_active=true) or hides it from the store. Returns the new state as {"is_active": bool}. A real change is written to the audit log.
+//	@Tags			Admin · Products
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string						true	"Product ID"	Format(uuid)
+//	@Param			body	body		dto.ProductStatusRequest	true	"New status"
+//	@Success		200		{object}	response.Envelope{data=object{is_active=bool}}
+//	@Failure		400		{object}	response.Envelope	"Invalid id or body"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404		{object}	response.Envelope	"Product not found"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/products/{id}/status [patch]
 func (h *ProductAdminHandler) SetStatus(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r, "id")
 	if !ok {
@@ -155,6 +239,25 @@ func (h *ProductAdminHandler) SetStatus(w http.ResponseWriter, r *http.Request) 
 	response.Success(w, http.StatusOK, map[string]bool{"is_active": req.IsActive}, nil)
 }
 
+// AdjustStock godoc
+//
+//	@Summary		Adjust a variant's stock
+//	@Description	Changes one variant's physical stock. mode "delta" adds quantity (may be negative, not 0); mode "set" makes stock equal quantity (a physical count). reason is one of RECEIVE, COUNT, DAMAGE or RETURN; a note is required for COUNT and DAMAGE (max 500 characters). Pass expected_stock (the stock you saw) to refuse the change if stock moved since. Stock cannot go below zero or below units held in checkout. Every change appends to the stock ledger, may send back-in-stock emails to waiting customers, and is written to the audit log.
+//	@Tags			Admin · Stock
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string						true	"Variant ID"	Format(uuid)
+//	@Param			body	body		dto.StockAdjustmentRequest	true	"Adjustment"
+//	@Success		200		{object}	response.Envelope{data=dto.StockAdjustmentResponse}
+//	@Failure		400		{object}	response.Envelope	"Invalid id or body; INVALID_STOCK when stock would go below zero or below reserved units"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404		{object}	response.Envelope	"Variant not found"
+//	@Failure		409		{object}	response.Envelope	"STOCK_CHANGED: stock differs from expected_stock"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED: per-field messages in error.fields (mode, quantity, reason, note)"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/variants/{id}/stock-adjustments [post]
 func (h *ProductAdminHandler) AdjustStock(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r, "id")
 	if !ok {
@@ -181,6 +284,21 @@ func (h *ProductAdminHandler) AdjustStock(w http.ResponseWriter, r *http.Request
 	response.Success(w, http.StatusOK, res, nil)
 }
 
+// ListMovements godoc
+//
+//	@Summary		List a variant's stock history
+//	@Description	Returns the latest 50 stock ledger entries for the variant, newest first: manual adjustments, initial stock, sales and cancellation restocks.
+//	@Tags			Admin · Stock
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Variant ID"	Format(uuid)
+//	@Success		200	{object}	response.Envelope{data=[]models.StockMovement}
+//	@Failure		400	{object}	response.Envelope	"Invalid id"
+//	@Failure		401	{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404	{object}	response.Envelope	"Variant not found"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/variants/{id}/stock-movements [get]
 func (h *ProductAdminHandler) ListMovements(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r, "id")
 	if !ok {
@@ -197,7 +315,22 @@ func (h *ProductAdminHandler) ListMovements(w http.ResponseWriter, r *http.Reque
 	response.Success(w, http.StatusOK, rows, nil)
 }
 
-// UploadImage accepts one PNG, JPEG or WebP (max 5 MB) as multipart field "file".
+// UploadImage godoc
+//
+//	@Summary		Upload a product image
+//	@Description	Stores one PNG, JPEG or WebP image (max 5 MB) and returns its public URL. The type is detected from the file contents, not its name.
+//	@Tags			Admin · Uploads
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			file	formData	file	true	"PNG, JPEG or WebP image, max 5 MB"
+//	@Success		201		{object}	response.Envelope{data=dto.UploadResponse}
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED: per-field messages in error.fields (file: missing, too large or not an image)"
+//	@Failure		502		{object}	response.Envelope	"UPLOAD_FAILED: storage rejected the file"
+//	@Failure		503		{object}	response.Envelope	"STORAGE_UNAVAILABLE: image storage is not configured"
+//	@Router			/admin/uploads/images [post]
 func (h *ProductAdminHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	if h.upload == nil {
 		response.Error(w, http.StatusServiceUnavailable, "STORAGE_UNAVAILABLE", "Image storage is not available right now.")

@@ -1,4 +1,4 @@
-.PHONY: infra infra-down dev-api dev-web seed-local up down logs seed psql reset
+.PHONY: infra infra-down dev-api dev-web seed-local up down logs seed psql reset swagger
 
 # 1. Run only DB (PostgreSQL) and MinIO in Docker (for local development)
 infra:
@@ -40,3 +40,8 @@ reset:
 	docker compose down -v
 	cp -n .env.example .env || true
 	docker compose up -d --build
+
+# Regenerate the Swagger / OpenAPI reference (apps/api/docs) from handler annotations.
+# Served at http://localhost:8080/swagger/ while SWAGGER_ENABLED=true.
+swagger:
+	cd apps/api && go run github.com/swaggo/swag/cmd/swag@v1.16.4 fmt -d ./cmd/server,./internal/handler && go run github.com/swaggo/swag/cmd/swag@v1.16.4 init -d ./cmd/server,./internal/handler -g main.go -o docs --parseInternal --parseDependency --parseDependencyLevel 1 --outputTypes go,json,yaml
