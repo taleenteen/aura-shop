@@ -449,7 +449,7 @@ export function CatalogPage() {
         </div>
 
         {/* Sort, Reset & Mobile Filter Trigger */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
           {/* Mobile Filter Sheet Trigger */}
           <button
             type="button"
@@ -468,7 +468,8 @@ export function CatalogPage() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value)}
-            className="px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 outline-none cursor-pointer"
+            aria-label="Sort products"
+            className="flex-1 min-w-0 sm:flex-none px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 outline-none cursor-pointer"
           >
             <option value="newest">Sort by: Newest Releases</option>
             <option value="price_asc">Price: Low to High</option>
