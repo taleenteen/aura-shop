@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { Link } from "@tanstack/react-router";
+import { BannerLink } from "@/components/ui/banner-link";
 import { ArrowUpRight, GraduationCap, Gamepad2, Sparkles, Layers } from "lucide-react";
 import type { Banner } from "@/types/api";
 
@@ -131,13 +132,13 @@ export function BentoPromoGrid({ banners = [] }: BentoPromoGridProps) {
 
               {/* Card Footer CTA */}
               <div className="relative z-10 pt-4">
-                <Link
-                  to={card.cta_primary_link || "/catalog"}
+                <BannerLink
+                  href={card.cta_primary_link || "/catalog"}
                   className={`inline-flex items-center gap-1.5 text-xs font-semibold group-hover:underline underline-offset-4 ${isDark ? "text-white" : "text-zinc-950"}`}
                 >
                   <span>{card.cta_primary_text || "Learn More"}</span>
                   <ArrowUpRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </Link>
+                </BannerLink>
               </div>
             </motion.div>
           );
