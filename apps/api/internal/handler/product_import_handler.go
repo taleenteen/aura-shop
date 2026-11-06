@@ -39,10 +39,37 @@ func decodeImport(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
+// Columns godoc
+//
+//	@Summary		List CSV import columns
+//	@Description	Describes every column of the product CSV (level, whether required for new rows, format, example and notes), for the import guide and template.
+//	@Tags			Admin · CSV import
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	response.Envelope{data=[]dto.ImportColumn}
+//	@Failure		401	{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Router			/admin/imports/products/columns [get]
 func (h *ProductImportHandler) Columns(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, h.svc.Columns(), nil)
 }
 
+// Preview godoc
+//
+//	@Summary		Preview a CSV import
+//	@Description	Reads the CSV text (sent as JSON, max 2 MB) without saving anything. Each product is compared with the store: create, update, unchanged, name_match (same name, different slug) or error, with per-field changes (current vs incoming values), new SKUs and row-level issues. file_issues lists problems with the whole file.
+//	@Tags			Admin · CSV import
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		dto.ImportRequest	true	"File name and CSV text"
+//	@Success		200		{object}	response.Envelope{data=dto.ImportPreview}
+//	@Failure		400		{object}	response.Envelope	"Invalid body"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		413		{object}	response.Envelope	"FILE_TOO_LARGE: over 2 MB"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/imports/products/preview [post]
 func (h *ProductImportHandler) Preview(w http.ResponseWriter, r *http.Request) {
 	var req dto.ImportRequest
 	if !decodeImport(w, r, &req) {
@@ -57,6 +84,23 @@ func (h *ProductImportHandler) Preview(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, out, nil)
 }
 
+// Commit godoc
+//
+//	@Summary		Import a CSV
+//	@Description	Applies the CSV (sent as JSON, max 2 MB) using the admin's decisions, keyed by the preview's product key: action update, create or skip, and keep lists change keys whose current store values should be kept instead of the incoming ones. Returns counts and a per-product outcome. One audit log entry lists every product created or updated.
+//	@Tags			Admin · CSV import
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		dto.ImportCommitRequest	true	"File name, CSV text and decisions"
+//	@Success		200		{object}	response.Envelope{data=dto.ImportResult}
+//	@Failure		400		{object}	response.Envelope	"Invalid body"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		413		{object}	response.Envelope	"FILE_TOO_LARGE: over 2 MB"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED: per-field messages in error.fields when the file as a whole cannot be imported"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/imports/products/commit [post]
 func (h *ProductImportHandler) Commit(w http.ResponseWriter, r *http.Request) {
 	var req dto.ImportCommitRequest
 	if !decodeImport(w, r, &req) {
@@ -89,7 +133,18 @@ func (h *ProductImportHandler) Commit(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, out, nil)
 }
 
-// Export downloads every product as CSV in the import layout.
+// Export godoc
+//
+//	@Summary		Export products as CSV
+//	@Description	Downloads every product as aura-products.csv in the import layout, one row per variant.
+//	@Tags			Admin · CSV import
+//	@Produce		text/csv
+//	@Security		BearerAuth
+//	@Success		200	{file}		file
+//	@Failure		401	{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/imports/products/export [get]
 func (h *ProductImportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	data, err := h.svc.Export(r.Context())
 	if err != nil {

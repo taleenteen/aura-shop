@@ -18,6 +18,8 @@ type Config struct {
 	JWTSecret           string
 	StockLockTTLMinutes int
 	WebPort             string
+	// SwaggerEnabled serves the API reference at /swagger/. Turn it off in production.
+	SwaggerEnabled bool
 }
 
 func Load() *Config {
@@ -41,6 +43,7 @@ func Load() *Config {
 		JWTSecret:           getEnv("JWT_SECRET", "aura_tech_local_jwt_secret_key_2026"),
 		StockLockTTLMinutes: stockTTL,
 		WebPort:             getEnv("WEB_PORT", "5173"),
+		SwaggerEnabled:      getEnv("SWAGGER_ENABLED", "true") == "true",
 	}
 }
 

@@ -58,6 +58,23 @@ func reportRange(w http.ResponseWriter, r *http.Request) (time.Time, time.Time, 
 	return from, to.AddDate(0, 0, 1), true
 }
 
+// Sales godoc
+//
+//	@Summary		Get the sales report
+//	@Description	Sales totals for the range (and for the same number of days just before it), a series grouped by day, week or month, and the top products, categories and payment methods.
+//	@Description	Dates are store dates (Thailand time), inclusive. Without `from`/`to` the report covers the last 30 days including today. Ranges are limited to 3 years; grouping by day to 400 days.
+//	@Tags			Admin · Reports
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			from	query		string	false	"Start date (YYYY-MM-DD)"			format(date)
+//	@Param			to		query		string	false	"End date, inclusive (YYYY-MM-DD)"	format(date)
+//	@Param			group	query		string	false	"Series grouping"					Enums(day, week, month)	default(day)
+//	@Success		200		{object}	response.Envelope{data=dto.SalesReport}
+//	@Failure		400		{object}	response.Envelope	"VALIDATION_FAILED (error.fields.from, error.fields.to or error.fields.group)"
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		403		{object}	response.Envelope
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/reports/sales [get]
 func (h *ReportHandler) Sales(w http.ResponseWriter, r *http.Request) {
 	from, to, ok := reportRange(w, r)
 	if !ok {
@@ -90,7 +107,23 @@ func bahtCell(satang int64) string {
 	return fmt.Sprintf("%d.%02d", satang/100, satang%100)
 }
 
-// Export downloads one row per order item (paid and refunded orders) for spreadsheets.
+// Export godoc
+//
+//	@Summary		Export sales as CSV
+//	@Description	Downloads one row per order item of paid and refunded (cancelled after payment) orders in the range, as UTF-8 CSV with a BOM.
+//	@Description	Columns: order_number, date, status, refunded, customer_email, recipient, province, payment_method, sku, product, option, quantity, unit_price, line_total, order_total, carrier, tracking_number (amounts in baht).
+//	@Description	Same date range rules as GET /admin/reports/sales.
+//	@Tags			Admin · Reports
+//	@Produce		text/csv
+//	@Security		BearerAuth
+//	@Param			from	query		string	false	"Start date (YYYY-MM-DD)"			format(date)
+//	@Param			to		query		string	false	"End date, inclusive (YYYY-MM-DD)"	format(date)
+//	@Success		200		{file}		file
+//	@Failure		400		{object}	response.Envelope	"VALIDATION_FAILED (error.fields.from or error.fields.to)"
+//	@Failure		401		{object}	response.Envelope
+//	@Failure		403		{object}	response.Envelope
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/reports/sales/export [get]
 func (h *ReportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	from, to, ok := reportRange(w, r)
 	if !ok {

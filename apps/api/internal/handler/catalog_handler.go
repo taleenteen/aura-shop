@@ -20,6 +20,26 @@ func NewCatalogHandler(catalogService service.CatalogService) *CatalogHandler {
 	return &CatalogHandler{catalogService: catalogService}
 }
 
+// GetCatalog godoc
+//
+//	@Summary		List catalog products
+//	@Description	Returns one page of active products matching the filters. meta carries pagination (page, limit, total_items, total_pages) and meta.facets carries dto.FacetCounts for the current filters.
+//	@Tags			Catalog
+//	@Produce		json
+//	@Param			category	query		string	false	"Category slug"
+//	@Param			brand		query		string	false	"Brand slug"
+//	@Param			persona		query		string	false	"Persona filter"
+//	@Param			cpu			query		string	false	"CPU family"
+//	@Param			ram			query		int		false	"RAM in GB"
+//	@Param			storage		query		int		false	"Storage in GB"
+//	@Param			min_price	query		int		false	"Minimum price in satang"
+//	@Param			max_price	query		int		false	"Maximum price in satang"
+//	@Param			sort		query		string	false	"Sort order; newest first when omitted"	Enums(price_asc, price_desc)
+//	@Param			page		query		int		false	"Page number"							default(1)	minimum(1)
+//	@Param			limit		query		int		false	"Page size (max 100)"					default(12)	minimum(1)	maximum(100)
+//	@Success		200			{object}	response.Envelope{data=[]models.Product}
+//	@Failure		500			{object}	response.Envelope
+//	@Router			/catalog [get]
 func (h *CatalogHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
@@ -69,6 +89,18 @@ func (h *CatalogHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, products, meta)
 }
 
+// GetProductBySlug godoc
+//
+//	@Summary		Get a product
+//	@Description	Returns an active product with its category, brand, variants and accessory bundles.
+//	@Tags			Catalog
+//	@Produce		json
+//	@Param			slug	path		string	true	"Product slug"
+//	@Success		200		{object}	response.Envelope{data=models.Product}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		404		{object}	response.Envelope
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/products/{slug} [get]
 func (h *CatalogHandler) GetProductBySlug(w http.ResponseWriter, r *http.Request) {
 	slug := strings.TrimSpace(chi.URLParam(r, "slug"))
 	if slug == "" {
@@ -89,6 +121,17 @@ func (h *CatalogHandler) GetProductBySlug(w http.ResponseWriter, r *http.Request
 	response.Success(w, http.StatusOK, product, nil)
 }
 
+// CompareProducts godoc
+//
+//	@Summary		Compare products
+//	@Description	Returns the active products for the given slugs; unknown or inactive slugs are left out.
+//	@Tags			Catalog
+//	@Produce		json
+//	@Param			slugs	query		string	true	"Comma-separated product slugs"
+//	@Success		200		{object}	response.Envelope{data=[]models.Product}
+//	@Failure		400		{object}	response.Envelope
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/products/compare [get]
 func (h *CatalogHandler) CompareProducts(w http.ResponseWriter, r *http.Request) {
 	slugsParam := r.URL.Query().Get("slugs")
 	if slugsParam == "" {
@@ -114,6 +157,16 @@ func (h *CatalogHandler) CompareProducts(w http.ResponseWriter, r *http.Request)
 	response.Success(w, http.StatusOK, products, nil)
 }
 
+// Search godoc
+//
+//	@Summary		Search products
+//	@Description	Matches product and variant names; returns up to 8 active products. An empty query returns `data: null`.
+//	@Tags			Catalog
+//	@Produce		json
+//	@Param			q	query		string	false	"Search text"
+//	@Success		200	{object}	response.Envelope{data=[]models.Product}
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/search [get]
 func (h *CatalogHandler) Search(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	products, err := h.catalogService.Search(r.Context(), query)
@@ -125,6 +178,14 @@ func (h *CatalogHandler) Search(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, products, nil)
 }
 
+// GetCategories godoc
+//
+//	@Summary	List categories
+//	@Tags		Catalog
+//	@Produce	json
+//	@Success	200	{object}	response.Envelope{data=[]models.Category}
+//	@Failure	500	{object}	response.Envelope
+//	@Router		/categories [get]
 func (h *CatalogHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
 	categories, err := h.catalogService.GetCategories(r.Context())
 	if err != nil {
@@ -134,6 +195,14 @@ func (h *CatalogHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, categories, nil)
 }
 
+// GetBrands godoc
+//
+//	@Summary	List brands
+//	@Tags		Catalog
+//	@Produce	json
+//	@Success	200	{object}	response.Envelope{data=[]models.Brand}
+//	@Failure	500	{object}	response.Envelope
+//	@Router		/brands [get]
 func (h *CatalogHandler) GetBrands(w http.ResponseWriter, r *http.Request) {
 	brands, err := h.catalogService.GetBrands(r.Context())
 	if err != nil {

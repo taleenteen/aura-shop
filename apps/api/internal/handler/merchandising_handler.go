@@ -73,6 +73,18 @@ func (h *MerchandisingHandler) record(r *http.Request, action, kind, id, label s
 
 // ---------------------------------------------------------------- banners
 
+// ListBanners godoc
+//
+//	@Summary		List banners
+//	@Description	Returns every banner, including inactive and scheduled ones.
+//	@Tags			Admin · Banners
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	response.Envelope{data=[]models.Banner}
+//	@Failure		401	{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/banners [get]
 func (h *MerchandisingHandler) ListBanners(w http.ResponseWriter, r *http.Request) {
 	banners, err := h.svc.ListBanners(r.Context())
 	if err != nil {
@@ -82,6 +94,22 @@ func (h *MerchandisingHandler) ListBanners(w http.ResponseWriter, r *http.Reques
 	response.Success(w, http.StatusOK, banners, nil)
 }
 
+// CreateBanner godoc
+//
+//	@Summary		Create a banner
+//	@Description	Creates a home-page banner. start_at and end_at are RFC 3339. The change is written to the audit log.
+//	@Tags			Admin · Banners
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		dto.BannerInput	true	"Banner"
+//	@Success		201		{object}	response.Envelope{data=models.Banner}
+//	@Failure		400		{object}	response.Envelope	"Invalid body"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED: per-field messages in error.fields"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/banners [post]
 func (h *MerchandisingHandler) CreateBanner(w http.ResponseWriter, r *http.Request) {
 	var in dto.BannerInput
 	if !decode(w, r, &in) {
@@ -96,6 +124,24 @@ func (h *MerchandisingHandler) CreateBanner(w http.ResponseWriter, r *http.Reque
 	response.Success(w, http.StatusCreated, b, nil)
 }
 
+// UpdateBanner godoc
+//
+//	@Summary		Update a banner
+//	@Description	Replaces the banner. Changed fields are written to the audit log.
+//	@Tags			Admin · Banners
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string			true	"Banner ID"	Format(uuid)
+//	@Param			body	body		dto.BannerInput	true	"Banner"
+//	@Success		200		{object}	response.Envelope{data=models.Banner}
+//	@Failure		400		{object}	response.Envelope	"Invalid body"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404		{object}	response.Envelope	"Banner not found (also for a malformed id)"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED: per-field messages in error.fields"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/banners/{id} [put]
 func (h *MerchandisingHandler) UpdateBanner(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -115,6 +161,23 @@ func (h *MerchandisingHandler) UpdateBanner(w http.ResponseWriter, r *http.Reque
 	response.Success(w, http.StatusOK, b, nil)
 }
 
+// SetBannerStatus godoc
+//
+//	@Summary		Turn a banner on or off
+//	@Description	Sets is_active and returns the new state as {"is_active": bool}. The change is written to the audit log.
+//	@Tags			Admin · Banners
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string					true	"Banner ID"	Format(uuid)
+//	@Param			body	body		object{is_active=bool}	true	"New state"
+//	@Success		200		{object}	response.Envelope{data=object{is_active=bool}}
+//	@Failure		400		{object}	response.Envelope	"Invalid body"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404		{object}	response.Envelope	"Banner not found (also for a malformed id)"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/banners/{id}/status [patch]
 func (h *MerchandisingHandler) SetBannerStatus(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -143,6 +206,20 @@ func (h *MerchandisingHandler) SetBannerStatus(w http.ResponseWriter, r *http.Re
 	response.Success(w, http.StatusOK, map[string]bool{"is_active": req.IsActive}, nil)
 }
 
+// DeleteBanner godoc
+//
+//	@Summary		Delete a banner
+//	@Description	Deletes the banner. The change is written to the audit log.
+//	@Tags			Admin · Banners
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string											true	"Banner ID"	Format(uuid)
+//	@Success		200	{object}	response.Envelope{data=object{message=string}}	"message: Banner deleted."
+//	@Failure		401	{object}	response.Envelope								"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope								"FORBIDDEN: signed in without the admin role"
+//	@Failure		404	{object}	response.Envelope								"Banner not found (also for a malformed id)"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/banners/{id} [delete]
 func (h *MerchandisingHandler) DeleteBanner(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -161,6 +238,18 @@ func (h *MerchandisingHandler) DeleteBanner(w http.ResponseWriter, r *http.Reque
 
 // ---------------------------------------------------------------- categories
 
+// ListCategories godoc
+//
+//	@Summary		List categories
+//	@Description	Returns every category with the number of products filed under it.
+//	@Tags			Admin · Categories
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	response.Envelope{data=[]dto.AdminCategory}
+//	@Failure		401	{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/categories [get]
 func (h *MerchandisingHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.svc.ListCategories(r.Context())
 	if err != nil {
@@ -190,16 +279,65 @@ func (h *MerchandisingHandler) saveCategory(w http.ResponseWriter, r *http.Reque
 	response.Success(w, status, c, nil)
 }
 
+// CreateCategory godoc
+//
+//	@Summary		Create a category
+//	@Description	Creates a category. An empty slug is derived from the name. The change is written to the audit log.
+//	@Tags			Admin · Categories
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		dto.CategoryInput	true	"Category"
+//	@Success		201		{object}	response.Envelope{data=models.Category}
+//	@Failure		400		{object}	response.Envelope	"Invalid body"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED: per-field messages in error.fields; error.fields.slug when another category already uses the slug"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/categories [post]
 func (h *MerchandisingHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	h.saveCategory(w, r, nil, http.StatusCreated)
 }
 
+// UpdateCategory godoc
+//
+//	@Summary		Update a category
+//	@Description	Updates the category. An empty slug is derived from the name. Changed fields are written to the audit log.
+//	@Tags			Admin · Categories
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string				true	"Category ID"	Format(uuid)
+//	@Param			body	body		dto.CategoryInput	true	"Category"
+//	@Success		200		{object}	response.Envelope{data=models.Category}
+//	@Failure		400		{object}	response.Envelope	"Invalid body"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404		{object}	response.Envelope	"Category not found (also for a malformed id)"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED: per-field messages in error.fields; error.fields.slug when another category already uses the slug"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/categories/{id} [put]
 func (h *MerchandisingHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	if id, ok := pathID(w, r); ok {
 		h.saveCategory(w, r, &id, http.StatusOK)
 	}
 }
 
+// DeleteCategory godoc
+//
+//	@Summary		Delete a category
+//	@Description	Deletes the category. Refused while products are still filed under it. The change is written to the audit log.
+//	@Tags			Admin · Categories
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string											true	"Category ID"	Format(uuid)
+//	@Success		200	{object}	response.Envelope{data=object{message=string}}	"message: Category deleted."
+//	@Failure		401	{object}	response.Envelope								"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope								"FORBIDDEN: signed in without the admin role"
+//	@Failure		404	{object}	response.Envelope								"Category not found (also for a malformed id)"
+//	@Failure		409	{object}	response.Envelope								"IN_USE: products still use this category"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/categories/{id} [delete]
 func (h *MerchandisingHandler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -218,6 +356,18 @@ func (h *MerchandisingHandler) DeleteCategory(w http.ResponseWriter, r *http.Req
 
 // ---------------------------------------------------------------- brands
 
+// ListBrands godoc
+//
+//	@Summary		List brands
+//	@Description	Returns every brand with the number of products that carry it.
+//	@Tags			Admin · Brands
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	response.Envelope{data=[]dto.AdminBrand}
+//	@Failure		401	{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/brands [get]
 func (h *MerchandisingHandler) ListBrands(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.svc.ListBrands(r.Context())
 	if err != nil {
@@ -247,16 +397,65 @@ func (h *MerchandisingHandler) saveBrand(w http.ResponseWriter, r *http.Request,
 	response.Success(w, status, b, nil)
 }
 
+// CreateBrand godoc
+//
+//	@Summary		Create a brand
+//	@Description	Creates a brand. An empty slug is derived from the name. The change is written to the audit log.
+//	@Tags			Admin · Brands
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		dto.BrandInput	true	"Brand"
+//	@Success		201		{object}	response.Envelope{data=models.Brand}
+//	@Failure		400		{object}	response.Envelope	"Invalid body"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED: per-field messages in error.fields; error.fields.slug when another brand already uses the slug"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/brands [post]
 func (h *MerchandisingHandler) CreateBrand(w http.ResponseWriter, r *http.Request) {
 	h.saveBrand(w, r, nil, http.StatusCreated)
 }
 
+// UpdateBrand godoc
+//
+//	@Summary		Update a brand
+//	@Description	Updates the brand. An empty slug is derived from the name. Changed fields are written to the audit log.
+//	@Tags			Admin · Brands
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string			true	"Brand ID"	Format(uuid)
+//	@Param			body	body		dto.BrandInput	true	"Brand"
+//	@Success		200		{object}	response.Envelope{data=models.Brand}
+//	@Failure		400		{object}	response.Envelope	"Invalid body"
+//	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404		{object}	response.Envelope	"Brand not found (also for a malformed id)"
+//	@Failure		422		{object}	response.Envelope	"VALIDATION_FAILED: per-field messages in error.fields; error.fields.slug when another brand already uses the slug"
+//	@Failure		500		{object}	response.Envelope
+//	@Router			/admin/brands/{id} [put]
 func (h *MerchandisingHandler) UpdateBrand(w http.ResponseWriter, r *http.Request) {
 	if id, ok := pathID(w, r); ok {
 		h.saveBrand(w, r, &id, http.StatusOK)
 	}
 }
 
+// DeleteBrand godoc
+//
+//	@Summary		Delete a brand
+//	@Description	Deletes the brand. Refused while products still carry it. The change is written to the audit log.
+//	@Tags			Admin · Brands
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string											true	"Brand ID"	Format(uuid)
+//	@Success		200	{object}	response.Envelope{data=object{message=string}}	"message: Brand deleted."
+//	@Failure		401	{object}	response.Envelope								"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope								"FORBIDDEN: signed in without the admin role"
+//	@Failure		404	{object}	response.Envelope								"Brand not found (also for a malformed id)"
+//	@Failure		409	{object}	response.Envelope								"IN_USE: products still use this brand"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/brands/{id} [delete]
 func (h *MerchandisingHandler) DeleteBrand(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {

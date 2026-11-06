@@ -1,0 +1,3 @@
+// swag type overrides: JSON columns are free-form JSON in the API.
+replace gorm.io/datatypes.JSON object
+replace encoding/json.RawMessage object

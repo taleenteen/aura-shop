@@ -1,0 +1,4503 @@
+basePath: /api/v1
+definitions:
+  dto.AddToCartRequest:
+    properties:
+      bundle_accessory_variant_ids:
+        items:
+          type: string
+        type: array
+      quantity:
+        type: integer
+      variant_id:
+        type: string
+    type: object
+  dto.AdminBrand:
+    properties:
+      id:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
+      product_count:
+        type: integer
+      slug:
+        type: string
+    type: object
+  dto.AdminCategory:
+    properties:
+      icon_name:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      nav_label:
+        type: string
+      product_count:
+        type: integer
+      slug:
+        type: string
+      sort_order:
+        type: integer
+    type: object
+  dto.AdminOverviewStats:
+    properties:
+      category_revenue:
+        description: all paid line items, largest first
+        items:
+          $ref: '#/definitions/dto.CategoryRevenue'
+        type: array
+      daily_revenue:
+        description: last 7 days, oldest first, zero-filled
+        items:
+          $ref: '#/definitions/dto.DailyRevenue'
+        type: array
+      low_stock_alerts:
+        items:
+          $ref: '#/definitions/dto.LowStockItem'
+        type: array
+      orders_by_status:
+        additionalProperties:
+          type: integer
+        type: object
+      paid_orders_count:
+        type: integer
+      revenue_30d_satang:
+        description: last 30 days, today included
+        type: integer
+      revenue_prev_30d_satang:
+        description: the 30 days before that
+        type: integer
+      total_orders_count:
+        description: every status
+        type: integer
+      total_revenue_satang:
+        description: all paid orders, all time
+        type: integer
+    type: object
+  dto.AdminProductSummary:
+    properties:
+      brand_name:
+        type: string
+      category_name:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      low_stock_count:
+        description: variants with <= 3 available
+        type: integer
+      min_price:
+        type: integer
+      name:
+        type: string
+      reserved_total:
+        type: integer
+      slug:
+        type: string
+      stock_total:
+        type: integer
+      thumbnail:
+        type: string
+      updated_at:
+        type: string
+      variant_count:
+        type: integer
+    type: object
+  dto.AdminReview:
+    properties:
+      author_email:
+        type: string
+      author_name:
+        type: string
+      body:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      is_hidden:
+        type: boolean
+      product_name:
+        type: string
+      product_slug:
+        type: string
+      rating:
+        type: integer
+      title:
+        type: string
+    type: object
+  dto.AuthResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/dto.UserDTO'
+    type: object
+  dto.BannerInput:
+    properties:
+      background_color:
+        type: string
+      badge_text:
+        type: string
+      cta_primary_link:
+        type: string
+      cta_primary_text:
+        type: string
+      cta_secondary_link:
+        type: string
+      cta_secondary_text:
+        type: string
+      end_at:
+        type: string
+      grid_span:
+        description: 'bento tile size: large, wide or standard (see service)'
+        type: string
+      headline:
+        type: string
+      is_active:
+        type: boolean
+      placement:
+        type: string
+      product_image_url:
+        type: string
+      sort_order:
+        type: integer
+      start_at:
+        type: string
+      subheadline:
+        type: string
+      theme_mode:
+        type: string
+    type: object
+  dto.BrandInput:
+    properties:
+      logo_url:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
+  dto.CartItemDTO:
+    properties:
+      available_stock:
+        type: integer
+      color_hex:
+        type: string
+      color_name:
+        type: string
+      id:
+        type: string
+      images:
+        type: object
+      item_total:
+        description: Price * Quantity in Satang
+        type: integer
+      price:
+        description: Satang
+        type: integer
+      product_id:
+        type: string
+      product_name:
+        type: string
+      product_slug:
+        type: string
+      quantity:
+        type: integer
+      sku:
+        type: string
+      specs:
+        type: object
+      variant_id:
+        type: string
+    type: object
+  dto.CartResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dto.CartItemDTO'
+        type: array
+      subtotal_amount:
+        description: Satang
+        type: integer
+      total_items:
+        type: integer
+    type: object
+  dto.CategoryInput:
+    properties:
+      icon_name:
+        type: string
+      name:
+        type: string
+      nav_label:
+        type: string
+      slug:
+        type: string
+      sort_order:
+        type: integer
+    type: object
+  dto.CategoryRevenue:
+    properties:
+      category:
+        type: string
+      revenue_satang:
+        type: integer
+      units:
+        type: integer
+    type: object
+  dto.ChangePasswordRequest:
+    properties:
+      current_password:
+        type: string
+      new_password:
+        type: string
+    type: object
+  dto.CheckoutReserveRequest:
+    properties:
+      customer_email:
+        type: string
+      installment_plan:
+        $ref: '#/definitions/dto.InstallmentPlanDTO'
+      payment_method:
+        description: PROMPTPAY_QR, CREDIT_CARD, INSTALLMENT_0
+        type: string
+      shipping_address:
+        $ref: '#/definitions/dto.ShippingAddressDTO'
+    type: object
+  dto.CheckoutReserveResponse:
+    properties:
+      grand_total_satang:
+        type: integer
+      order_number:
+        type: string
+      payment_method:
+        type: string
+      reservation_expires_at:
+        type: string
+    type: object
+  dto.DailyRevenue:
+    properties:
+      date:
+        description: YYYY-MM-DD
+        type: string
+      orders:
+        type: integer
+      revenue_satang:
+        type: integer
+    type: object
+  dto.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    type: object
+  dto.ForgotPasswordResponse:
+    properties:
+      email_id:
+        type: string
+    type: object
+  dto.ImportChange:
+    properties:
+      current:
+        type: string
+      incoming:
+        type: string
+      key:
+        description: e.g. "name", "sku:MBA13-M3-16-256-MN:price"
+        type: string
+      label:
+        type: string
+      sku:
+        description: set for option-level changes
+        type: string
+    type: object
+  dto.ImportColumn:
+    properties:
+      example:
+        type: string
+      format:
+        type: string
+      key:
+        type: string
+      label:
+        type: string
+      level:
+        description: '"product" (same on every row of a product) or "variant"'
+        type: string
+      notes:
+        type: string
+      required_new:
+        description: needed when the row creates a product or option
+        type: boolean
+    type: object
+  dto.ImportCommitRequest:
+    properties:
+      csv:
+        type: string
+      decisions:
+        additionalProperties:
+          $ref: '#/definitions/dto.ImportDecision'
+        description: by ImportProduct.Key
+        type: object
+      filename:
+        type: string
+    type: object
+  dto.ImportDecision:
+    properties:
+      action:
+        description: '"update" (apply to the matched product), "create" (add as a
+          new product) or "skip".'
+        type: string
+      keep:
+        description: Change keys (see ImportChange.Key) to leave as they are in the
+          store.
+        items:
+          type: string
+        type: array
+    type: object
+  dto.ImportIssue:
+    properties:
+      column:
+        type: string
+      message:
+        type: string
+      row:
+        type: integer
+    type: object
+  dto.ImportMatch:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
+  dto.ImportOutcome:
+    properties:
+      key:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      product_id:
+        type: string
+      status:
+        description: created | updated | skipped | unchanged | failed
+        type: string
+    type: object
+  dto.ImportPreview:
+    properties:
+      file_issues:
+        description: Problems with the file as a whole (encoding, missing columns);
+          nothing can be imported.
+        items:
+          $ref: '#/definitions/dto.ImportIssue'
+        type: array
+      products:
+        items:
+          $ref: '#/definitions/dto.ImportProduct'
+        type: array
+      summary:
+        $ref: '#/definitions/dto.ImportSummary'
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  dto.ImportProduct:
+    properties:
+      changes:
+        items:
+          $ref: '#/definitions/dto.ImportChange'
+        type: array
+      existing:
+        allOf:
+        - $ref: '#/definitions/dto.ImportMatch'
+        description: matched by slug, or the name match
+      issues:
+        items:
+          $ref: '#/definitions/dto.ImportIssue'
+        type: array
+      key:
+        type: string
+      name:
+        type: string
+      new_skus:
+        items:
+          type: string
+        type: array
+      rows:
+        items:
+          type: integer
+        type: array
+      slug:
+        type: string
+      status:
+        description: create | update | unchanged | name_match | error
+        type: string
+    type: object
+  dto.ImportRequest:
+    properties:
+      csv:
+        type: string
+      filename:
+        type: string
+    type: object
+  dto.ImportResult:
+    properties:
+      created:
+        type: integer
+      failed:
+        type: integer
+      outcomes:
+        items:
+          $ref: '#/definitions/dto.ImportOutcome'
+        type: array
+      skipped:
+        type: integer
+      updated:
+        type: integer
+    type: object
+  dto.ImportSummary:
+    properties:
+      create:
+        type: integer
+      errors:
+        type: integer
+      name_match:
+        type: integer
+      products:
+        type: integer
+      rows:
+        type: integer
+      unchanged:
+        type: integer
+      update:
+        type: integer
+    type: object
+  dto.InstallmentCalculationOption:
+    properties:
+      bank_code:
+        type: string
+      bank_name:
+        type: string
+      interest_rate:
+        type: integer
+      monthly_pay_satang:
+        type: integer
+      months:
+        type: integer
+    type: object
+  dto.InstallmentPlanDTO:
+    properties:
+      bank_code:
+        description: KBANK, SCB, KRUNGSRI, BBL
+        type: string
+      bank_name:
+        type: string
+      interest_rate:
+        type: integer
+      monthly_pay_satang:
+        type: integer
+      months:
+        description: 3, 6, 10
+        type: integer
+    type: object
+  dto.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  dto.LowStockItem:
+    properties:
+      available_stock:
+        type: integer
+      color_name:
+        type: string
+      product_id:
+        type: string
+      product_name:
+        type: string
+      reserved_stock:
+        type: integer
+      sku:
+        type: string
+      stock_quantity:
+        type: integer
+      variant_id:
+        type: string
+    type: object
+  dto.OrderLookupRequest:
+    properties:
+      email:
+        type: string
+      order_number:
+        type: string
+    type: object
+  dto.PaymentProcessRequest:
+    properties:
+      card_cvv:
+        type: string
+      card_expiry:
+        type: string
+      card_holder_name:
+        type: string
+      card_number:
+        type: string
+      installment_plan:
+        $ref: '#/definitions/dto.InstallmentPlanDTO'
+      order_number:
+        type: string
+      payment_method:
+        description: PROMPTPAY_QR, CREDIT_CARD, INSTALLMENT_0
+        type: string
+    type: object
+  dto.ProductInput:
+    properties:
+      bento_highlights:
+        type: object
+      box_contents:
+        type: object
+      brand_id:
+        type: string
+      category_id:
+        type: string
+      full_spec_matrix:
+        type: object
+      is_active:
+        type: boolean
+      name:
+        type: string
+      ports_diagram:
+        type: object
+      short_description:
+        type: string
+      slug:
+        description: generated from name when empty
+        type: string
+      tagline:
+        type: string
+      usage_personas:
+        items:
+          type: string
+        type: array
+      variants:
+        items:
+          $ref: '#/definitions/dto.VariantInput'
+        type: array
+    type: object
+  dto.ProductReviews:
+    properties:
+      reviews:
+        items:
+          $ref: '#/definitions/dto.ReviewView'
+        type: array
+      summary:
+        $ref: '#/definitions/dto.ReviewSummary'
+      viewer:
+        allOf:
+        - $ref: '#/definitions/dto.ReviewViewer'
+        description: nil for guests
+    type: object
+  dto.ProductStatusRequest:
+    properties:
+      is_active:
+        type: boolean
+    type: object
+  dto.PromptPayQRResponse:
+    properties:
+      grand_total_satang:
+        type: integer
+      order_number:
+        type: string
+      promptpay_payload:
+        type: string
+      qr_code_data_url:
+        type: string
+    type: object
+  dto.RegisterRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+    type: object
+  dto.ResetPasswordRequest:
+    properties:
+      password:
+        type: string
+      token:
+        type: string
+    type: object
+  dto.ReviewInput:
+    properties:
+      body:
+        type: string
+      rating:
+        type: integer
+      title:
+        type: string
+    type: object
+  dto.ReviewMine:
+    properties:
+      body:
+        type: string
+      is_hidden:
+        type: boolean
+      rating:
+        type: integer
+      title:
+        type: string
+    type: object
+  dto.ReviewSummary:
+    properties:
+      average:
+        type: number
+      count:
+        type: integer
+      distribution:
+        items:
+          type: integer
+        type: array
+    type: object
+  dto.ReviewView:
+    properties:
+      author_name:
+        type: string
+      body:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      rating:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  dto.ReviewViewer:
+    properties:
+      can_review:
+        type: boolean
+      my_review:
+        $ref: '#/definitions/dto.ReviewMine'
+    type: object
+  dto.SalesBreakdown:
+    properties:
+      key:
+        type: string
+      label:
+        type: string
+      orders:
+        type: integer
+      revenue_satang:
+        type: integer
+      units:
+        type: integer
+    type: object
+  dto.SalesPeriod:
+    properties:
+      orders:
+        type: integer
+      revenue_satang:
+        type: integer
+      start:
+        description: YYYY-MM-DD, store time
+        type: string
+      units:
+        type: integer
+    type: object
+  dto.SalesReport:
+    properties:
+      categories:
+        items:
+          $ref: '#/definitions/dto.SalesBreakdown'
+        type: array
+      from:
+        type: string
+      group:
+        description: day, week or month
+        type: string
+      payment_methods:
+        items:
+          $ref: '#/definitions/dto.SalesBreakdown'
+        type: array
+      previous:
+        allOf:
+        - $ref: '#/definitions/dto.SalesTotals'
+        description: the same number of days just before From
+      series:
+        items:
+          $ref: '#/definitions/dto.SalesPeriod'
+        type: array
+      to:
+        type: string
+      top_products:
+        items:
+          $ref: '#/definitions/dto.SalesBreakdown'
+        type: array
+      totals:
+        $ref: '#/definitions/dto.SalesTotals'
+    type: object
+  dto.SalesTotals:
+    properties:
+      avg_order_satang:
+        type: integer
+      new_customer_orders:
+        description: first paid order of that email
+        type: integer
+      orders:
+        type: integer
+      refunded_orders:
+        description: paid, then cancelled by the store
+        type: integer
+      refunded_satang:
+        type: integer
+      revenue_satang:
+        type: integer
+      units:
+        type: integer
+    type: object
+  dto.ShippingAddressDTO:
+    properties:
+      address_line_1:
+        type: string
+      address_line_2:
+        type: string
+      district:
+        type: string
+      phone:
+        type: string
+      postal_code:
+        type: string
+      province:
+        type: string
+      recipient_name:
+        type: string
+    type: object
+  dto.StockAdjustmentRequest:
+    properties:
+      expected_stock:
+        type: integer
+      mode:
+        type: string
+      note:
+        type: string
+      quantity:
+        type: integer
+      reason:
+        type: string
+    type: object
+  dto.StockAdjustmentResponse:
+    properties:
+      available_stock:
+        type: integer
+      delta:
+        type: integer
+      reserved_stock:
+        type: integer
+      sku:
+        type: string
+      stock_quantity:
+        type: integer
+      variant_id:
+        type: string
+    type: object
+  dto.StockAlertView:
+    properties:
+      created_at:
+        type: string
+      image:
+        type: string
+      price:
+        type: integer
+      product_name:
+        type: string
+      product_slug:
+        type: string
+      variant:
+        type: string
+      variant_id:
+        type: string
+    type: object
+  dto.UpdateCartQuantityRequest:
+    properties:
+      quantity:
+        type: integer
+    type: object
+  dto.UpdateOrderStatusRequest:
+    properties:
+      carrier:
+        description: Carrier (KERRY, FLASH, DHL) and tracking number; required when
+          moving to SHIPPED.
+        type: string
+      serial_numbers:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: Order item ID -> one serial per unit. A blank entry keeps the
+          saved serial for that unit.
+        type: object
+      status:
+        description: PENDING_PAYMENT, PAID_PROCESSING, SN_ASSIGNED, SHIPPED, DELIVERED,
+          CANCELLED
+        type: string
+      tracking_number:
+        type: string
+    type: object
+  dto.UpdateProfileRequest:
+    properties:
+      address:
+        type: string
+      full_name:
+        type: string
+      phone:
+        type: string
+    type: object
+  dto.UploadResponse:
+    properties:
+      url:
+        type: string
+    type: object
+  dto.UserDTO:
+    properties:
+      address:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      phone:
+        type: string
+      role:
+        type: string
+    type: object
+  dto.VariantInput:
+    properties:
+      color_hex:
+        type: string
+      color_name:
+        type: string
+      compare_price:
+        description: satang; 0 = none
+        type: integer
+      id:
+        description: set to update an existing variant
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      initial_stock:
+        description: new variants only
+        type: integer
+      price:
+        description: satang
+        type: integer
+      sku:
+        type: string
+      specs:
+        additionalProperties: true
+        type: object
+    type: object
+  dto.WishlistToggleRequest:
+    properties:
+      product_id:
+        type: string
+    type: object
+  dto.WishlistToggleResponse:
+    properties:
+      liked:
+        type: boolean
+      total_count:
+        type: integer
+    type: object
+  models.AuditLog:
+    properties:
+      action:
+        description: e.g. product.update
+        type: string
+      actor_email:
+        type: string
+      actor_id:
+        type: string
+      changes:
+        description: '[]AuditChange'
+        type: object
+      created_at:
+        type: string
+      entity_id:
+        type: string
+      entity_label:
+        description: name or number at the time
+        type: string
+      entity_type:
+        description: product, order, banner, ...
+        type: string
+      id:
+        type: string
+    type: object
+  models.Banner:
+    properties:
+      background_color:
+        description: Hex or CSS radial/linear-gradient
+        type: string
+      badge_text:
+        description: e.g., "NEW RELEASE", "0% 10 MONTHS"
+        type: string
+      created_at:
+        type: string
+      cta_primary_link:
+        type: string
+      cta_primary_text:
+        type: string
+      cta_secondary_link:
+        type: string
+      cta_secondary_text:
+        type: string
+      end_at:
+        type: string
+      grid_span:
+        description: e.g., "col-span-2 row-span-2"
+        type: string
+      headline:
+        description: e.g., "MacBook Pro 14 with M4 Pro"
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      placement:
+        description: HERO_SPLIT (60%), BENTO_GRID (30%), TOP_RIBBON (10%)
+        type: string
+      product_image_url:
+        description: Transparent PNG/WebP product cutout
+        type: string
+      sort_order:
+        type: integer
+      start_at:
+        type: string
+      subheadline:
+        description: e.g., "Mind-blowing performance. Up to 24 hrs battery."
+        type: string
+      theme_mode:
+        description: DARK (white text), LIGHT (dark text)
+        type: string
+    type: object
+  models.Brand:
+    properties:
+      id:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
+      slug:
+        description: apple, asus, lenovo, dell, msi, lg, keychron
+        type: string
+    type: object
+  models.Category:
+    properties:
+      icon_name:
+        description: Lucide icon identifier
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      nav_label:
+        description: short label in the top menu; empty keeps it out of the menu
+        type: string
+      slug:
+        description: mac, ultrabooks, gaming-laptops, monitors, accessories
+        type: string
+      sort_order:
+        type: integer
+    type: object
+  models.EmailMessage:
+    properties:
+      data:
+        type: object
+      id:
+        type: string
+      kind:
+        type: string
+      order_id:
+        description: set for order emails
+        type: string
+      preheader:
+        type: string
+      recipient:
+        type: string
+      sender:
+        type: string
+      sent_at:
+        type: string
+      subject:
+        type: string
+      user_id:
+        description: set for account emails
+        type: string
+    type: object
+  models.Order:
+    properties:
+      allowed_transitions:
+        description: filled for admin listings
+        items:
+          type: string
+        type: array
+      carrier:
+        description: Shipment, recorded when the order moves to SHIPPED.
+        type: string
+      created_at:
+        type: string
+      customer_email:
+        type: string
+      delivered_at:
+        type: string
+      discount_amount:
+        type: integer
+      grand_total:
+        type: integer
+      guest_session_id:
+        type: string
+      id:
+        type: string
+      installment_plan:
+        type: object
+      items:
+        items:
+          $ref: '#/definitions/models.OrderItem'
+        type: array
+      order_number:
+        description: 'Format: AURA-YYYYMMDD-XXXX'
+        type: string
+      payment_method:
+        description: PROMPTPAY_QR, CREDIT_CARD, INSTALLMENT_0
+        type: string
+      reservation_expires_at:
+        type: string
+      shipped_at:
+        type: string
+      shipping_address:
+        type: object
+      status:
+        description: PENDING_PAYMENT, PAID_PROCESSING, SN_ASSIGNED, SHIPPED, DELIVERED,
+          CANCELLED
+        type: string
+      subtotal_amount:
+        type: integer
+      tracking_number:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      viewer_can_manage:
+        description: |-
+          ViewerCanManage is true when the requester placed the order and may pay for or cancel it.
+          Someone who opened it through an order lookup (number + email) can only read it.
+        type: boolean
+    type: object
+  models.OrderItem:
+    properties:
+      id:
+        type: string
+      name_snapshot:
+        type: string
+      order_id:
+        type: string
+      product_slug:
+        description: ProductSlug links the line to its product page; filled for account
+          order listings.
+        type: string
+      quantity:
+        type: integer
+      serial_numbers:
+        description: |-
+          One warranty serial per unit (index i = unit i+1). Every unit needs one before SHIPPED.
+          Replaced the legacy single-value serial_number column (copied over, then dropped, on migration).
+        items:
+          type: string
+        type: array
+      sku_snapshot:
+        type: string
+      spec_summary:
+        description: e.g., "Space Black / M4 Pro / 24GB / 512GB"
+        type: string
+      unit_price:
+        type: integer
+      variant_id:
+        type: string
+    type: object
+  models.Product:
+    properties:
+      accessory_bundles:
+        items:
+          $ref: '#/definitions/models.ProductAccessoryBundle'
+        type: array
+      base_price:
+        description: Lowest variant price in Satang
+        type: integer
+      bento_highlights:
+        type: object
+      box_contents:
+        type: object
+      brand:
+        $ref: '#/definitions/models.Brand'
+      brand_id:
+        type: string
+      category:
+        $ref: '#/definitions/models.Category'
+      category_id:
+        type: string
+      created_at:
+        type: string
+      full_spec_matrix:
+        type: object
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      ports_diagram:
+        type: object
+      short_description:
+        type: string
+      slug:
+        type: string
+      tagline:
+        type: string
+      updated_at:
+        type: string
+      usage_personas:
+        description: '["CREATOR", "GAMING", "ULTRALIGHT", "OFFICE"]'
+        type: object
+      variants:
+        items:
+          $ref: '#/definitions/models.ProductVariant'
+        type: array
+    type: object
+  models.ProductAccessoryBundle:
+    properties:
+      accessory_product:
+        $ref: '#/definitions/models.Product'
+      accessory_product_id:
+        type: string
+      bundle_discount_pct:
+        description: e.g., 10% off accessory when bought together
+        type: integer
+      id:
+        type: string
+      main_product_id:
+        type: string
+    type: object
+  models.ProductVariant:
+    properties:
+      color_hex:
+        description: e.g., "#2E2C2E"
+        type: string
+      color_name:
+        description: e.g., "Space Black"
+        type: string
+      compare_price:
+        description: Strikethrough price in Satang (optional)
+        type: integer
+      id:
+        type: string
+      images:
+        description: '["url_front", "url_side", "url_open"]'
+        type: object
+      price:
+        description: Exact price in Satang
+        type: integer
+      product:
+        $ref: '#/definitions/models.Product'
+      product_id:
+        type: string
+      reserved_stock:
+        description: Soft-locked during 15m checkout
+        type: integer
+      sku:
+        description: e.g., "MBP14-M4P-24-512-SB"
+        type: string
+      specs:
+        type: object
+      stock_quantity:
+        type: integer
+    type: object
+  models.StockMovement:
+    properties:
+      actor_email:
+        type: string
+      actor_id:
+        description: admin who made a manual change
+        type: string
+      created_at:
+        type: string
+      delta:
+        description: signed change to stock_quantity
+        type: integer
+      id:
+        type: string
+      note:
+        type: string
+      order_id:
+        description: order behind a SALE or CANCEL_RESTOCK
+        type: string
+      reason:
+        type: string
+      stock_after:
+        description: stock_quantity after this change
+        type: integer
+      variant_id:
+        type: string
+    type: object
+  models.Wishlist:
+    properties:
+      created_at:
+        type: string
+      guest_session_id:
+        type: string
+      id:
+        type: string
+      product:
+        $ref: '#/definitions/models.Product'
+      product_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  response.APIError:
+    properties:
+      code:
+        type: string
+      fields:
+        additionalProperties:
+          type: string
+        description: per-field problems, keyed by input path
+        type: object
+      message:
+        type: string
+    type: object
+  response.Envelope:
+    properties:
+      data: {}
+      error:
+        $ref: '#/definitions/response.APIError'
+      meta:
+        $ref: '#/definitions/response.Meta'
+      success:
+        type: boolean
+    type: object
+  response.Meta:
+    properties:
+      facets: {}
+      limit:
+        type: integer
+      page:
+        description: 'Pagination counts are always sent: zero results is a real answer,
+          not a missing field.'
+        type: integer
+      total_items:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: |-
+    REST API for the AURA Tech store: storefront, cart and checkout, customer accounts and the admin backoffice.
+    Every response uses the same envelope: `{ success, data, meta, error }`. Amounts are in satang (1 baht = 100 satang).
+    Guests are identified by the `X-Guest-Session-ID` header (the API issues one on the first request and returns it in the same header).
+  title: AURA Tech API
+  version: "1.0"
+paths:
+  /account/emails:
+    get:
+      description: Returns the 50 most recent emails sent to the signed-in customer,
+        newest first.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.EmailMessage'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List account emails
+      tags:
+      - Account
+  /account/orders:
+    get:
+      description: Returns every order of the signed-in customer, newest first.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Order'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List my orders
+      tags:
+      - Account
+  /account/stock-alerts:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.StockAlertView'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List back-in-stock alerts
+      tags:
+      - Account
+  /account/stock-alerts/{variantID}:
+    delete:
+      description: 'Returns `{ "message": string }`. Succeeds even when no alert was
+        pending.'
+      parameters:
+      - description: Variant ID (UUID)
+        in: path
+        name: variantID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Invalid variant ID
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Cancel a back-in-stock alert
+      tags:
+      - Account
+    put:
+      description: 'Emails the customer when the out-of-stock option is restocked.
+        Subscribing again while an alert is pending has no effect. Returns `{ "message":
+        string }`.'
+      parameters:
+      - description: Variant ID (UUID)
+        in: path
+        name: variantID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Product option not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: IN_STOCK
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Subscribe to a back-in-stock alert
+      tags:
+      - Account
+  /admin/audit-logs:
+    get:
+      description: |-
+        Returns a page of admin activity, newest first, with the before and after values of each change. `meta` carries page, limit, total_items and total_pages.
+        Dates are store dates (Thailand time); `to` is inclusive. Invalid dates are ignored.
+      parameters:
+      - description: Record type, e.g. order, product, banner
+        in: query
+        name: type
+        type: string
+      - description: Admin email (partial match)
+        in: query
+        name: actor
+        type: string
+      - description: Search by record name or ID (partial match)
+        in: query
+        name: q
+        type: string
+      - description: Start date (YYYY-MM-DD)
+        format: date
+        in: query
+        name: from
+        type: string
+      - description: End date, inclusive (YYYY-MM-DD)
+        format: date
+        in: query
+        name: to
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 30
+        description: Page size (values outside 1-100 fall back to 30)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.AuditLog'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List the activity log
+      tags:
+      - Admin · Activity
+  /admin/banners:
+    get:
+      description: Returns every banner, including inactive and scheduled ones.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Banner'
+                  type: array
+              type: object
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List banners
+      tags:
+      - Admin · Banners
+    post:
+      consumes:
+      - application/json
+      description: Creates a home-page banner. start_at and end_at are RFC 3339. The
+        change is written to the audit log.
+      parameters:
+      - description: Banner
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.BannerInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Banner'
+              type: object
+        "400":
+          description: Invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'VALIDATION_FAILED: per-field messages in error.fields'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Create a banner
+      tags:
+      - Admin · Banners
+  /admin/banners/{id}:
+    delete:
+      description: Deletes the banner. The change is written to the audit log.
+      parameters:
+      - description: Banner ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message: Banner deleted.'
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  properties:
+                    message:
+                      type: string
+                  type: object
+              type: object
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Banner not found (also for a malformed id)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Delete a banner
+      tags:
+      - Admin · Banners
+    put:
+      consumes:
+      - application/json
+      description: Replaces the banner. Changed fields are written to the audit log.
+      parameters:
+      - description: Banner ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Banner
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.BannerInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Banner'
+              type: object
+        "400":
+          description: Invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Banner not found (also for a malformed id)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'VALIDATION_FAILED: per-field messages in error.fields'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Update a banner
+      tags:
+      - Admin · Banners
+  /admin/banners/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: 'Sets is_active and returns the new state as {"is_active": bool}.
+        The change is written to the audit log.'
+      parameters:
+      - description: Banner ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New state
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            is_active:
+              type: boolean
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  properties:
+                    is_active:
+                      type: boolean
+                  type: object
+              type: object
+        "400":
+          description: Invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Banner not found (also for a malformed id)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Turn a banner on or off
+      tags:
+      - Admin · Banners
+  /admin/brands:
+    get:
+      description: Returns every brand with the number of products that carry it.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.AdminBrand'
+                  type: array
+              type: object
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List brands
+      tags:
+      - Admin · Brands
+    post:
+      consumes:
+      - application/json
+      description: Creates a brand. An empty slug is derived from the name. The change
+        is written to the audit log.
+      parameters:
+      - description: Brand
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.BrandInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Brand'
+              type: object
+        "400":
+          description: Invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'VALIDATION_FAILED: per-field messages in error.fields; error.fields.slug
+            when another brand already uses the slug'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Create a brand
+      tags:
+      - Admin · Brands
+  /admin/brands/{id}:
+    delete:
+      description: Deletes the brand. Refused while products still carry it. The change
+        is written to the audit log.
+      parameters:
+      - description: Brand ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message: Brand deleted.'
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  properties:
+                    message:
+                      type: string
+                  type: object
+              type: object
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Brand not found (also for a malformed id)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: 'IN_USE: products still use this brand'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Delete a brand
+      tags:
+      - Admin · Brands
+    put:
+      consumes:
+      - application/json
+      description: Updates the brand. An empty slug is derived from the name. Changed
+        fields are written to the audit log.
+      parameters:
+      - description: Brand ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Brand
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.BrandInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Brand'
+              type: object
+        "400":
+          description: Invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Brand not found (also for a malformed id)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'VALIDATION_FAILED: per-field messages in error.fields; error.fields.slug
+            when another brand already uses the slug'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Update a brand
+      tags:
+      - Admin · Brands
+  /admin/categories:
+    get:
+      description: Returns every category with the number of products filed under
+        it.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.AdminCategory'
+                  type: array
+              type: object
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List categories
+      tags:
+      - Admin · Categories
+    post:
+      consumes:
+      - application/json
+      description: Creates a category. An empty slug is derived from the name. The
+        change is written to the audit log.
+      parameters:
+      - description: Category
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CategoryInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Category'
+              type: object
+        "400":
+          description: Invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'VALIDATION_FAILED: per-field messages in error.fields; error.fields.slug
+            when another category already uses the slug'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Create a category
+      tags:
+      - Admin · Categories
+  /admin/categories/{id}:
+    delete:
+      description: Deletes the category. Refused while products are still filed under
+        it. The change is written to the audit log.
+      parameters:
+      - description: Category ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message: Category deleted.'
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  properties:
+                    message:
+                      type: string
+                  type: object
+              type: object
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Category not found (also for a malformed id)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: 'IN_USE: products still use this category'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Delete a category
+      tags:
+      - Admin · Categories
+    put:
+      consumes:
+      - application/json
+      description: Updates the category. An empty slug is derived from the name. Changed
+        fields are written to the audit log.
+      parameters:
+      - description: Category ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Category
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CategoryInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Category'
+              type: object
+        "400":
+          description: Invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Category not found (also for a malformed id)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'VALIDATION_FAILED: per-field messages in error.fields; error.fields.slug
+            when another category already uses the slug'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Update a category
+      tags:
+      - Admin · Categories
+  /admin/imports/products/columns:
+    get:
+      description: Describes every column of the product CSV (level, whether required
+        for new rows, format, example and notes), for the import guide and template.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.ImportColumn'
+                  type: array
+              type: object
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List CSV import columns
+      tags:
+      - Admin · CSV import
+  /admin/imports/products/commit:
+    post:
+      consumes:
+      - application/json
+      description: 'Applies the CSV (sent as JSON, max 2 MB) using the admin''s decisions,
+        keyed by the preview''s product key: action update, create or skip, and keep
+        lists change keys whose current store values should be kept instead of the
+        incoming ones. Returns counts and a per-product outcome. One audit log entry
+        lists every product created or updated.'
+      parameters:
+      - description: File name, CSV text and decisions
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ImportCommitRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ImportResult'
+              type: object
+        "400":
+          description: Invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "413":
+          description: 'FILE_TOO_LARGE: over 2 MB'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'VALIDATION_FAILED: per-field messages in error.fields when
+            the file as a whole cannot be imported'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Import a CSV
+      tags:
+      - Admin · CSV import
+  /admin/imports/products/export:
+    get:
+      description: Downloads every product as aura-products.csv in the import layout,
+        one row per variant.
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Export products as CSV
+      tags:
+      - Admin · CSV import
+  /admin/imports/products/preview:
+    post:
+      consumes:
+      - application/json
+      description: 'Reads the CSV text (sent as JSON, max 2 MB) without saving anything.
+        Each product is compared with the store: create, update, unchanged, name_match
+        (same name, different slug) or error, with per-field changes (current vs incoming
+        values), new SKUs and row-level issues. file_issues lists problems with the
+        whole file.'
+      parameters:
+      - description: File name and CSV text
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ImportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ImportPreview'
+              type: object
+        "400":
+          description: Invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "413":
+          description: 'FILE_TOO_LARGE: over 2 MB'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Preview a CSV import
+      tags:
+      - Admin · CSV import
+  /admin/orders:
+    get:
+      description: Returns a page of orders with their items, newest first. `meta`
+        carries page, limit, total_items and total_pages.
+      parameters:
+      - description: Filter by status
+        enum:
+        - PENDING_PAYMENT
+        - PAID_PROCESSING
+        - SN_ASSIGNED
+        - SHIPPED
+        - DELIVERED
+        - CANCELLED
+        in: query
+        name: status
+        type: string
+      - description: Search by order number or customer email
+        in: query
+        name: q
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 20
+        description: Page size (capped at 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Order'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List orders
+      tags:
+      - Admin · Orders
+  /admin/orders/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Moves an order to a new status (only allowed transitions) and saves serial numbers per order item (one per unit; a blank entry keeps the saved serial).
+        SHIPPED requires a serial for every unit plus `carrier` (KERRY, FLASH or DHL) and `tracking_number`. CANCELLED returns the order's stock (reserved and already committed).
+        Moving to SHIPPED, DELIVERED or CANCELLED writes the matching customer email, and every change is recorded in the activity log.
+        `data` is an object with `message` and `status` (the new status).
+      parameters:
+      - description: Order ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New status, serial numbers and shipment
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateOrderStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: BAD_REQUEST, SERIAL_NUMBER_REQUIRED, INVALID_SERIAL_NUMBERS,
+            or VALIDATION_FAILED (error.fields.carrier or error.fields.tracking_number)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: INVALID_ORDER_TRANSITION
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Update an order's status
+      tags:
+      - Admin · Orders
+  /admin/overview:
+    get:
+      description: Revenue (all time and the last 30 days against the 30 days before),
+        order counts by status, the last 7 days of daily revenue, revenue by category
+        and low-stock options.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AdminOverviewStats'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Get the dashboard overview
+      tags:
+      - Admin · Overview
+  /admin/products:
+    get:
+      description: Returns one page of products with category, brand, variant count,
+        stock totals, low-stock count, lowest price and thumbnail. Pagination is returned
+        in meta (page, limit, total_items, total_pages).
+      parameters:
+      - description: Search by product name, slug or brand name
+        in: query
+        name: q
+        type: string
+      - description: Category slug
+        in: query
+        name: category
+        type: string
+      - description: On sale or hidden; anything else lists all
+        enum:
+        - active
+        - inactive
+        in: query
+        name: status
+        type: string
+      - description: Page number (default 1)
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: Page size, 1-100 (default 20)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.AdminProductSummary'
+                  type: array
+              type: object
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List products
+      tags:
+      - Admin · Products
+    post:
+      consumes:
+      - application/json
+      description: Creates a product with its variants. An empty slug is generated
+        from the name. New variants may set initial_stock, which is written to the
+        stock ledger as INITIAL. Unknown JSON fields are rejected. The change is written
+        to the audit log.
+      parameters:
+      - description: Product and variants
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ProductInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Product'
+              type: object
+        "400":
+          description: Malformed body or unknown field
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'VALIDATION_FAILED: per-field messages in error.fields, e.g.
+            slug already used, duplicate SKU, missing name or variants'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Create a product
+      tags:
+      - Admin · Products
+  /admin/products/{id}:
+    get:
+      description: Returns the full product with its category, brand and variants,
+        for the admin editor.
+      parameters:
+      - description: Product ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Product'
+              type: object
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Get a product
+      tags:
+      - Admin · Products
+    put:
+      consumes:
+      - application/json
+      description: Replaces the product and its variants. Variants are matched by
+        id; variants left out are removed, unless they are referenced by orders. Stock
+        is not changed here (use stock adjustments), except initial_stock on new variants.
+        Unknown JSON fields are rejected. Changed fields are written to the audit
+        log.
+      parameters:
+      - description: Product ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Product and variants
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ProductInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Product'
+              type: object
+        "400":
+          description: Invalid id, malformed body or unknown field
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Product or variant not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: 'VARIANT_IN_USE: a removed variant is referenced by orders'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'VALIDATION_FAILED: per-field messages in error.fields, e.g.
+            slug already used, duplicate SKU'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Update a product
+      tags:
+      - Admin · Products
+  /admin/products/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: 'Puts the product on sale (is_active=true) or hides it from the
+        store. Returns the new state as {"is_active": bool}. A real change is written
+        to the audit log.'
+      parameters:
+      - description: Product ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ProductStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  properties:
+                    is_active:
+                      type: boolean
+                  type: object
+              type: object
+        "400":
+          description: Invalid id or body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Show or hide a product
+      tags:
+      - Admin · Products
+  /admin/reports/sales:
+    get:
+      description: |-
+        Sales totals for the range (and for the same number of days just before it), a series grouped by day, week or month, and the top products, categories and payment methods.
+        Dates are store dates (Thailand time), inclusive. Without `from`/`to` the report covers the last 30 days including today. Ranges are limited to 3 years; grouping by day to 400 days.
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        format: date
+        in: query
+        name: from
+        type: string
+      - description: End date, inclusive (YYYY-MM-DD)
+        format: date
+        in: query
+        name: to
+        type: string
+      - default: day
+        description: Series grouping
+        enum:
+        - day
+        - week
+        - month
+        in: query
+        name: group
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.SalesReport'
+              type: object
+        "400":
+          description: VALIDATION_FAILED (error.fields.from, error.fields.to or error.fields.group)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Get the sales report
+      tags:
+      - Admin · Reports
+  /admin/reports/sales/export:
+    get:
+      description: |-
+        Downloads one row per order item of paid and refunded (cancelled after payment) orders in the range, as UTF-8 CSV with a BOM.
+        Columns: order_number, date, status, refunded, customer_email, recipient, province, payment_method, sku, product, option, quantity, unit_price, line_total, order_total, carrier, tracking_number (amounts in baht).
+        Same date range rules as GET /admin/reports/sales.
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        format: date
+        in: query
+        name: from
+        type: string
+      - description: End date, inclusive (YYYY-MM-DD)
+        format: date
+        in: query
+        name: to
+        type: string
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: VALIDATION_FAILED (error.fields.from or error.fields.to)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Export sales as CSV
+      tags:
+      - Admin · Reports
+  /admin/reviews:
+    get:
+      description: Returns reviews newest first, including hidden ones. Requires an
+        admin account. meta carries pagination (page, limit, total_items, total_pages).
+      parameters:
+      - description: Visibility filter; all reviews when omitted
+        enum:
+        - visible
+        - hidden
+        in: query
+        name: status
+        type: string
+      - description: Star rating
+        in: query
+        maximum: 5
+        minimum: 1
+        name: rating
+        type: integer
+      - description: Matches product name, author email, review title or body
+        in: query
+        name: q
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 20
+        description: Page size (max 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.AdminReview'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List reviews (admin)
+      tags:
+      - Admin · Reviews
+  /admin/reviews/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: 'Body is `{ "is_hidden": boolean }`. Hidden reviews are left out
+        of the storefront list and rating summary; the author still sees their own
+        review. Records an activity log entry. Requires an admin account. Returns
+        `{ "is_hidden": boolean }`.'
+      parameters:
+      - description: Review ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Object with is_hidden (boolean)
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Hide or show a review (admin)
+      tags:
+      - Admin · Reviews
+  /admin/uploads/images:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Stores one PNG, JPEG or WebP image (max 5 MB) and returns its public
+        URL. The type is detected from the file contents, not its name.
+      parameters:
+      - description: PNG, JPEG or WebP image, max 5 MB
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UploadResponse'
+              type: object
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'VALIDATION_FAILED: per-field messages in error.fields (file:
+            missing, too large or not an image)'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "502":
+          description: 'UPLOAD_FAILED: storage rejected the file'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "503":
+          description: 'STORAGE_UNAVAILABLE: image storage is not configured'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Upload a product image
+      tags:
+      - Admin · Uploads
+  /admin/variants/{id}/stock-adjustments:
+    post:
+      consumes:
+      - application/json
+      description: Changes one variant's physical stock. mode "delta" adds quantity
+        (may be negative, not 0); mode "set" makes stock equal quantity (a physical
+        count). reason is one of RECEIVE, COUNT, DAMAGE or RETURN; a note is required
+        for COUNT and DAMAGE (max 500 characters). Pass expected_stock (the stock
+        you saw) to refuse the change if stock moved since. Stock cannot go below
+        zero or below units held in checkout. Every change appends to the stock ledger,
+        may send back-in-stock emails to waiting customers, and is written to the
+        audit log.
+      parameters:
+      - description: Variant ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Adjustment
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.StockAdjustmentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.StockAdjustmentResponse'
+              type: object
+        "400":
+          description: Invalid id or body; INVALID_STOCK when stock would go below
+            zero or below reserved units
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Variant not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: 'STOCK_CHANGED: stock differs from expected_stock'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'VALIDATION_FAILED: per-field messages in error.fields (mode,
+            quantity, reason, note)'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Adjust a variant's stock
+      tags:
+      - Admin · Stock
+  /admin/variants/{id}/stock-movements:
+    get:
+      description: 'Returns the latest 50 stock ledger entries for the variant, newest
+        first: manual adjustments, initial stock, sales and cancellation restocks.'
+      parameters:
+      - description: Variant ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.StockMovement'
+                  type: array
+              type: object
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Variant not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List a variant's stock history
+      tags:
+      - Admin · Stock
+  /auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: 'Returns `{ "message": string }` on success.'
+      parameters:
+      - description: Current and new password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: VALIDATION_FAILED with per-field error.fields (wrong current
+            password or weak new password), or invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Change the password
+      tags:
+      - Auth
+  /auth/emails/{id}:
+    get:
+      parameters:
+      - description: Email ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.EmailMessage'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      summary: Get an account email
+      tags:
+      - Auth
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Emails a single-use reset link that expires after 30 minutes and
+        closes any earlier unused link. The response is the same for unknown emails
+        and admin accounts, except that email_id is only set when a reset email was
+        sent.
+      parameters:
+      - description: Account email
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ForgotPasswordResponse'
+              type: object
+        "400":
+          description: VALIDATION_FAILED with per-field error.fields, or invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      summary: Request a password reset email
+      tags:
+      - Auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Returns a JWT valid for 7 days. When a guest session header is
+        sent, the guest bag and wishlist are merged into the account.
+      parameters:
+      - description: Email and password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AuthResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: Invalid email or password
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - GuestSession: []
+      summary: Sign in
+      tags:
+      - Auth
+  /auth/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserDTO'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Get the signed-in profile
+      tags:
+      - Auth
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Profile fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserDTO'
+              type: object
+        "400":
+          description: VALIDATION_FAILED with per-field error.fields, or invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Update the signed-in profile
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates the account and signs the customer in. When a guest session
+        header is sent, the guest bag and wishlist are merged into the new account.
+      parameters:
+      - description: Account details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AuthResponse'
+              type: object
+        "400":
+          description: VALIDATION_FAILED with per-field error.fields, or invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: USER_ALREADY_EXISTS
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - GuestSession: []
+      summary: Create a customer account
+      tags:
+      - Auth
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Sets the new password and signs the customer in. The link is single-use
+        and every other open link for the account is closed. When a guest session
+        header is sent, the guest bag and wishlist are merged into the account.
+      parameters:
+      - description: Reset token and new password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AuthResponse'
+              type: object
+        "400":
+          description: VALIDATION_FAILED with per-field error.fields, or invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "410":
+          description: RESET_LINK_INVALID
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - GuestSession: []
+      summary: Reset the password from a reset link
+      tags:
+      - Auth
+  /banners:
+    get:
+      description: Returns the banners that are active and inside their schedule,
+        grouped by placement. The keys HERO_SPLIT, BENTO_GRID and TOP_RIBBON are always
+        present (empty arrays when nothing is live).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  additionalProperties:
+                    items:
+                      $ref: '#/definitions/models.Banner'
+                    type: array
+                  type: object
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      summary: List live banners by placement
+      tags:
+      - Banners
+  /brands:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Brand'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      summary: List brands
+      tags:
+      - Catalog
+  /cart:
+    get:
+      description: Returns the bag of the signed-in customer, or of the guest session
+        when signed out.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CartResponse'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Get the bag
+      tags:
+      - Cart
+  /cart/items:
+    post:
+      consumes:
+      - application/json
+      description: Adds the variant (and any bundled accessories) to the bag and returns
+        the updated bag.
+      parameters:
+      - description: Variant and quantity
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AddToCartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CartResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: PRODUCT_UNAVAILABLE or INSUFFICIENT_STOCK
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Add an option to the bag
+      tags:
+      - Cart
+  /cart/items/{id}:
+    delete:
+      parameters:
+      - description: Cart item ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CartResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Remove a bag line
+      tags:
+      - Cart
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cart item ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New quantity
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateCartQuantityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CartResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: INSUFFICIENT_STOCK
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Change a bag line quantity
+      tags:
+      - Cart
+  /catalog:
+    get:
+      description: Returns one page of active products matching the filters. meta
+        carries pagination (page, limit, total_items, total_pages) and meta.facets
+        carries dto.FacetCounts for the current filters.
+      parameters:
+      - description: Category slug
+        in: query
+        name: category
+        type: string
+      - description: Brand slug
+        in: query
+        name: brand
+        type: string
+      - description: Persona filter
+        in: query
+        name: persona
+        type: string
+      - description: CPU family
+        in: query
+        name: cpu
+        type: string
+      - description: RAM in GB
+        in: query
+        name: ram
+        type: integer
+      - description: Storage in GB
+        in: query
+        name: storage
+        type: integer
+      - description: Minimum price in satang
+        in: query
+        name: min_price
+        type: integer
+      - description: Maximum price in satang
+        in: query
+        name: max_price
+        type: integer
+      - description: Sort order; newest first when omitted
+        enum:
+        - price_asc
+        - price_desc
+        in: query
+        name: sort
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 12
+        description: Page size (max 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Product'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      summary: List catalog products
+      tags:
+      - Catalog
+  /categories:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Category'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      summary: List categories
+      tags:
+      - Catalog
+  /checkout/installments/{satangAmount}:
+    get:
+      description: Returns the monthly payment for each supported bank and term (3,
+        6 or 10 months) for the given amount.
+      parameters:
+      - description: Amount in satang (greater than 0)
+        in: path
+        name: satangAmount
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.InstallmentCalculationOption'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      summary: Calculate 0% installment options
+      tags:
+      - Checkout
+  /checkout/pay:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Processes the simulated payment for a PENDING_PAYMENT order placed by the same customer or guest session. On success the reserved stock is committed,
+        the order moves to PAID_PROCESSING and the order-confirmation email is written. Card numbers ending in 0000 are declined (402) and the reservation is kept.
+        INSTALLMENT_0 requires `installment_plan` with bank KBANK, SCB, KRUNGSRI or BBL and 3, 6 or 10 months.
+      parameters:
+      - description: Order number, payment method and card or installment details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PaymentProcessRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Order'
+              type: object
+        "400":
+          description: 'BAD_REQUEST: invalid body, missing order_number, unsupported
+            method, invalid installment plan or order not payable'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "402":
+          description: CARD_DECLINED_INSUFFICIENT_FUNDS
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Order not found or not placed by this customer
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: RESERVATION_EXPIRED
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Pay for a reserved order
+      tags:
+      - Checkout
+  /checkout/promptpay/{orderNumber}:
+    get:
+      description: Returns the PromptPay payload and a QR code image (data URL) for
+        the order total. Only the customer or guest session that placed the order
+        may request it.
+      parameters:
+      - description: Order number
+        in: path
+        name: orderNumber
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PromptPayQRResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Order not found or not placed by this customer
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Get the PromptPay QR for an order
+      tags:
+      - Checkout
+  /checkout/reserve:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Turns the current bag (of the signed-in customer, or of the guest session) into a PENDING_PAYMENT order and holds its stock for 15 minutes.
+        When signed in and `customer_email` is empty, the account email is used. Pay with POST /checkout/pay before the reservation expires.
+      parameters:
+      - description: Contact email, shipping address and payment method (PROMPTPAY_QR,
+          CREDIT_CARD, INSTALLMENT_0)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CheckoutReserveRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CheckoutReserveResponse'
+              type: object
+        "400":
+          description: BAD_REQUEST (invalid body or empty bag) or VALIDATION_FAILED
+            (error.fields.customer_email)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: PRODUCT_UNAVAILABLE or INSUFFICIENT_STOCK
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Reserve the bag and open an order
+      tags:
+      - Checkout
+  /orders/{orderNumber}:
+    get:
+      description: |-
+        Returns the order with its items. Visible to the customer or guest session that placed it, to admins, and to anyone sending the order email in `X-Order-Email`.
+        `viewer_can_manage` is true only for the customer or guest session that placed it. Orders the requester may not see return 404.
+      parameters:
+      - description: Order number
+        in: path
+        name: orderNumber
+        required: true
+        type: string
+      - description: Email the order was placed with (from an order lookup)
+        in: header
+        name: X-Order-Email
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Order'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Get an order
+      tags:
+      - Orders
+  /orders/{orderNumber}/cancel:
+    post:
+      description: Lets the customer or guest session that placed a PENDING_PAYMENT
+        order cancel it, releasing its reserved stock.
+      parameters:
+      - description: Order number
+        in: path
+        name: orderNumber
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Order'
+              type: object
+        "404":
+          description: Order not found or not placed by this customer
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: ORDER_NOT_CANCELLABLE (already paid or already cancelled)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Cancel an unpaid order
+      tags:
+      - Orders
+  /orders/{orderNumber}/emails:
+    get:
+      description: |-
+        Returns the emails sent to the customer about the order (confirmation, shipping and so on), newest first.
+        Same visibility as GET /orders/{orderNumber}: the customer or guest session that placed it, admins, or a matching `X-Order-Email`.
+      parameters:
+      - description: Order number
+        in: path
+        name: orderNumber
+        required: true
+        type: string
+      - description: Email the order was placed with (from an order lookup)
+        in: header
+        name: X-Order-Email
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.EmailMessage'
+                  type: array
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: List emails sent about an order
+      tags:
+      - Orders
+  /orders/lookup:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Finds an order by its number and the email it was placed with, for customers who checked out as guests or on another device.
+        `viewer_can_manage` is true only when the requester also placed the order.
+      parameters:
+      - description: Order number and email
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.OrderLookupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Order'
+              type: object
+        "400":
+          description: BAD_REQUEST (invalid body) or VALIDATION_FAILED (error.fields.order_number,
+            error.fields.email)
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: No order with that number and email
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Look up an order by number and email
+      tags:
+      - Orders
+  /products/{slug}:
+    get:
+      description: Returns an active product with its category, brand, variants and
+        accessory bundles.
+      parameters:
+      - description: Product slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Product'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      summary: Get a product
+      tags:
+      - Catalog
+  /products/{slug}/reviews:
+    get:
+      description: Returns the rating summary and one page of visible reviews. When
+        signed in, data.viewer says whether the customer can review the product and
+        includes their own review (even if hidden); it is null for guests. meta carries
+        pagination (page, limit, total_items, total_pages).
+      parameters:
+      - description: Product slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 5
+        description: Page size (max 20)
+        in: query
+        maximum: 20
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ProductReviews'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: List a product's reviews
+      tags:
+      - Reviews
+  /products/{slug}/reviews/mine:
+    delete:
+      description: 'Returns `{ "message": string }`.'
+      parameters:
+      - description: Product slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Product or review not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Delete my review
+      tags:
+      - Reviews
+    put:
+      consumes:
+      - application/json
+      description: 'Creates or replaces the signed-in customer''s review. Allowed
+        only after an order containing the product has been delivered. Rating 1 to
+        5, title up to 120 characters, body up to 2,000 characters. Returns `{ "message":
+        string }`.'
+      parameters:
+      - description: Product slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: Review
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ReviewInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: VALIDATION_FAILED with per-field error.fields, or invalid body
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: REVIEW_NOT_ALLOWED
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Write or update my review
+      tags:
+      - Reviews
+  /products/compare:
+    get:
+      description: Returns the active products for the given slugs; unknown or inactive
+        slugs are left out.
+      parameters:
+      - description: Comma-separated product slugs
+        in: query
+        name: slugs
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Product'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      summary: Compare products
+      tags:
+      - Catalog
+  /search:
+    get:
+      description: 'Matches product and variant names; returns up to 8 active products.
+        An empty query returns `data: null`.'
+      parameters:
+      - description: Search text
+        in: query
+        name: q
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Product'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      summary: Search products
+      tags:
+      - Catalog
+  /wishlist:
+    get:
+      description: Returns the wishlist of the signed-in customer, or of the guest
+        session when signed out.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Wishlist'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Get the wishlist
+      tags:
+      - Wishlist
+  /wishlist/toggle:
+    post:
+      consumes:
+      - application/json
+      description: Adds the product when it is not saved yet, otherwise removes it.
+        Returns the new state and the wishlist size.
+      parameters:
+      - description: Product to toggle
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.WishlistToggleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.WishlistToggleResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      - GuestSession: []
+      summary: Add or remove a product from the wishlist
+      tags:
+      - Wishlist
+securityDefinitions:
+  BearerAuth:
+    description: JWT from /auth/login, sent as `Bearer <token>`.
+    in: header
+    name: Authorization
+    type: apiKey
+  GuestSession:
+    description: Guest cart, wishlist and order session id.
+    in: header
+    name: X-Guest-Session-ID
+    type: apiKey
+swagger: "2.0"
