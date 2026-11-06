@@ -147,6 +147,16 @@ type BannerInput struct {
 	EndAt            time.Time `json:"end_at"`
 }
 
+// BannerStatus turns a banner on or off; the API answers with the new state in the same shape.
+type BannerStatus struct {
+	IsActive bool `json:"is_active"`
+}
+
+// ReviewVisibility hides or shows a review; the API answers with the new state in the same shape.
+type ReviewVisibility struct {
+	IsHidden bool `json:"is_hidden"`
+}
+
 // StockAlertView is a pending back-in-stock alert with the variant it waits for.
 type StockAlertView struct {
 	VariantID   uuid.UUID `json:"variant_id"`

@@ -1,4 +1,4 @@
-.PHONY: infra infra-down dev-api dev-web seed-local up down logs seed psql reset swagger
+.PHONY: infra infra-down dev-api dev-web seed-local up down logs seed psql reset swagger db-reset
 
 # 1. Run only DB (PostgreSQL) and MinIO in Docker (for local development)
 infra:
@@ -36,6 +36,12 @@ seed:
 psql:
 	docker compose exec postgres psql -U aura_admin -d aura_ecommerce
 
+# Fresh database with the sample data again. Keeps the MinIO images (reset below deletes them,
+# and they are not in the repository). Asks first.
+db-reset:
+	node scripts/db-reset.mjs
+
+# Wipes EVERYTHING, including product images in MinIO. Prefer db-reset.
 reset:
 	docker compose down -v
 	cp -n .env.example .env || true

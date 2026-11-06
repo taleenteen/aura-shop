@@ -210,12 +210,13 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 //	@Produce	json
 //	@Param		id	path		string	true	"Email ID (UUID)"
 //	@Success	200	{object}	response.Envelope{data=models.EmailMessage}
+//	@Failure	400	{object}	response.Envelope	"Malformed email ID"
 //	@Failure	404	{object}	response.Envelope
 //	@Router		/auth/emails/{id} [get]
 func (h *AuthHandler) GetAccountEmail(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		response.NotFound(w, "email not found")
+		response.BadRequest(w, "invalid email id")
 		return
 	}
 	msg, err := h.authService.GetAccountEmail(r.Context(), id)

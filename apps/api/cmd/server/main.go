@@ -35,6 +35,38 @@ import (
 //	@description	Guests are identified by the `X-Guest-Session-ID` header (the API issues one on the first request and returns it in the same header).
 //	@BasePath		/api/v1
 
+//	@tag.name			Auth
+//	@tag.description	Sign up, sign in, profile and password reset. Sign-in returns the JWT for BearerAuth.
+//	@tag.name			Account
+//	@tag.description	The signed-in customer's orders, emails and back-in-stock alerts.
+//	@tag.name			Catalog
+//	@tag.description	Categories, brands, the filtered product list, product pages, search and comparison.
+//	@tag.name			Banners
+//	@tag.description	Live home-page and ribbon banners.
+//	@tag.name			Reviews
+//	@tag.description	Product reviews and the signed-in customer's own review.
+//	@tag.name			Cart
+//	@tag.description	The bag, for guests (GuestSession) or signed-in customers.
+//	@tag.name			Wishlist
+//	@tag.description	Saved products, for guests or signed-in customers.
+//	@tag.name			Checkout
+//	@tag.description	Reserve stock, then pay (PromptPay, card or installments).
+//	@tag.name			Orders
+//	@tag.description	Order status, emails, guest lookup and cancellation.
+//	@tag.name			Admin · Overview
+//	@tag.description	Backoffice dashboard figures. All Admin groups need an admin account.
+//	@tag.name			Admin · Orders
+//	@tag.name			Admin · Products
+//	@tag.name			Admin · Stock
+//	@tag.name			Admin · Uploads
+//	@tag.name			Admin · CSV import
+//	@tag.name			Admin · Banners
+//	@tag.name			Admin · Categories
+//	@tag.name			Admin · Brands
+//	@tag.name			Admin · Reviews
+//	@tag.name			Admin · Reports
+//	@tag.name			Admin · Activity
+
 //	@securityDefinitions.apikey	BearerAuth
 //	@in							header
 //	@name						Authorization

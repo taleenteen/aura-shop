@@ -75,7 +75,8 @@ make dev-web                  # หน้าเว็บที่ http://localho
 | คำสั่ง | ทำอะไร |
 |---|---|
 | `make up` / `make down` | เปิด / ปิดทุกบริการใน Docker |
-| `make reset` | ลบข้อมูลทั้งหมดแล้วเริ่มใหม่ |
+| `npm run db:reset` (หรือ `make db-reset`) | ล้างฐานข้อมูลให้เหมือนติดตั้งใหม่ แล้วใส่ข้อมูลตัวอย่างอีกครั้ง **รูปสินค้าใน MinIO ไม่หาย** (ถามยืนยันก่อน) |
+| `make reset` | ลบ**ทุกอย่าง**รวมถึงรูปสินค้าใน MinIO ซึ่งไม่มีสำเนาใน repo ใช้ `db:reset` แทนถ้าแค่อยากล้างข้อมูล |
 | `make psql` | เข้า Postgres |
 | `cd apps/api && go test ./...` | รัน test ฝั่ง backend |
 | `cd apps/web && npx tsc --noEmit` | ตรวจ type ฝั่ง frontend |
@@ -156,7 +157,8 @@ On first start against an empty database the API creates the tables and loads sa
 | Command | Does |
 |---|---|
 | `make up` / `make down` | Start / stop all Docker services |
-| `make reset` | Wipe data and start fresh |
+| `npm run db:reset` (or `make db-reset`) | Fresh database with the sample data reloaded; **keeps the product images in MinIO** (asks first) |
+| `make reset` | Wipes **everything**, including product images in MinIO, which are not in the repository. Use `db:reset` to just clear the data |
 | `make psql` | Open a Postgres shell |
 | `cd apps/api && go test ./...` | Backend tests |
 | `cd apps/web && npx tsc --noEmit` | Frontend type check |
