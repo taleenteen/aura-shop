@@ -7,6 +7,7 @@ import { HeroSplitBanner } from "@/features/banner/hero-split-banner";
 import { BentoPromoGrid } from "@/features/banner/bento-promo-grid";
 import { TopRibbon } from "@/components/layout/top-ribbon";
 import { ImageField } from "./image-field";
+import { LinkPicker, describeLink, suggestSecondButton, useLinkTargets } from "./link-picker";
 import { z } from "zod";
 import { validate, optionalText, link, type FieldErrors } from "@/lib/validation";
 
@@ -52,11 +53,12 @@ const bannerSchema = z
     if (b.placement !== "TOP_RIBBON") {
       if (!b.product_image_url) issue("product_image_url", "Upload or link a product image.");
       else checkLink("product_image_url", b.product_image_url);
-      if (!b.cta_primary_link) issue("cta_primary_link", "Where should the button go? e.g. /catalog?category=mac");
+      if (!b.cta_primary_link) issue("cta_primary_link", "Choose where the button goes.");
     }
     checkLink("cta_primary_link", b.cta_primary_link);
     checkLink("cta_secondary_link", b.cta_secondary_link);
-    if (b.cta_secondary_text && !b.cta_secondary_link) issue("cta_secondary_link", "Add a link for the second button.");
+    if (b.cta_secondary_text && !b.cta_secondary_link) issue("cta_secondary_link", "Choose where the second button goes.");
+    if (b.cta_secondary_link && !b.cta_secondary_text) issue("cta_secondary_text", "Add text for the second button, or set its link to “No link”.");
     if (b.placement === "BENTO_GRID" && !TILE_SIZES.some((s) => s.value === b.grid_span)) issue("grid_span", "Choose a tile size.");
     if (new Date(b.end_at) <= new Date(b.start_at)) issue("end_at", "The end must be after the start.");
   });
@@ -290,6 +292,8 @@ function BannerEditor({ initial, onBack, onSaved }: { initial: Draft; onBack: ()
   const isNew = !initial.id;
   const ribbon = d.placement === "TOP_RIBBON";
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((x) => ({ ...x, [k]: v }));
+  const { targets, error: targetsError } = useLinkTargets();
+  const suggestion = d.placement === "HERO_SPLIT" && !d.cta_secondary_text && !d.cta_secondary_link ? suggestSecondButton(d.cta_primary_link, targets) : null;
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -397,16 +401,38 @@ function BannerEditor({ initial, onBack, onSaved }: { initial: Draft; onBack: ()
           </div>
         </div>
 
-        {ribbon && text("cta_primary_link", "Link (optional)", { placeholder: "/catalog?category=gaming-laptops", mono: true })}
+        {ribbon && (
+          <LinkPicker id="bn-cta_primary_link" label="When clicked, the ribbon opens" optional value={d.cta_primary_link} onChange={(v) => set("cta_primary_link", v)} error={errors.cta_primary_link} targets={targets} targetsError={targetsError} />
+        )}
         {!ribbon && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {text("cta_primary_text", "Button text")}
-            {text("cta_primary_link", "Button link", { placeholder: "/catalog?category=mac", mono: true })}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
+              {text("cta_primary_text", "Button text")}
+              <div className="sm:col-span-2">
+                <LinkPicker id="bn-cta_primary_link" label="The button opens" value={d.cta_primary_link} onChange={(v) => set("cta_primary_link", v)} error={errors.cta_primary_link} targets={targets} targetsError={targetsError} />
+              </div>
+            </div>
             {d.placement === "HERO_SPLIT" && (
-              <>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
                 {text("cta_secondary_text", "Second button text (optional)")}
-                {text("cta_secondary_link", "Second button link", { placeholder: "/catalog", mono: true })}
-              </>
+                <div className="sm:col-span-2 space-y-2">
+                  <LinkPicker id="bn-cta_secondary_link" label="The second button opens" optional value={d.cta_secondary_link} onChange={(v) => set("cta_secondary_link", v)} error={errors.cta_secondary_link} targets={targets} targetsError={targetsError} />
+                  {suggestion && (
+                    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-dashed border-zinc-200 dark:border-zinc-700 text-[11px] text-zinc-600 dark:text-zinc-400">
+                      <span>
+                        Suggested: <span className="font-semibold text-zinc-900 dark:text-white">“{suggestion.text}”</span> → {describeLink(suggestion.link, targets)?.text}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setD((x) => ({ ...x, cta_secondary_text: suggestion.text, cta_secondary_link: suggestion.link }))}
+                        className="ml-auto px-2.5 py-1 rounded-lg bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-bold cursor-pointer hover:opacity-90"
+                      >
+                        Add this button
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         )}

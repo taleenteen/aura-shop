@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Link } from "@tanstack/react-router";
+import { BannerLink } from "@/components/ui/banner-link";
 import { ArrowRight, SlidersHorizontal } from "lucide-react";
 import type { Banner } from "@/types/api";
 
@@ -20,8 +20,9 @@ export function HeroSplitBanner({ banner }: HeroSplitBannerProps) {
     banner?.product_image_url || "/assets/macbook-pro-space-black.webp";
   const primaryCtaText = banner?.cta_primary_text || "Shop Now";
   const primaryCtaLink = banner?.cta_primary_link || "/products/macbook-pro-14-m4";
-  const secondaryCtaText = banner?.cta_secondary_text || "Compare Models";
-  const secondaryCtaLink = banner?.cta_secondary_link || "/catalog";
+  // A saved banner shows a second button only when it has one; the built-in default keeps its own.
+  const secondaryCtaText = banner ? banner.cta_secondary_text : "Compare Models";
+  const secondaryCtaLink = banner ? banner.cta_secondary_link : "/catalog";
 
   const bgStyle = banner?.background_color
     ? { backgroundColor: banner.background_color }
@@ -114,8 +115,8 @@ export function HeroSplitBanner({ banner }: HeroSplitBannerProps) {
             transition={{ duration: 0.5, delay: 0.4 }}
             className="pt-4 flex flex-wrap items-center justify-center lg:justify-start gap-4"
           >
-            <Link
-              to={primaryCtaLink}
+            <BannerLink
+              href={primaryCtaLink}
               className={`inline-flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold text-sm shadow-md transition-transform hover:scale-105 active:scale-95 ${
                 isDark
                   ? "bg-white text-zinc-950 hover:bg-zinc-100"
@@ -124,19 +125,21 @@ export function HeroSplitBanner({ banner }: HeroSplitBannerProps) {
             >
               <span>{primaryCtaText}</span>
               <ArrowRight className="w-4 h-4" />
-            </Link>
+            </BannerLink>
 
-            <Link
-              to={secondaryCtaLink}
-              className={`inline-flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold text-sm border backdrop-blur-md transition-colors ${
-                isDark
-                  ? "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                  : "border-zinc-300 bg-white/70 text-zinc-700 hover:bg-white hover:text-zinc-950"
-              }`}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              <span>{secondaryCtaText}</span>
-            </Link>
+            {secondaryCtaText && secondaryCtaLink && (
+              <BannerLink
+                href={secondaryCtaLink}
+                className={`inline-flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold text-sm border backdrop-blur-md transition-colors ${
+                  isDark
+                    ? "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                    : "border-zinc-300 bg-white/70 text-zinc-700 hover:bg-white hover:text-zinc-950"
+                }`}
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                <span>{secondaryCtaText}</span>
+              </BannerLink>
+            )}
           </motion.div>
         </div>
 
