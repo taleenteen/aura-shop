@@ -40,7 +40,9 @@ export function RootLayout() {
       <LenisManager pathname={pathname} />
       <TopRibbon banner={ribbon} />
       <Navbar />
-      <main className="flex-1 w-full flex flex-col">
+      {/* Pages fill the width (capped by their own max-w-*). Without *:w-full a centred page
+          (mx-auto in a flex column) shrinks to fit its content and can grow wider than a phone. */}
+      <main className="flex-1 w-full min-w-0 flex flex-col *:w-full *:min-w-0">
         <Outlet />
       </main>
       <CompareFloatingTray />
