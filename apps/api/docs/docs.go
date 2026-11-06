@@ -213,6 +213,12 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "400": {
+                        "description": "Malformed variant ID",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
@@ -281,6 +287,12 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "400": {
+                        "description": "Malformed variant ID",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
@@ -288,7 +300,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Invalid variant ID",
+                        "description": "Product option not found",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -605,7 +617,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid body",
+                        "description": "Invalid body or malformed id",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -623,7 +635,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Banner not found (also for a malformed id)",
+                        "description": "Banner not found",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -690,6 +702,12 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "400": {
+                        "description": "Malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
                     "401": {
                         "description": "UNAUTHORIZED: not signed in",
                         "schema": {
@@ -703,7 +721,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Banner not found (also for a malformed id)",
+                        "description": "Banner not found",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -724,7 +742,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Sets is_active and returns the new state as {\"is_active\": bool}. The change is written to the audit log.",
+                "description": "Sets is_active and returns the new state. The change is written to the audit log.",
                 "consumes": [
                     "application/json"
                 ],
@@ -750,12 +768,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "properties": {
-                                "is_active": {
-                                    "type": "boolean"
-                                }
-                            }
+                            "$ref": "#/definitions/dto.BannerStatus"
                         }
                     }
                 ],
@@ -771,12 +784,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object",
-                                            "properties": {
-                                                "is_active": {
-                                                    "type": "boolean"
-                                                }
-                                            }
+                                            "$ref": "#/definitions/dto.BannerStatus"
                                         }
                                     }
                                 }
@@ -784,7 +792,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid body",
+                        "description": "Invalid body or malformed id",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -802,7 +810,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Banner not found (also for a malformed id)",
+                        "description": "Banner not found",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -1010,7 +1018,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid body",
+                        "description": "Invalid body or malformed id",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -1028,7 +1036,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Brand not found (also for a malformed id)",
+                        "description": "Brand not found",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -1095,6 +1103,12 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "400": {
+                        "description": "Malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
                     "401": {
                         "description": "UNAUTHORIZED: not signed in",
                         "schema": {
@@ -1108,7 +1122,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Brand not found (also for a malformed id)",
+                        "description": "Brand not found",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -1322,7 +1336,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid body",
+                        "description": "Invalid body or malformed id",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -1340,7 +1354,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Category not found (also for a malformed id)",
+                        "description": "Category not found",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -1407,6 +1421,12 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "400": {
+                        "description": "Malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
                     "401": {
                         "description": "UNAUTHORIZED: not signed in",
                         "schema": {
@@ -1420,7 +1440,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Category not found (also for a malformed id)",
+                        "description": "Category not found",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -2651,7 +2671,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Body is ` + "`" + `{ \"is_hidden\": boolean }` + "`" + `. Hidden reviews are left out of the storefront list and rating summary; the author still sees their own review. Records an activity log entry. Requires an admin account. Returns ` + "`" + `{ \"is_hidden\": boolean }` + "`" + `.",
+                "description": "Hidden reviews are left out of the storefront list and rating summary; the author still sees their own review. Records an activity log entry. Requires an admin account. Returns the new state.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2671,12 +2691,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Object with is_hidden (boolean)",
+                        "description": "New state",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/dto.ReviewVisibility"
                         }
                     }
                 ],
@@ -2692,7 +2712,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#/definitions/dto.ReviewVisibility"
                                         }
                                     }
                                 }
@@ -3096,6 +3116,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed email ID",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
                         }
                     },
                     "404": {
@@ -5301,6 +5327,14 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.BannerStatus": {
+            "type": "object",
+            "properties": {
+                "is_active": {
+                    "type": "boolean"
+                }
+            }
+        },
         "dto.BrandInput": {
             "type": "object",
             "properties": {
@@ -6091,6 +6125,14 @@ const docTemplate = `{
                 },
                 "my_review": {
                     "$ref": "#/definitions/dto.ReviewMine"
+                }
+            }
+        },
+        "dto.ReviewVisibility": {
+            "type": "object",
+            "properties": {
+                "is_hidden": {
+                    "type": "boolean"
                 }
             }
         },
@@ -7024,7 +7066,82 @@ const docTemplate = `{
             "name": "X-Guest-Session-ID",
             "in": "header"
         }
-    }
+    },
+    "tags": [
+        {
+            "description": "Sign up, sign in, profile and password reset. Sign-in returns the JWT for BearerAuth.",
+            "name": "Auth"
+        },
+        {
+            "description": "The signed-in customer's orders, emails and back-in-stock alerts.",
+            "name": "Account"
+        },
+        {
+            "description": "Categories, brands, the filtered product list, product pages, search and comparison.",
+            "name": "Catalog"
+        },
+        {
+            "description": "Live home-page and ribbon banners.",
+            "name": "Banners"
+        },
+        {
+            "description": "Product reviews and the signed-in customer's own review.",
+            "name": "Reviews"
+        },
+        {
+            "description": "The bag, for guests (GuestSession) or signed-in customers.",
+            "name": "Cart"
+        },
+        {
+            "description": "Saved products, for guests or signed-in customers.",
+            "name": "Wishlist"
+        },
+        {
+            "description": "Reserve stock, then pay (PromptPay, card or installments).",
+            "name": "Checkout"
+        },
+        {
+            "description": "Order status, emails, guest lookup and cancellation.",
+            "name": "Orders"
+        },
+        {
+            "description": "Backoffice dashboard figures. All Admin groups need an admin account.",
+            "name": "Admin · Overview"
+        },
+        {
+            "name": "Admin · Orders"
+        },
+        {
+            "name": "Admin · Products"
+        },
+        {
+            "name": "Admin · Stock"
+        },
+        {
+            "name": "Admin · Uploads"
+        },
+        {
+            "name": "Admin · CSV import"
+        },
+        {
+            "name": "Admin · Banners"
+        },
+        {
+            "name": "Admin · Categories"
+        },
+        {
+            "name": "Admin · Brands"
+        },
+        {
+            "name": "Admin · Reviews"
+        },
+        {
+            "name": "Admin · Reports"
+        },
+        {
+            "name": "Admin · Activity"
+        }
+    ]
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it

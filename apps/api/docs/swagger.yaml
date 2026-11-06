@@ -172,6 +172,11 @@ definitions:
       theme_mode:
         type: string
     type: object
+  dto.BannerStatus:
+    properties:
+      is_active:
+        type: boolean
+    type: object
   dto.BrandInput:
     properties:
       logo_url:
@@ -693,6 +698,11 @@ definitions:
         type: boolean
       my_review:
         $ref: '#/definitions/dto.ReviewMine'
+    type: object
+  dto.ReviewVisibility:
+    properties:
+      is_hidden:
+        type: boolean
     type: object
   dto.SalesBreakdown:
     properties:
@@ -1443,12 +1453,16 @@ paths:
                 data:
                   type: object
               type: object
+        "400":
+          description: Malformed variant ID
+          schema:
+            $ref: '#/definitions/response.Envelope'
         "401":
           description: Unauthorized
           schema:
             $ref: '#/definitions/response.Envelope'
         "404":
-          description: Invalid variant ID
+          description: Product option not found
           schema:
             $ref: '#/definitions/response.Envelope'
         "500":
@@ -1482,6 +1496,10 @@ paths:
                 data:
                   type: object
               type: object
+        "400":
+          description: Malformed variant ID
+          schema:
+            $ref: '#/definitions/response.Envelope'
         "401":
           description: Unauthorized
           schema:
@@ -1683,6 +1701,10 @@ paths:
                       type: string
                   type: object
               type: object
+        "400":
+          description: Malformed id
+          schema:
+            $ref: '#/definitions/response.Envelope'
         "401":
           description: 'UNAUTHORIZED: not signed in'
           schema:
@@ -1692,7 +1714,7 @@ paths:
           schema:
             $ref: '#/definitions/response.Envelope'
         "404":
-          description: Banner not found (also for a malformed id)
+          description: Banner not found
           schema:
             $ref: '#/definitions/response.Envelope'
         "500":
@@ -1734,7 +1756,7 @@ paths:
                   $ref: '#/definitions/models.Banner'
               type: object
         "400":
-          description: Invalid body
+          description: Invalid body or malformed id
           schema:
             $ref: '#/definitions/response.Envelope'
         "401":
@@ -1746,7 +1768,7 @@ paths:
           schema:
             $ref: '#/definitions/response.Envelope'
         "404":
-          description: Banner not found (also for a malformed id)
+          description: Banner not found
           schema:
             $ref: '#/definitions/response.Envelope'
         "422":
@@ -1766,8 +1788,8 @@ paths:
     patch:
       consumes:
       - application/json
-      description: 'Sets is_active and returns the new state as {"is_active": bool}.
-        The change is written to the audit log.'
+      description: Sets is_active and returns the new state. The change is written
+        to the audit log.
       parameters:
       - description: Banner ID
         format: uuid
@@ -1780,10 +1802,7 @@ paths:
         name: body
         required: true
         schema:
-          properties:
-            is_active:
-              type: boolean
-          type: object
+          $ref: '#/definitions/dto.BannerStatus'
       produces:
       - application/json
       responses:
@@ -1794,13 +1813,10 @@ paths:
             - $ref: '#/definitions/response.Envelope'
             - properties:
                 data:
-                  properties:
-                    is_active:
-                      type: boolean
-                  type: object
+                  $ref: '#/definitions/dto.BannerStatus'
               type: object
         "400":
-          description: Invalid body
+          description: Invalid body or malformed id
           schema:
             $ref: '#/definitions/response.Envelope'
         "401":
@@ -1812,7 +1828,7 @@ paths:
           schema:
             $ref: '#/definitions/response.Envelope'
         "404":
-          description: Banner not found (also for a malformed id)
+          description: Banner not found
           schema:
             $ref: '#/definitions/response.Envelope'
         "500":
@@ -1934,6 +1950,10 @@ paths:
                       type: string
                   type: object
               type: object
+        "400":
+          description: Malformed id
+          schema:
+            $ref: '#/definitions/response.Envelope'
         "401":
           description: 'UNAUTHORIZED: not signed in'
           schema:
@@ -1943,7 +1963,7 @@ paths:
           schema:
             $ref: '#/definitions/response.Envelope'
         "404":
-          description: Brand not found (also for a malformed id)
+          description: Brand not found
           schema:
             $ref: '#/definitions/response.Envelope'
         "409":
@@ -1990,7 +2010,7 @@ paths:
                   $ref: '#/definitions/models.Brand'
               type: object
         "400":
-          description: Invalid body
+          description: Invalid body or malformed id
           schema:
             $ref: '#/definitions/response.Envelope'
         "401":
@@ -2002,7 +2022,7 @@ paths:
           schema:
             $ref: '#/definitions/response.Envelope'
         "404":
-          description: Brand not found (also for a malformed id)
+          description: Brand not found
           schema:
             $ref: '#/definitions/response.Envelope'
         "422":
@@ -2130,6 +2150,10 @@ paths:
                       type: string
                   type: object
               type: object
+        "400":
+          description: Malformed id
+          schema:
+            $ref: '#/definitions/response.Envelope'
         "401":
           description: 'UNAUTHORIZED: not signed in'
           schema:
@@ -2139,7 +2163,7 @@ paths:
           schema:
             $ref: '#/definitions/response.Envelope'
         "404":
-          description: Category not found (also for a malformed id)
+          description: Category not found
           schema:
             $ref: '#/definitions/response.Envelope'
         "409":
@@ -2186,7 +2210,7 @@ paths:
                   $ref: '#/definitions/models.Category'
               type: object
         "400":
-          description: Invalid body
+          description: Invalid body or malformed id
           schema:
             $ref: '#/definitions/response.Envelope'
         "401":
@@ -2198,7 +2222,7 @@ paths:
           schema:
             $ref: '#/definitions/response.Envelope'
         "404":
-          description: Category not found (also for a malformed id)
+          description: Category not found
           schema:
             $ref: '#/definitions/response.Envelope'
         "422":
@@ -3005,22 +3029,21 @@ paths:
     patch:
       consumes:
       - application/json
-      description: 'Body is `{ "is_hidden": boolean }`. Hidden reviews are left out
-        of the storefront list and rating summary; the author still sees their own
-        review. Records an activity log entry. Requires an admin account. Returns
-        `{ "is_hidden": boolean }`.'
+      description: Hidden reviews are left out of the storefront list and rating summary;
+        the author still sees their own review. Records an activity log entry. Requires
+        an admin account. Returns the new state.
       parameters:
       - description: Review ID (UUID)
         in: path
         name: id
         required: true
         type: string
-      - description: Object with is_hidden (boolean)
+      - description: New state
         in: body
         name: body
         required: true
         schema:
-          type: object
+          $ref: '#/definitions/dto.ReviewVisibility'
       produces:
       - application/json
       responses:
@@ -3031,7 +3054,7 @@ paths:
             - $ref: '#/definitions/response.Envelope'
             - properties:
                 data:
-                  type: object
+                  $ref: '#/definitions/dto.ReviewVisibility'
               type: object
         "400":
           description: Bad Request
@@ -3292,6 +3315,10 @@ paths:
                 data:
                   $ref: '#/definitions/models.EmailMessage'
               type: object
+        "400":
+          description: Malformed email ID
+          schema:
+            $ref: '#/definitions/response.Envelope'
         "404":
           description: Not Found
           schema:
@@ -4501,3 +4528,37 @@ securityDefinitions:
     name: X-Guest-Session-ID
     type: apiKey
 swagger: "2.0"
+tags:
+- description: Sign up, sign in, profile and password reset. Sign-in returns the JWT
+    for BearerAuth.
+  name: Auth
+- description: The signed-in customer's orders, emails and back-in-stock alerts.
+  name: Account
+- description: Categories, brands, the filtered product list, product pages, search
+    and comparison.
+  name: Catalog
+- description: Live home-page and ribbon banners.
+  name: Banners
+- description: Product reviews and the signed-in customer's own review.
+  name: Reviews
+- description: The bag, for guests (GuestSession) or signed-in customers.
+  name: Cart
+- description: Saved products, for guests or signed-in customers.
+  name: Wishlist
+- description: Reserve stock, then pay (PromptPay, card or installments).
+  name: Checkout
+- description: Order status, emails, guest lookup and cancellation.
+  name: Orders
+- description: Backoffice dashboard figures. All Admin groups need an admin account.
+  name: Admin · Overview
+- name: Admin · Orders
+- name: Admin · Products
+- name: Admin · Stock
+- name: Admin · Uploads
+- name: Admin · CSV import
+- name: Admin · Banners
+- name: Admin · Categories
+- name: Admin · Brands
+- name: Admin · Reviews
+- name: Admin · Reports
+- name: Admin · Activity

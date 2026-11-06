@@ -104,7 +104,7 @@ func (h *EngagementHandler) ListStockAlerts(w http.ResponseWriter, r *http.Reque
 func (h *EngagementHandler) variantParam(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	id, err := uuid.Parse(chi.URLParam(r, "variantID"))
 	if err != nil {
-		response.NotFound(w, "product option not found")
+		response.BadRequest(w, "invalid product option id")
 		return uuid.Nil, false
 	}
 	return id, true
@@ -119,6 +119,7 @@ func (h *EngagementHandler) variantParam(w http.ResponseWriter, r *http.Request)
 //	@Security		BearerAuth
 //	@Param			variantID	path		string	true	"Variant ID (UUID)"
 //	@Success		200			{object}	response.Envelope{data=object}
+//	@Failure		400			{object}	response.Envelope	"Malformed variant ID"
 //	@Failure		401			{object}	response.Envelope
 //	@Failure		404			{object}	response.Envelope	"Product option not found"
 //	@Failure		409			{object}	response.Envelope	"IN_STOCK"
@@ -149,8 +150,9 @@ func (h *EngagementHandler) SubscribeStockAlert(w http.ResponseWriter, r *http.R
 //	@Security		BearerAuth
 //	@Param			variantID	path		string	true	"Variant ID (UUID)"
 //	@Success		200			{object}	response.Envelope{data=object}
+//	@Failure		400			{object}	response.Envelope	"Malformed variant ID"
 //	@Failure		401			{object}	response.Envelope
-//	@Failure		404			{object}	response.Envelope	"Invalid variant ID"
+//	@Failure		404			{object}	response.Envelope	"Product option not found"
 //	@Failure		500			{object}	response.Envelope
 //	@Router			/account/stock-alerts/{variantID} [delete]
 func (h *EngagementHandler) UnsubscribeStockAlert(w http.ResponseWriter, r *http.Request) {
@@ -320,14 +322,14 @@ func (h *EngagementHandler) ListReviewsAdmin(w http.ResponseWriter, r *http.Requ
 // SetReviewHidden godoc
 //
 //	@Summary		Hide or show a review (admin)
-//	@Description	Body is `{ "is_hidden": boolean }`. Hidden reviews are left out of the storefront list and rating summary; the author still sees their own review. Records an activity log entry. Requires an admin account. Returns `{ "is_hidden": boolean }`.
+//	@Description	Hidden reviews are left out of the storefront list and rating summary; the author still sees their own review. Records an activity log entry. Requires an admin account. Returns the new state.
 //	@Tags			Admin · Reviews
 //	@Accept			json
 //	@Produce		json
 //	@Security		BearerAuth
-//	@Param			id		path		string	true	"Review ID (UUID)"
-//	@Param			body	body		object	true	"Object with is_hidden (boolean)"
-//	@Success		200		{object}	response.Envelope{data=object}
+//	@Param			id		path		string					true	"Review ID (UUID)"
+//	@Param			body	body		dto.ReviewVisibility	true	"New state"
+//	@Success		200		{object}	response.Envelope{data=dto.ReviewVisibility}
 //	@Failure		400		{object}	response.Envelope
 //	@Failure		401		{object}	response.Envelope
 //	@Failure		403		{object}	response.Envelope
@@ -339,9 +341,7 @@ func (h *EngagementHandler) SetReviewHidden(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	var req struct {
-		IsHidden bool `json:"is_hidden"`
-	}
+	var req dto.ReviewVisibility
 	if !decode(w, r, &req) {
 		return
 	}
@@ -358,5 +358,5 @@ func (h *EngagementHandler) SetReviewHidden(w http.ResponseWriter, r *http.Reque
 		Action: action, EntityType: "review", EntityID: id.String(), EntityLabel: label,
 		Changes: []models.AuditChange{{Field: "visibility", From: from, To: to}},
 	})
-	response.Success(w, http.StatusOK, map[string]bool{"is_hidden": req.IsHidden}, nil)
+	response.Success(w, http.StatusOK, req, nil)
 }
