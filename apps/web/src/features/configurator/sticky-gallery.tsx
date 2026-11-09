@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Maximize2,
@@ -65,7 +66,14 @@ export function StickyGallery({
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    // Keep the page behind the lightbox from scrolling while it is open.
+    const root = document.documentElement;
+    const previousOverflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      root.style.overflow = previousOverflow;
+    };
   }, [isLightboxOpen, isZoomed, handlePrev, handleNext]);
 
   return (
@@ -131,7 +139,9 @@ export function StickyGallery({
         </div>
       )}
 
-      {/* Fullscreen Interactive Lightbox Modal */}
+      {/* Fullscreen lightbox. Portalled to <body>: inside the sticky gallery column it would sit
+          in that column's stacking context, under the sticky navbar whatever its z-index. */}
+      {createPortal(
       <AnimatePresence>
         {isLightboxOpen && (
           <motion.div
@@ -139,7 +149,11 @@ export function StickyGallery({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex flex-col justify-between bg-zinc-950/95 backdrop-blur-2xl text-white select-none overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Product images"
+            data-lenis-prevent
+            className="fixed inset-0 z-[70] flex flex-col justify-between bg-zinc-950/95 backdrop-blur-2xl text-white select-none overflow-hidden"
           >
             {/* Top Lightbox Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
@@ -273,7 +287,9 @@ export function StickyGallery({
             )}
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body,
+      )}
     </div>
   );
 }
