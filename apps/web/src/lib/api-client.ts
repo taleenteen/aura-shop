@@ -25,6 +25,12 @@ export function setAuthToken(token: string | null): void {
   }
 }
 
+/**
+ * Fired when the API refuses the saved token (expired, or revoked by a password change or
+ * "sign out of other devices" elsewhere). The auth store listens and signs this browser out.
+ */
+export const SESSION_EXPIRED_EVENT = "aura:session-expired";
+
 /** Error thrown by apiClient; `fields` maps input paths (e.g. "variants.0.sku") to messages. */
 export type ApiRequestError = Error & { code?: string; fields?: Record<string, string> };
 
@@ -68,6 +74,10 @@ export async function apiClient<T>(
     json = await response.json();
   } catch {
     throw new Error(`HTTP Error ${response.status}: Failed to parse response`);
+  }
+
+  if (response.status === 401 && token && headers.get("Authorization") === `Bearer ${token}`) {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
   }
 
   if (!response.ok || !json.success) {

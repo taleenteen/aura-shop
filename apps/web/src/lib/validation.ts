@@ -32,7 +32,11 @@ export const email = (message = "Enter a valid email address.") =>
     .max(254, message)
     .pipe(z.email({ message }));
 
-export const password = z.string().min(6, "Use at least 6 characters.");
+/** Same rule as the API: 8+ characters and at most 72 bytes (the most bcrypt reads). */
+export const password = z
+  .string()
+  .min(8, "Use 8 to 72 characters.")
+  .refine((value) => new TextEncoder().encode(value).length <= 72, "Use 8 to 72 characters.");
 
 export const requiredText = (label: string, max: number) =>
   z.string().trim().min(1, `Enter ${label}.`).max(max, `Keep it under ${max} characters.`);

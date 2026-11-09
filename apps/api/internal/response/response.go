@@ -2,6 +2,7 @@ package response
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
@@ -84,4 +85,11 @@ func ValidationFailed(w http.ResponseWriter, message string, fields map[string]s
 		Success: false,
 		Error:   &APIError{Code: "VALIDATION_FAILED", Message: message, Fields: fields},
 	})
+}
+
+// ServerError logs err and answers 500 with a generic message, so database and driver errors
+// (table names, SQL, hosts) never reach the client.
+func ServerError(w http.ResponseWriter, err error) {
+	slog.Error("request failed", "error", err)
+	InternalServerError(w, "Something went wrong on our side. Please try again.")
 }

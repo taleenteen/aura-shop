@@ -89,7 +89,7 @@ func (h *AdminHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 	orders, total, err := h.adminService.ListOrders(r.Context(), dto.OrderListFilter{Status: status, Search: search, Page: page, Limit: limit})
 	if err != nil {
-		response.InternalServerError(w, "failed to list orders: "+err.Error())
+		response.ServerError(w, err)
 		return
 	}
 

@@ -82,7 +82,11 @@ func main() {
 	slog.SetDefault(logger)
 
 	cfg := config.Load()
-	slog.Info("starting aura-tech api server", "project", cfg.ProjectName, "port", cfg.APIPort)
+	if err := cfg.Validate(); err != nil {
+		slog.Error("refusing to start with unsafe configuration", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("starting aura-tech api server", "project", cfg.ProjectName, "port", cfg.APIPort, "env", cfg.AppEnv)
 
 	db, err := database.ConnectPostgres(cfg.DatabaseURL)
 	if err != nil {
@@ -136,6 +140,7 @@ func main() {
 	importLookup := repository.NewProductImportLookup(db)
 	auditRepo := repository.NewAuditRepository(db)
 	reportRepo := repository.NewReportRepository(db)
+	idempotencyRepo := repository.NewIdempotencyRepository(db)
 
 	// 2. Initialize Services
 	authService := service.NewAuthService(db, userRepo, wishlistRepo, cartRepo, cfg.JWTSecret)
@@ -168,22 +173,29 @@ func main() {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	// Only behind a trusted reverse proxy: otherwise X-Forwarded-For is whatever the client says,
+	// and rate limits keyed on the IP could be dodged by changing the header.
+	if cfg.TrustProxy {
+		r.Use(middleware.RealIP)
+	}
 	r.Use(appMiddleware.RequestLoggerMiddleware)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(appMiddleware.SecurityHeaders(cfg.IsProduction()))
+	// 1 MB is plenty for any JSON body; image uploads and CSV imports set their own limits.
+	r.Use(appMiddleware.BodyLimit(1<<20, "/api/v1/admin/uploads/", "/api/v1/admin/imports/"))
 
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"},
+		AllowedOrigins:   cfg.CORSAllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Guest-Session-ID", "X-Order-Email"},
-		ExposedHeaders:   []string{"Link", "X-Guest-Session-ID"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Guest-Session-ID", "X-Order-Email", appMiddleware.IdempotencyHeader},
+		ExposedHeaders:   []string{"Link", "X-Guest-Session-ID", "Retry-After", "Idempotent-Replayed"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
 
 	r.Use(appMiddleware.GuestSessionMiddleware)
-	r.Use(appMiddleware.JWTOptionalMiddleware(cfg.JWTSecret))
+	r.Use(appMiddleware.JWTOptionalMiddleware(cfg.JWTSecret, userRepo))
 
 	// Health Check
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -201,16 +213,30 @@ func main() {
 	}
 
 	// 5. REST API v1 Routing
+	// Per-IP request limits. Sign-in also locks an account after 5 wrong passwords (any IP).
+	limitAPI := appMiddleware.RateLimit("api", 600, time.Minute)
+	limitLogin := appMiddleware.RateLimit("login", 10, time.Minute)
+	limitSignup := appMiddleware.RateLimit("register", 10, 15*time.Minute)
+	limitPasswordReset := appMiddleware.RateLimit("password-reset", 5, 15*time.Minute)
+	limitPasswordChange := appMiddleware.RateLimit("password-change", 10, 15*time.Minute)
+	limitOrderLookup := appMiddleware.RateLimit("order-lookup", 20, 10*time.Minute)
+	limitCheckout := appMiddleware.RateLimit("checkout", 30, 10*time.Minute)
+	limitReviews := appMiddleware.RateLimit("reviews", 20, 10*time.Minute)
+	idempotent := appMiddleware.Idempotency(idempotencyRepo)
+
 	r.Route("/api/v1", func(api chi.Router) {
+		api.Use(limitAPI)
+
 		// Auth Routes
 		api.Route("/auth", func(auth chi.Router) {
-			auth.Post("/register", authHandler.Register)
-			auth.Post("/login", authHandler.Login)
+			auth.With(limitSignup).Post("/register", authHandler.Register)
+			auth.With(limitLogin).Post("/login", authHandler.Login)
 			auth.With(appMiddleware.RequireAuth).Get("/me", authHandler.Me)
 			auth.With(appMiddleware.RequireAuth).Patch("/me", authHandler.UpdateMe)
-			auth.With(appMiddleware.RequireAuth).Post("/change-password", authHandler.ChangePassword)
-			auth.Post("/forgot-password", authHandler.ForgotPassword)
-			auth.Post("/reset-password", authHandler.ResetPassword)
+			auth.With(appMiddleware.RequireAuth, limitPasswordChange).Post("/change-password", authHandler.ChangePassword)
+			auth.With(appMiddleware.RequireAuth).Post("/sign-out-others", authHandler.SignOutOtherSessions)
+			auth.With(limitPasswordReset).Post("/forgot-password", authHandler.ForgotPassword)
+			auth.With(limitPasswordReset).Post("/reset-password", authHandler.ResetPassword)
 			auth.Get("/emails/{id}", authHandler.GetAccountEmail)
 		})
 
@@ -234,7 +260,7 @@ func main() {
 		api.Get("/products/compare", catalogHandler.CompareProducts)
 		api.Get("/products/{slug}", catalogHandler.GetProductBySlug)
 		api.Get("/products/{slug}/reviews", engagementHandler.ProductReviews)
-		api.Put("/products/{slug}/reviews/mine", engagementHandler.SaveReview)
+		api.With(limitReviews).Put("/products/{slug}/reviews/mine", engagementHandler.SaveReview)
 		api.Delete("/products/{slug}/reviews/mine", engagementHandler.DeleteReview)
 		api.Get("/search", catalogHandler.Search)
 
@@ -254,17 +280,17 @@ func main() {
 
 		// Checkout & Mock Payment Gateway
 		api.Route("/checkout", func(chk chi.Router) {
-			chk.Post("/reserve", checkoutHandler.Reserve)
-			chk.Post("/pay", checkoutHandler.Pay)
+			chk.With(limitCheckout, idempotent).Post("/reserve", checkoutHandler.Reserve)
+			chk.With(limitCheckout, idempotent).Post("/pay", checkoutHandler.Pay)
 			chk.Get("/promptpay/{orderNumber}", checkoutHandler.GetPromptPayQR)
 			chk.Get("/installments/{satangAmount}", checkoutHandler.CalculateInstallments)
 		})
 
 		// Orders
-		api.Post("/orders/lookup", checkoutHandler.LookupOrder)
+		api.With(limitOrderLookup).Post("/orders/lookup", checkoutHandler.LookupOrder)
 		api.Get("/orders/{orderNumber}", checkoutHandler.GetOrder)
 		api.Get("/orders/{orderNumber}/emails", checkoutHandler.ListOrderEmails)
-		api.Post("/orders/{orderNumber}/cancel", checkoutHandler.CancelOrder)
+		api.With(idempotent).Post("/orders/{orderNumber}/cancel", checkoutHandler.CancelOrder)
 
 		// Admin Backoffice (Protected by Admin Role)
 		api.Route("/admin", func(adm chi.Router) {
@@ -318,6 +344,10 @@ func main() {
 				case <-ticker.C:
 					if released, err := orderRepo.ReleaseExpiredReservations(ctxWorker); err == nil && released > 0 {
 						slog.Info("released expired stock reservations", "count", released)
+					}
+					// Retries come within minutes; a day covers any client that resends later.
+					if _, err := idempotencyRepo.DeleteOlderThan(ctxWorker, time.Now().Add(-24*time.Hour)); err != nil {
+						slog.Error("failed to delete old idempotency keys", "error", err)
 					}
 				case <-ctxWorker.Done():
 					return

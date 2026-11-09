@@ -19,6 +19,8 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
 	UpdateProfile(ctx context.Context, id uuid.UUID, fullName, phone, address string) error
+	// SessionState returns what the JWT middleware checks a token against.
+	SessionState(ctx context.Context, id uuid.UUID) (role string, tokenVersion int, found bool, err error)
 }
 
 type userRepository struct {
@@ -71,4 +73,16 @@ func (r *userRepository) UpdateProfile(ctx context.Context, id uuid.UUID, fullNa
 		return ErrUserNotFound
 	}
 	return nil
+}
+
+func (r *userRepository) SessionState(ctx context.Context, id uuid.UUID) (string, int, bool, error) {
+	var row struct {
+		Role         string
+		TokenVersion int
+	}
+	res := r.db.WithContext(ctx).Model(&models.User{}).Select("role", "token_version").Where("id = ?", id).Limit(1).Scan(&row)
+	if res.Error != nil {
+		return "", 0, false, fmt.Errorf("failed to read session state: %w", res.Error)
+	}
+	return row.Role, row.TokenVersion, res.RowsAffected == 1, nil
 }

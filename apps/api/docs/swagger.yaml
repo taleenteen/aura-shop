@@ -3257,7 +3257,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Returns `{ "message": string }` on success.'
+      description: 'Signs out every other device: tokens issued before the change
+        stop working. The response carries a new token for this device, which replaces
+        the one sent.'
       parameters:
       - description: Current and new password
         in: body
@@ -3275,7 +3277,7 @@ paths:
             - $ref: '#/definitions/response.Envelope'
             - properties:
                 data:
-                  type: object
+                  $ref: '#/definitions/dto.AuthResponse'
               type: object
         "400":
           description: VALIDATION_FAILED with per-field error.fields (wrong current
@@ -3395,6 +3397,15 @@ paths:
             $ref: '#/definitions/response.Envelope'
         "401":
           description: Invalid email or password
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "423":
+          description: ACCOUNT_LOCKED after 5 wrong passwords in a row; Retry-After
+            gives the seconds left
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "429":
+          description: RATE_LIMITED
           schema:
             $ref: '#/definitions/response.Envelope'
         "500":
@@ -3559,6 +3570,35 @@ paths:
       security:
       - GuestSession: []
       summary: Reset the password from a reset link
+      tags:
+      - Auth
+  /auth/sign-out-others:
+    post:
+      description: Every token issued so far stops working. The response carries a
+        new token for this device, which replaces the one sent.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AuthResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Sign out of all other devices
       tags:
       - Auth
   /banners:
@@ -3898,6 +3938,11 @@ paths:
         the order moves to PAID_PROCESSING and the order-confirmation email is written. Card numbers ending in 0000 are declined (402) and the reservation is kept.
         INSTALLMENT_0 requires `installment_plan` with bank KBANK, SCB, KRUNGSRI or BBL and 3, 6 or 10 months.
       parameters:
+      - description: One key per attempt; a retry with the same key replays the first
+          response instead of running again
+        in: header
+        name: Idempotency-Key
+        type: string
       - description: Order number, payment method and card or installment details
         in: body
         name: body
@@ -3931,6 +3976,14 @@ paths:
             $ref: '#/definitions/response.Envelope'
         "409":
           description: RESERVATION_EXPIRED
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'IDEMPOTENCY_KEY_REUSED: the key was used for a different request'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "429":
+          description: RATE_LIMITED
           schema:
             $ref: '#/definitions/response.Envelope'
         "500":
@@ -3992,6 +4045,11 @@ paths:
         Turns the current bag (of the signed-in customer, or of the guest session) into a PENDING_PAYMENT order and holds its stock for 15 minutes.
         When signed in and `customer_email` is empty, the account email is used. Pay with POST /checkout/pay before the reservation expires.
       parameters:
+      - description: One key per attempt; a retry with the same key replays the first
+          response instead of running again
+        in: header
+        name: Idempotency-Key
+        type: string
       - description: Contact email, shipping address and payment method (PROMPTPAY_QR,
           CREDIT_CARD, INSTALLMENT_0)
         in: body
@@ -4018,6 +4076,14 @@ paths:
             $ref: '#/definitions/response.Envelope'
         "409":
           description: PRODUCT_UNAVAILABLE or INSUFFICIENT_STOCK
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "422":
+          description: 'IDEMPOTENCY_KEY_REUSED: the key was used for a different request'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "429":
+          description: RATE_LIMITED
           schema:
             $ref: '#/definitions/response.Envelope'
         "500":
@@ -4191,6 +4257,10 @@ paths:
             $ref: '#/definitions/response.Envelope'
         "404":
           description: No order with that number and email
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "429":
+          description: RATE_LIMITED
           schema:
             $ref: '#/definitions/response.Envelope'
         "500":

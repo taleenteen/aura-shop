@@ -70,6 +70,19 @@ make dev-web                  # หน้าเว็บที่ http://localho
 - หมวดหมู่และแบรนด์: เพิ่ม แก้ ลบ (ลบได้เมื่อไม่มีสินค้า) และกำหนดเมนูด้านบน
 - รีวิว: ค้นหา กรองตามดาว และซ่อนรีวิวที่ไม่เหมาะสม
 
+### ความปลอดภัย
+
+- **จำกัดจำนวนครั้งต่อ IP** (rate limit): ทั้ง API 600 ครั้ง/นาที, login 10/นาที, สมัคร 10/15 นาที, ลืม/รีเซ็ตรหัส 5/15 นาที, ค้นหา order 20/10 นาที, checkout 30/10 นาที เกินแล้วตอบ `429 RATE_LIMITED` พร้อม `Retry-After`
+- **ล็อกบัญชี** เมื่อใส่รหัสผิด 5 ครั้งติดกัน (จากกี่ IP ก็ตาม) 15 นาที ตอบ `423 ACCOUNT_LOCKED`; รีเซ็ตรหัสผ่านปลดล็อกได้ทันที อีเมลที่ไม่มีบัญชีใช้เวลาตอบเท่ากับรหัสผิด จึงเดาไม่ได้ว่าอีเมลไหนมีบัญชี
+- **ยกเลิก session ได้จริง**: JWT มี `token_version` ที่ตรวจกับฐานข้อมูลทุก request เปลี่ยน/รีเซ็ตรหัสผ่าน หรือกด "Sign out of other devices" แล้ว token เก่าใช้ไม่ได้ทันที และสิทธิ์ admin อ่านจากฐานข้อมูลทุกครั้ง
+- **รหัสผ่าน** 8–72 ตัวอักษร (NIST SP 800-63B; 72 bytes คือขีดจำกัดของ bcrypt) เก็บด้วย bcrypt
+- **Idempotency-Key** บน `/checkout/reserve`, `/checkout/pay` และการยกเลิก order: กดซ้ำหรือเน็ตหลุดแล้วส่งใหม่ จะไม่เกิด order ซ้ำหรือตัดเงินสองครั้ง
+- **Security headers**: `nosniff`, `X-Frame-Options: DENY`, CSP `default-src 'none'`, `Referrer-Policy`, HSTS (production) และ `Cache-Control: no-store` สำหรับข้อมูลส่วนตัว
+- **จำกัดขนาด body** 1 MB (อัปโหลดรูปและ CSV มีขีดจำกัดของตัวเอง) และ error 500 ไม่ส่งรายละเอียดภายในกลับไป
+- **สต็อก** ล็อกแถว (`SELECT … FOR UPDATE`) ตอนจอง/ตัดสต็อก ราคาคำนวณที่ server เท่านั้น และ order ของคนอื่นตอบ 404 เพื่อไม่ให้ไล่เดาเลข order ได้
+
+**ตั้งค่าสำหรับ production** (`APP_ENV=production`): server จะไม่ยอมเริ่มถ้า `JWT_SECRET` เป็นค่าตัวอย่างหรือสั้นกว่า 32 ตัว หรือ `CORS_ALLOWED_ORIGINS` ว่าง / เป็น `*` / ไม่ใช่ https; Swagger ปิดเป็นค่าเริ่มต้น; ตั้ง `TRUST_PROXY=true` เฉพาะเมื่ออยู่หลัง reverse proxy ที่ใส่ `X-Forwarded-For` ให้
+
 ### คำสั่งที่ใช้บ่อย
 
 | คำสั่ง | ทำอะไร |
@@ -151,6 +164,19 @@ On first start against an empty database the API creates the tables and loads sa
 - Banners: create, edit, switch on/off, delete and schedule (hero, promo grid, top ribbon) with a live preview
 - Categories and brands: add, edit, delete (only when no products use them) and set the top menu
 - Reviews: search, filter by stars, hide reviews that break the guidelines
+
+### Security
+
+- **Per-IP rate limits**: 600 requests/min across the API, sign-in 10/min, sign-up 10/15 min, password reset 5/15 min, order lookup 20/10 min, checkout 30/10 min. Over the limit: `429 RATE_LIMITED` with `Retry-After`
+- **Account lockout** after 5 wrong passwords in a row from any IP, for 15 minutes (`423 ACCOUNT_LOCKED`); a password reset lifts it at once. Unknown emails take as long as a wrong password, so timing does not reveal which emails have accounts
+- **Revocable sessions**: each JWT carries a `token_version` checked against the database on every request. A password change or reset, or "Sign out of other devices", invalidates older tokens at once, and the admin role is read from the database each time
+- **Passwords** of 8–72 characters (NIST SP 800-63B; 72 bytes is the bcrypt limit), hashed with bcrypt
+- **Idempotency-Key** on `/checkout/reserve`, `/checkout/pay` and order cancellation: a double click or a resend after a dropped connection cannot create a second order or charge twice
+- **Security headers**: `nosniff`, `X-Frame-Options: DENY`, CSP `default-src 'none'`, `Referrer-Policy`, HSTS (production) and `Cache-Control: no-store` on personal responses
+- **1 MB body limit** (image upload and CSV import have their own), and 500 responses never include internal error details
+- **Stock** rows are locked (`SELECT … FOR UPDATE`) when held or sold, prices are computed on the server only, and other people's orders answer 404 so order numbers cannot be probed
+
+**Production settings** (`APP_ENV=production`): the server refuses to start when `JWT_SECRET` is the sample key or shorter than 32 characters, or `CORS_ALLOWED_ORIGINS` is empty, `*` or not https. Swagger is off by default. Set `TRUST_PROXY=true` only behind a reverse proxy that sets `X-Forwarded-For`.
 
 ### Common commands
 
