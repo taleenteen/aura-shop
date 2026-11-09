@@ -8,7 +8,7 @@ import { validate, password as passwordRule, optionalText, type FieldErrors } fr
 import { formatTHB } from "@/lib/currency";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUIStore } from "@/stores/ui-store";
-import type { Order, OrderStatus, User } from "@/types/api";
+import type { AuthResponse, Order, OrderStatus, User } from "@/types/api";
 import { STATUS_META, STEPS, STEP_REACHED, formatTime, isPayable } from "@/features/orders/order-status";
 import { CancelOrderButton } from "@/features/orders/cancel-order-button";
 import { carrierName } from "@/features/orders/carriers";
@@ -137,6 +137,7 @@ export function AccountPage() {
           )}
           <ProfileSection user={user} />
           <ChangePasswordSection />
+          <SessionsSection />
         </div>
       )}
     </div>
@@ -455,6 +456,7 @@ function ProfileSection({ user }: { user: User }) {
 }
 
 function ChangePasswordSection() {
+  const setAuth = useAuthStore((state) => state.setAuth);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -470,14 +472,16 @@ function ChangePasswordSection() {
     setErrors({});
     setBusy(true);
     try {
-      await apiClient("/auth/change-password", {
+      const res = await apiClient<AuthResponse>("/auth/change-password", {
         method: "POST",
         body: JSON.stringify({ current_password: current, new_password: next }),
       });
+      // The change signs out every other session; this device continues with the new token.
+      setAuth(res.data.user, res.data.token);
       setCurrent("");
       setNext("");
       setConfirm("");
-      setMessage({ kind: "ok", text: "Password updated." });
+      setMessage({ kind: "ok", text: "Password updated. Other devices have been signed out." });
     } catch (err) {
       const apiErr = err as ApiRequestError;
       setErrors(apiErr.fields ?? {});
@@ -496,7 +500,7 @@ function ChangePasswordSection() {
     <form onSubmit={submit} noValidate className="max-w-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 sm:p-8 space-y-5 shadow-xs">
       <div>
         <h2 className="text-lg font-bold text-zinc-950 dark:text-white">Password</h2>
-        <p className="text-xs text-zinc-500 mt-1">Use at least 6 characters. You'll stay signed in on this device.</p>
+        <p className="text-xs text-zinc-500 mt-1">Use 8 to 72 characters. Changing it signs you out on other devices; you'll stay signed in here.</p>
       </div>
       <div>
         <label htmlFor="pw-current" className={label}>Current password</label>
@@ -530,5 +534,52 @@ function ChangePasswordSection() {
         )}
       </div>
     </form>
+  );
+}
+
+/** Signs the account out everywhere else, e.g. after using a shared or lost device. */
+function SessionsSection() {
+  const setAuth = useAuthStore((state) => state.setAuth);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+
+  const signOutOthers = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await apiClient<AuthResponse>("/auth/sign-out-others", { method: "POST" });
+      setAuth(res.data.user, res.data.token);
+      setMessage({ kind: "ok", text: "Signed out on all other devices." });
+    } catch (err) {
+      setMessage({ kind: "error", text: (err as Error).message || "Could not sign out the other devices." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="max-w-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 sm:p-8 space-y-4 shadow-xs">
+      <div>
+        <h2 className="text-lg font-bold text-zinc-950 dark:text-white">Signed-in devices</h2>
+        <p className="text-xs text-zinc-500 mt-1">
+          Signed in on a shared computer or lost a phone? Sign out everywhere except this device.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={signOutOthers}
+          disabled={busy}
+          className="px-5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-sm font-semibold text-zinc-900 dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        >
+          {busy ? "Signing out…" : "Sign out of other devices"}
+        </button>
+        {message && (
+          <span role="status" className={`text-xs font-semibold ${message.kind === "ok" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+            {message.text}
+          </span>
+        )}
+      </div>
+    </section>
   );
 }

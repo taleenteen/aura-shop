@@ -79,7 +79,7 @@ func TestJWTAuthMiddleware(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	chain := middleware.JWTOptionalMiddleware(secret)(protected)
+	chain := middleware.JWTOptionalMiddleware(secret, fakeSessions{user.ID: {role: "ADMIN"}})(protected)
 	chain.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {

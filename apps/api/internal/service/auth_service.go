@@ -34,7 +34,8 @@ type AuthService interface {
 	RequestPasswordReset(ctx context.Context, email string) (*uuid.UUID, error)
 	GetAccountEmail(ctx context.Context, id uuid.UUID) (*models.EmailMessage, error)
 	ResetPassword(ctx context.Context, token, password string, guestID *string) (*dto.AuthResponse, error)
-	ChangePassword(ctx context.Context, userID uuid.UUID, current, next string) error
+	ChangePassword(ctx context.Context, userID uuid.UUID, current, next string) (*dto.AuthResponse, error)
+	SignOutOtherSessions(ctx context.Context, userID uuid.UUID) (*dto.AuthResponse, error)
 }
 
 type authService struct {
@@ -67,8 +68,8 @@ func (s *authService) Register(ctx context.Context, req dto.RegisterRequest, gue
 	if !emailOK {
 		fields["email"] = "Enter a valid email address."
 	}
-	if len(req.Password) < minPasswordLength {
-		fields["password"] = "Use at least 6 characters."
+	if !validPassword(req.Password) {
+		fields["password"] = PasswordRule
 	}
 	if name := strings.TrimSpace(req.FullName); name == "" {
 		fields["full_name"] = "Enter your name."
@@ -112,7 +113,7 @@ func (s *authService) Register(ctx context.Context, req dto.RegisterRequest, gue
 		s.mergeGuestIntoUser(ctx, *guestID, user.ID)
 	}
 
-	token, err := middleware.GenerateJWT(user, s.jwtSecret, 7*24*time.Hour)
+	token, err := middleware.GenerateJWT(user, s.jwtSecret, sessionTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -130,11 +131,29 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequest, guestID *
 		return nil, err
 	}
 	if user == nil {
+		compareWithDummyHash(req.Password)
 		return nil, ErrInvalidCredentials
 	}
 
+	now := time.Now()
+	if user.LockedUntil != nil && now.Before(*user.LockedUntil) {
+		return nil, &AccountLockedError{Until: *user.LockedUntil}
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		lockedUntil, lockErr := s.recordFailedLogin(ctx, user.ID, now)
+		if lockErr != nil {
+			slog.Error("failed to record failed sign-in", "user_id", user.ID, "error", lockErr)
+		} else if lockedUntil != nil {
+			slog.Warn("account locked after repeated failed sign-ins", "user_id", user.ID, "until", *lockedUntil)
+			return nil, &AccountLockedError{Until: *lockedUntil}
+		}
 		return nil, ErrInvalidCredentials
+	}
+	if user.FailedLogins > 0 || user.LockedUntil != nil {
+		if err := s.clearFailedLogins(ctx, user.ID); err != nil {
+			slog.Error("failed to clear failed sign-ins", "user_id", user.ID, "error", err)
+		}
 	}
 
 	// Guest-to-User Merge in DB transaction
@@ -142,7 +161,7 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequest, guestID *
 		s.mergeGuestIntoUser(ctx, *guestID, user.ID)
 	}
 
-	token, err := middleware.GenerateJWT(user, s.jwtSecret, 7*24*time.Hour)
+	token, err := middleware.GenerateJWT(user, s.jwtSecret, sessionTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +198,6 @@ func (s *authService) mergeGuestIntoUser(ctx context.Context, guestID string, us
 		slog.Error("guest to user merge failed", "user_id", userID, "error", err)
 	}
 }
-
 
 func toUserDTO(user *models.User) *dto.UserDTO {
 	return &dto.UserDTO{

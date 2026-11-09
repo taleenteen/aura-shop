@@ -38,11 +38,14 @@ func NewCheckoutHandler(checkoutService service.CheckoutService) *CheckoutHandle
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Security		GuestSession
-//	@Param			body	body		dto.CheckoutReserveRequest	true	"Contact email, shipping address and payment method (PROMPTPAY_QR, CREDIT_CARD, INSTALLMENT_0)"
-//	@Success		201		{object}	response.Envelope{data=dto.CheckoutReserveResponse}
-//	@Failure		400		{object}	response.Envelope	"BAD_REQUEST (invalid body or empty bag) or VALIDATION_FAILED (error.fields.customer_email)"
-//	@Failure		409		{object}	response.Envelope	"PRODUCT_UNAVAILABLE or INSUFFICIENT_STOCK"
-//	@Failure		500		{object}	response.Envelope
+//	@Param			Idempotency-Key	header		string						false	"One key per attempt; a retry with the same key replays the first response instead of running again"
+//	@Param			body			body		dto.CheckoutReserveRequest	true	"Contact email, shipping address and payment method (PROMPTPAY_QR, CREDIT_CARD, INSTALLMENT_0)"
+//	@Success		201				{object}	response.Envelope{data=dto.CheckoutReserveResponse}
+//	@Failure		400				{object}	response.Envelope	"BAD_REQUEST (invalid body or empty bag) or VALIDATION_FAILED (error.fields.customer_email)"
+//	@Failure		409				{object}	response.Envelope	"PRODUCT_UNAVAILABLE or INSUFFICIENT_STOCK"
+//	@Failure		422				{object}	response.Envelope	"IDEMPOTENCY_KEY_REUSED: the key was used for a different request"
+//	@Failure		429				{object}	response.Envelope	"RATE_LIMITED"
+//	@Failure		500				{object}	response.Envelope
 //	@Router			/checkout/reserve [post]
 func (h *CheckoutHandler) Reserve(w http.ResponseWriter, r *http.Request) {
 	var req dto.CheckoutReserveRequest
@@ -82,7 +85,7 @@ func (h *CheckoutHandler) Reserve(w http.ResponseWriter, r *http.Request) {
 			response.Conflict(w, "INSUFFICIENT_STOCK", err.Error())
 			return
 		}
-		response.InternalServerError(w, err.Error())
+		response.ServerError(w, err)
 		return
 	}
 
@@ -100,13 +103,16 @@ func (h *CheckoutHandler) Reserve(w http.ResponseWriter, r *http.Request) {
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Security		GuestSession
-//	@Param			body	body		dto.PaymentProcessRequest	true	"Order number, payment method and card or installment details"
-//	@Success		200		{object}	response.Envelope{data=models.Order}
-//	@Failure		400		{object}	response.Envelope	"BAD_REQUEST: invalid body, missing order_number, unsupported method, invalid installment plan or order not payable"
-//	@Failure		402		{object}	response.Envelope	"CARD_DECLINED_INSUFFICIENT_FUNDS"
-//	@Failure		404		{object}	response.Envelope	"Order not found or not placed by this customer"
-//	@Failure		409		{object}	response.Envelope	"RESERVATION_EXPIRED"
-//	@Failure		500		{object}	response.Envelope
+//	@Param			Idempotency-Key	header		string						false	"One key per attempt; a retry with the same key replays the first response instead of running again"
+//	@Param			body			body		dto.PaymentProcessRequest	true	"Order number, payment method and card or installment details"
+//	@Success		200				{object}	response.Envelope{data=models.Order}
+//	@Failure		400				{object}	response.Envelope	"BAD_REQUEST: invalid body, missing order_number, unsupported method, invalid installment plan or order not payable"
+//	@Failure		402				{object}	response.Envelope	"CARD_DECLINED_INSUFFICIENT_FUNDS"
+//	@Failure		404				{object}	response.Envelope	"Order not found or not placed by this customer"
+//	@Failure		409				{object}	response.Envelope	"RESERVATION_EXPIRED"
+//	@Failure		422				{object}	response.Envelope	"IDEMPOTENCY_KEY_REUSED: the key was used for a different request"
+//	@Failure		429				{object}	response.Envelope	"RATE_LIMITED"
+//	@Failure		500				{object}	response.Envelope
 //	@Router			/checkout/pay [post]
 func (h *CheckoutHandler) Pay(w http.ResponseWriter, r *http.Request) {
 	var req dto.PaymentProcessRequest
@@ -177,7 +183,7 @@ func (h *CheckoutHandler) GetPromptPayQR(w http.ResponseWriter, r *http.Request)
 			response.NotFound(w, "order not found")
 			return
 		}
-		response.InternalServerError(w, err.Error())
+		response.ServerError(w, err)
 		return
 	}
 
@@ -238,7 +244,7 @@ func (h *CheckoutHandler) loadOrder(w http.ResponseWriter, r *http.Request, orde
 			response.NotFound(w, "order not found")
 			return nil, false
 		}
-		response.InternalServerError(w, err.Error())
+		response.ServerError(w, err)
 		return nil, false
 	}
 
@@ -280,6 +286,7 @@ func emailMatches(orderEmail, given string) bool {
 //	@Success		200		{object}	response.Envelope{data=models.Order}
 //	@Failure		400		{object}	response.Envelope	"BAD_REQUEST (invalid body) or VALIDATION_FAILED (error.fields.order_number, error.fields.email)"
 //	@Failure		404		{object}	response.Envelope	"No order with that number and email"
+//	@Failure		429		{object}	response.Envelope	"RATE_LIMITED"
 //	@Failure		500		{object}	response.Envelope
 //	@Router			/orders/lookup [post]
 func (h *CheckoutHandler) LookupOrder(w http.ResponseWriter, r *http.Request) {
@@ -304,7 +311,7 @@ func (h *CheckoutHandler) LookupOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	order, err := h.checkoutService.GetOrderByNumber(r.Context(), number)
 	if err != nil && !errors.Is(err, repository.ErrOrderNotFound) {
-		response.InternalServerError(w, err.Error())
+		response.ServerError(w, err)
 		return
 	}
 	if order == nil || !emailMatches(order.CustomerEmail, req.Email) {
@@ -353,7 +360,7 @@ func (h *CheckoutHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "order not found")
 			return
 		}
-		response.InternalServerError(w, err.Error())
+		response.ServerError(w, err)
 		return
 	}
 	order.ViewerCanManage = true

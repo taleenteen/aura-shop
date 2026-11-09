@@ -14,6 +14,8 @@ import { useWishlistStore } from "@/stores/wishlist-store";
 import { useCartStore } from "@/stores/cart-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useStorefrontStore } from "@/stores/storefront-store";
+import { SESSION_EXPIRED_EVENT } from "@/lib/api-client";
+import { signOut } from "@/lib/session";
 
 export function RootLayout() {
   const routerState = useRouterState();
@@ -34,6 +36,17 @@ export function RootLayout() {
     fetchCart();
     loadStorefront();
   }, [restoreSession, loadWishlist, fetchCart, loadStorefront]);
+
+  useEffect(() => {
+    // The saved token was refused (expired, or signed out from another device): drop to a
+    // guest session and offer to sign in again.
+    const onExpired = () => {
+      if (!useAuthStore.getState().token) return;
+      void signOut().then(() => setAuthOpen(true));
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, [setAuthOpen]);
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950">

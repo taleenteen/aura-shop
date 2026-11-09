@@ -3,8 +3,12 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -76,6 +80,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 //	@Success		200		{object}	response.Envelope{data=dto.AuthResponse}
 //	@Failure		400		{object}	response.Envelope
 //	@Failure		401		{object}	response.Envelope	"Invalid email or password"
+//	@Failure		423		{object}	response.Envelope	"ACCOUNT_LOCKED after 5 wrong passwords in a row; Retry-After gives the seconds left"
+//	@Failure		429		{object}	response.Envelope	"RATE_LIMITED"
 //	@Failure		500		{object}	response.Envelope
 //	@Router			/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -88,11 +94,23 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	guestID := middleware.GetGuestIDFromContext(r.Context())
 	authResp, err := h.authService.Login(r.Context(), req, guestID)
 	if err != nil {
-		if err == service.ErrInvalidCredentials {
+		var locked *service.AccountLockedError
+		switch {
+		case errors.Is(err, service.ErrInvalidCredentials):
 			response.Unauthorized(w, "invalid email or password")
-			return
+		case errors.As(err, &locked):
+			left := time.Until(locked.Until)
+			wait := "1 minute"
+			if minutes := int(math.Ceil(left.Minutes())); minutes > 1 {
+				wait = fmt.Sprintf("%d minutes", minutes)
+			}
+			w.Header().Set("Retry-After", strconv.Itoa(max(1, int(math.Ceil(left.Seconds())))))
+			response.Error(w, http.StatusLocked, "ACCOUNT_LOCKED",
+				"Too many wrong passwords. Sign-in is paused for "+wait+", or reset your password to sign in now.")
+		default:
+			slog.Error("sign-in failed", "error", err)
+			response.InternalServerError(w, "authentication failed")
 		}
-		response.InternalServerError(w, "authentication failed")
 		return
 	}
 
@@ -250,7 +268,7 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	auth, err := h.authService.ResetPassword(r.Context(), req.Token, req.Password, middleware.GetGuestIDFromContext(r.Context()))
 	switch {
 	case errors.Is(err, service.ErrWeakPassword):
-		response.ValidationFailed(w, err.Error(), map[string]string{"password": "Use at least 6 characters."})
+		response.ValidationFailed(w, err.Error(), map[string]string{"password": service.PasswordRule})
 	case errors.Is(err, service.ErrResetLinkInvalid):
 		response.Error(w, http.StatusGone, "RESET_LINK_INVALID", "This reset link is invalid or has expired. Request a new one.")
 	case err != nil:
@@ -264,13 +282,13 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 // ChangePassword replaces the signed-in user's password.
 //
 //	@Summary		Change the password
-//	@Description	Returns `{ "message": string }` on success.
+//	@Description	Signs out every other device: tokens issued before the change stop working. The response carries a new token for this device, which replaces the one sent.
 //	@Tags			Auth
 //	@Accept			json
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Param			body	body		dto.ChangePasswordRequest	true	"Current and new password"
-//	@Success		200		{object}	response.Envelope{data=object}
+//	@Success		200		{object}	response.Envelope{data=dto.AuthResponse}
 //	@Failure		400		{object}	response.Envelope	"VALIDATION_FAILED with per-field error.fields (wrong current password or weak new password), or invalid body"
 //	@Failure		401		{object}	response.Envelope
 //	@Failure		500		{object}	response.Envelope
@@ -286,16 +304,42 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		response.BadRequest(w, "invalid request body")
 		return
 	}
-	err := h.authService.ChangePassword(r.Context(), user.ID, req.CurrentPassword, req.NewPassword)
+	auth, err := h.authService.ChangePassword(r.Context(), user.ID, req.CurrentPassword, req.NewPassword)
 	switch {
 	case errors.Is(err, service.ErrWeakPassword):
-		response.ValidationFailed(w, err.Error(), map[string]string{"new_password": "Use at least 6 characters."})
+		response.ValidationFailed(w, err.Error(), map[string]string{"new_password": service.PasswordRule})
 	case errors.Is(err, service.ErrWrongPassword):
 		response.ValidationFailed(w, err.Error(), map[string]string{"current_password": "That's not your current password."})
 	case err != nil:
 		slog.Error("password change failed", "user_id", user.ID, "error", err)
 		response.InternalServerError(w, "could not change the password")
 	default:
-		response.Success(w, http.StatusOK, map[string]string{"message": "Password updated."}, nil)
+		response.Success(w, http.StatusOK, auth, nil)
 	}
+}
+
+// SignOutOtherSessions signs the account out on every other device.
+//
+//	@Summary		Sign out of all other devices
+//	@Description	Every token issued so far stops working. The response carries a new token for this device, which replaces the one sent.
+//	@Tags			Auth
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	response.Envelope{data=dto.AuthResponse}
+//	@Failure		401	{object}	response.Envelope
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/auth/sign-out-others [post]
+func (h *AuthHandler) SignOutOtherSessions(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		response.Unauthorized(w, "authentication required")
+		return
+	}
+	auth, err := h.authService.SignOutOtherSessions(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("sign out of other sessions failed", "user_id", user.ID, "error", err)
+		response.InternalServerError(w, "could not sign out the other devices")
+		return
+	}
+	response.Success(w, http.StatusOK, auth, nil)
 }

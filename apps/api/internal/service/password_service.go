@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"aura-tech/api/internal/dto"
 	"aura-tech/api/internal/middleware"
@@ -24,13 +25,25 @@ import (
 var (
 	// ErrResetLinkInvalid covers unknown, used and expired reset links alike.
 	ErrResetLinkInvalid = errors.New("this reset link is invalid or has expired")
-	// ErrWeakPassword is returned when a new password is too short.
-	ErrWeakPassword = errors.New("password must be at least 6 characters")
+	// ErrWeakPassword is returned when a new password breaks PasswordRule.
+	ErrWeakPassword = errors.New("password must be 8 to 72 characters")
 	// ErrWrongPassword is returned when the current password does not match.
 	ErrWrongPassword = errors.New("current password is incorrect")
 )
 
-const minPasswordLength = 6
+// Passwords need at least 8 characters (NIST SP 800-63B) and at most 72 bytes, the most bcrypt
+// reads; longer ones would be cut off silently, so they are refused instead.
+const (
+	minPasswordLength = 8
+	maxPasswordBytes  = 72
+)
+
+// PasswordRule is the message shown next to a password field that breaks the rules.
+const PasswordRule = "Use 8 to 72 characters."
+
+func validPassword(pw string) bool {
+	return utf8.RuneCountInString(pw) >= minPasswordLength && len(pw) <= maxPasswordBytes
+}
 
 func hashResetToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
@@ -93,7 +106,7 @@ func (s *authService) GetAccountEmail(ctx context.Context, id uuid.UUID) (*model
 // ResetPassword sets a new password using a reset link, then signs the user in. The link is
 // single-use; every other open link for the account is closed too.
 func (s *authService) ResetPassword(ctx context.Context, token, password string, guestID *string) (*dto.AuthResponse, error) {
-	if len(password) < minPasswordLength {
+	if !validPassword(password) {
 		return nil, ErrWeakPassword
 	}
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -120,7 +133,8 @@ func (s *authService) ResetPassword(ctx context.Context, token, password string,
 			Update("used_at", now).Error; err != nil {
 			return err
 		}
-		if err := tx.Model(&models.User{}).Where("id = ?", link.UserID).Update("password_hash", string(hashed)).Error; err != nil {
+		// The new password also signs out every other session and lifts a sign-in lock.
+		if err := tx.Model(&models.User{}).Where("id = ?", link.UserID).Updates(passwordChange(string(hashed))).Error; err != nil {
 			return err
 		}
 		return tx.First(&user, "id = ?", link.UserID).Error
@@ -132,31 +146,76 @@ func (s *authService) ResetPassword(ctx context.Context, token, password string,
 	if guestID != nil && *guestID != "" {
 		s.mergeGuestIntoUser(ctx, *guestID, user.ID)
 	}
-	jwt, err := middleware.GenerateJWT(&user, s.jwtSecret, 7*24*time.Hour)
+	jwt, err := middleware.GenerateJWT(&user, s.jwtSecret, sessionTTL)
 	if err != nil {
 		return nil, err
 	}
 	return &dto.AuthResponse{Token: jwt, User: *toUserDTO(&user)}, nil
 }
 
-// ChangePassword replaces a signed-in user's password after checking the current one.
-func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, current, next string) error {
-	if len(next) < minPasswordLength {
-		return ErrWeakPassword
+// ChangePassword replaces a signed-in user's password after checking the current one. Every
+// other session is signed out; the returned token keeps this device signed in.
+func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, current, next string) (*dto.AuthResponse, error) {
+	if !validPassword(next) {
+		return nil, ErrWeakPassword
 	}
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if user == nil {
-		return ErrUserNotFound
+		return nil, ErrUserNotFound
 	}
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(current)) != nil {
-		return ErrWrongPassword
+		return nil, ErrWrongPassword
 	}
 	hashed, err := bcrypt.GenerateFromPassword([]byte(next), bcrypt.DefaultCost)
 	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
+		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
-	return s.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", userID).Update("password_hash", string(hashed)).Error
+	if err := s.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", userID).Updates(passwordChange(string(hashed))).Error; err != nil {
+		return nil, err
+	}
+	return s.freshSession(ctx, userID)
+}
+
+// SignOutOtherSessions makes every token issued so far invalid and returns a new one for the
+// device that asked, so it stays signed in.
+func (s *authService) SignOutOtherSessions(ctx context.Context, userID uuid.UUID) (*dto.AuthResponse, error) {
+	res := s.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", userID).
+		Update("token_version", gorm.Expr("token_version + 1"))
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return nil, ErrUserNotFound
+	}
+	return s.freshSession(ctx, userID)
+}
+
+// passwordChange is the update for a new password: it raises the token version (older tokens
+// stop working) and clears failed sign-ins and any lock.
+func passwordChange(hash string) map[string]any {
+	return map[string]any{
+		"password_hash": hash,
+		"token_version": gorm.Expr("token_version + 1"),
+		"failed_logins": 0,
+		"locked_until":  nil,
+	}
+}
+
+// freshSession signs a new token for the user's current token version.
+func (s *authService) freshSession(ctx context.Context, userID uuid.UUID) (*dto.AuthResponse, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, ErrUserNotFound
+	}
+	token, err := middleware.GenerateJWT(user, s.jwtSecret, sessionTTL)
+	if err != nil {
+		return nil, err
+	}
+	return &dto.AuthResponse{Token: token, User: *toUserDTO(user)}, nil
 }

@@ -4,6 +4,7 @@ import { CreditCard, QrCode, Percent, ArrowLeft, Loader2, AlertCircle, MapPin } 
 import { useCartStore } from "@/stores/cart-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { apiClient, type ApiRequestError } from "@/lib/api-client";
+import { useIdempotencyKey } from "@/lib/idempotency";
 import { z } from "zod";
 import { validate, email as emailRule, requiredText, type FieldErrors } from "@/lib/validation";
 import type { PromptPayQRResponse, InstallmentPlanData, Order, PaymentMethod, User } from "@/types/api";
@@ -74,6 +75,9 @@ export function CheckoutPage() {
   const [reservationExpiresAt, setReservationExpiresAt] = useState<string | null>(null);
   const [grandTotalSatang, setGrandTotalSatang] = useState(cartSubtotal);
   const [isReserving, setIsReserving] = useState(false);
+  // Retry-safe keys: a resend after a dropped connection cannot place a second order or charge twice.
+  const reserveKey = useIdempotencyKey();
+  const payKey = useIdempotencyKey();
   const [isResuming, setIsResuming] = useState(!!resumeNumber);
   const [isPaying, setIsPaying] = useState(false);
   const [reserveError, setReserveError] = useState<string | null>(null);
@@ -200,8 +204,10 @@ export function CheckoutPage() {
         payment_method: PaymentTab;
       }>("/checkout/reserve", {
         method: "POST",
+        headers: { "Idempotency-Key": reserveKey.current() },
         body: JSON.stringify({ customer_email: customerEmail, shipping_address: shippingAddress, payment_method: activeTab }),
       });
+      reserveKey.settle();
 
       beginPayment(res.data.order_number, res.data.reservation_expires_at, res.data.grand_total_satang, cartLines, activeTab);
       // Keep the order in the URL so a reload continues the payment instead of losing it.
@@ -218,6 +224,7 @@ export function CheckoutPage() {
           .catch(() => {});
       }
     } catch (err) {
+      reserveKey.settle(err);
       const apiErr = err as ApiRequestError;
       if (apiErr.fields) setFieldErrors(apiErr.fields);
       setReserveError(apiErr.message || "We couldn't hold these items. Someone may have just bought the last one.");
@@ -250,10 +257,13 @@ export function CheckoutPage() {
     try {
       await apiClient<Order>("/checkout/pay", {
         method: "POST",
+        headers: { "Idempotency-Key": payKey.current() },
         body: JSON.stringify({ order_number: activeOrderNumber, ...body }),
       });
+      payKey.settle();
       goToOrder(activeOrderNumber);
     } catch (err) {
+      payKey.settle(err);
       onError(err as Error & { code?: string });
     } finally {
       setIsPaying(false);

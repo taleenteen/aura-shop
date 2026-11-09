@@ -3019,7 +3019,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns ` + "`" + `{ \"message\": string }` + "`" + ` on success.",
+                "description": "Signs out every other device: tokens issued before the change stop working. The response carries a new token for this device, which replaces the one sent.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3053,7 +3053,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#/definitions/dto.AuthResponse"
                                         }
                                     }
                                 }
@@ -3247,6 +3247,18 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Invalid email or password",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "423": {
+                        "description": "ACCOUNT_LOCKED after 5 wrong passwords in a row; Retry-After gives the seconds left",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "429": {
+                        "description": "RATE_LIMITED",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -3505,6 +3517,55 @@ const docTemplate = `{
                     },
                     "410": {
                         "description": "RESET_LINK_INVALID",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/sign-out-others": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Every token issued so far stops working. The response carries a new token for this device, which replaces the one sent.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Sign out of all other devices",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.AuthResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -4081,6 +4142,12 @@ const docTemplate = `{
                 "summary": "Pay for a reserved order",
                 "parameters": [
                     {
+                        "type": "string",
+                        "description": "One key per attempt; a retry with the same key replays the first response instead of running again",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
                         "description": "Order number, payment method and card or installment details",
                         "name": "body",
                         "in": "body",
@@ -4129,6 +4196,18 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "RESERVATION_EXPIRED",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "422": {
+                        "description": "IDEMPOTENCY_KEY_REUSED: the key was used for a different request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "429": {
+                        "description": "RATE_LIMITED",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -4232,6 +4311,12 @@ const docTemplate = `{
                 "summary": "Reserve the bag and open an order",
                 "parameters": [
                     {
+                        "type": "string",
+                        "description": "One key per attempt; a retry with the same key replays the first response instead of running again",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
                         "description": "Contact email, shipping address and payment method (PROMPTPAY_QR, CREDIT_CARD, INSTALLMENT_0)",
                         "name": "body",
                         "in": "body",
@@ -4268,6 +4353,18 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "PRODUCT_UNAVAILABLE or INSUFFICIENT_STOCK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "422": {
+                        "description": "IDEMPOTENCY_KEY_REUSED: the key was used for a different request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "429": {
+                        "description": "RATE_LIMITED",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -4340,6 +4437,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "No order with that number and email",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "429": {
+                        "description": "RATE_LIMITED",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
