@@ -78,6 +78,8 @@ definitions:
     type: object
   dto.AdminProductSummary:
     properties:
+      archived_at:
+        type: string
       brand_name:
         type: string
       category_name:
@@ -93,6 +95,9 @@ definitions:
         type: integer
       name:
         type: string
+      order_count:
+        description: orders that include the product; > 0 means it cannot be deleted
+        type: integer
       reserved_total:
         type: integer
       slug:
@@ -1163,6 +1168,11 @@ definitions:
         items:
           $ref: '#/definitions/models.ProductAccessoryBundle'
         type: array
+      archived_at:
+        description: |-
+          ArchivedAt hides the product from the admin list (and from sale) without losing the
+          orders and reports that refer to it. Nil for live products.
+        type: string
       base_price:
         description: Lowest variant price in Satang
         type: integer
@@ -2580,10 +2590,12 @@ paths:
         in: query
         name: category
         type: string
-      - description: On sale or hidden; anything else lists all
+      - description: active (on sale), inactive (hidden) or archived; anything else
+          lists every product that is not archived
         enum:
         - active
         - inactive
+        - archived
         in: query
         name: status
         type: string
@@ -2682,6 +2694,62 @@ paths:
       tags:
       - Admin · Products
   /admin/products/{id}:
+    delete:
+      description: 'Removes a product that has never been ordered, with its variants,
+        bag lines, wishlist hearts, stock alerts, stock history, reviews and bundle
+        links. A product on any order or checkout hold answers 409 PRODUCT_HAS_ORDERS:
+        archive it instead. Images stay in storage. Written to the audit log.'
+      parameters:
+      - description: Product ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  properties:
+                    deleted:
+                      type: boolean
+                  type: object
+              type: object
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: PRODUCT_HAS_ORDERS
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Delete a product permanently
+      tags:
+      - Admin · Products
     get:
       description: Returns the full product with its category, brand and variants,
         for the admin editor.
@@ -2796,6 +2864,104 @@ paths:
       summary: Update a product
       tags:
       - Admin · Products
+  /admin/products/{id}/archive:
+    post:
+      description: Takes the product off sale and out of the default product list
+        (list it with status=archived). Orders, sales reports and stock history keep
+        pointing at it, and it can be restored. Archiving an archived product does
+        nothing. Written to the audit log.
+      parameters:
+      - description: Product ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Product'
+              type: object
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Archive a product
+      tags:
+      - Admin · Products
+  /admin/products/{id}/restore:
+    post:
+      description: Brings the product back to the product list. It stays hidden from
+        the store until it is put on sale again. Written to the audit log.
+      parameters:
+      - description: Product ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Product'
+              type: object
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "401":
+          description: 'UNAUTHORIZED: not signed in'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "403":
+          description: 'FORBIDDEN: signed in without the admin role'
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Restore an archived product
+      tags:
+      - Admin · Products
   /admin/products/{id}/status:
     patch:
       consumes:
@@ -2845,6 +3011,11 @@ paths:
             $ref: '#/definitions/response.Envelope'
         "404":
           description: Product not found
+          schema:
+            $ref: '#/definitions/response.Envelope'
+        "409":
+          description: 'PRODUCT_ARCHIVED: restore the product before putting it on
+            sale'
           schema:
             $ref: '#/definitions/response.Envelope'
         "500":

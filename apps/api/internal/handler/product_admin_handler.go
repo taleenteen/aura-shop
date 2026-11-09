@@ -54,9 +54,9 @@ func actorFrom(r *http.Request) repository.Actor {
 //	@Security		BearerAuth
 //	@Param			q			query		string	false	"Search by product name, slug or brand name"
 //	@Param			category	query		string	false	"Category slug"
-//	@Param			status		query		string	false	"On sale or hidden; anything else lists all"	Enums(active, inactive)
-//	@Param			page		query		int		false	"Page number (default 1)"						minimum(1)
-//	@Param			limit		query		int		false	"Page size, 1-100 (default 20)"					minimum(1)	maximum(100)
+//	@Param			status		query		string	false	"active (on sale), inactive (hidden) or archived; anything else lists every product that is not archived"	Enums(active, inactive, archived)
+//	@Param			page		query		int		false	"Page number (default 1)"																					minimum(1)
+//	@Param			limit		query		int		false	"Page size, 1-100 (default 20)"																				minimum(1)	maximum(100)
 //	@Success		200			{object}	response.Envelope{data=[]dto.AdminProductSummary}
 //	@Failure		401			{object}	response.Envelope	"UNAUTHORIZED: not signed in"
 //	@Failure		403			{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
@@ -73,7 +73,7 @@ func (h *ProductAdminHandler) ListProducts(w http.ResponseWriter, r *http.Reques
 		limit = 20
 	}
 	status := q.Get("status")
-	if status != "active" && status != "inactive" {
+	if status != "active" && status != "inactive" && status != "archived" {
 		status = ""
 	}
 	rows, total, err := h.service.ListProducts(r.Context(), dto.AdminProductListFilter{
@@ -209,6 +209,7 @@ func (h *ProductAdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Reque
 //	@Failure		401		{object}	response.Envelope	"UNAUTHORIZED: not signed in"
 //	@Failure		403		{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
 //	@Failure		404		{object}	response.Envelope	"Product not found"
+//	@Failure		409		{object}	response.Envelope	"PRODUCT_ARCHIVED: restore the product before putting it on sale"
 //	@Failure		500		{object}	response.Envelope
 //	@Router			/admin/products/{id}/status [patch]
 func (h *ProductAdminHandler) SetStatus(w http.ResponseWriter, r *http.Request) {
@@ -237,6 +238,124 @@ func (h *ProductAdminHandler) SetStatus(w http.ResponseWriter, r *http.Request) 
 		})
 	}
 	response.Success(w, http.StatusOK, map[string]bool{"is_active": req.IsActive}, nil)
+}
+
+// ArchiveProduct godoc
+//
+//	@Summary		Archive a product
+//	@Description	Takes the product off sale and out of the default product list (list it with status=archived). Orders, sales reports and stock history keep pointing at it, and it can be restored. Archiving an archived product does nothing. Written to the audit log.
+//	@Tags			Admin · Products
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Product ID"	Format(uuid)
+//	@Success		200	{object}	response.Envelope{data=models.Product}
+//	@Failure		400	{object}	response.Envelope	"Invalid id"
+//	@Failure		401	{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404	{object}	response.Envelope	"Product not found"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/products/{id}/archive [post]
+func (h *ProductAdminHandler) ArchiveProduct(w http.ResponseWriter, r *http.Request) {
+	h.changeArchive(w, r, true)
+}
+
+// RestoreProduct godoc
+//
+//	@Summary		Restore an archived product
+//	@Description	Brings the product back to the product list. It stays hidden from the store until it is put on sale again. Written to the audit log.
+//	@Tags			Admin · Products
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Product ID"	Format(uuid)
+//	@Success		200	{object}	response.Envelope{data=models.Product}
+//	@Failure		400	{object}	response.Envelope	"Invalid id"
+//	@Failure		401	{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404	{object}	response.Envelope	"Product not found"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/products/{id}/restore [post]
+func (h *ProductAdminHandler) RestoreProduct(w http.ResponseWriter, r *http.Request) {
+	h.changeArchive(w, r, false)
+}
+
+func (h *ProductAdminHandler) changeArchive(w http.ResponseWriter, r *http.Request, archive bool) {
+	id, ok := parseID(w, r, "id")
+	if !ok {
+		return
+	}
+	before, err := h.service.GetProduct(r.Context(), id)
+	if err != nil {
+		h.fail(w, err, "load product")
+		return
+	}
+	action, verb := "product.restore", "restore product"
+	change := h.service.RestoreProduct
+	if archive {
+		action, verb, change = "product.archive", "archive product", h.service.ArchiveProduct
+	}
+	if err := change(r.Context(), id); err != nil {
+		h.fail(w, err, verb)
+		return
+	}
+	after, err := h.service.GetProduct(r.Context(), id)
+	if err != nil {
+		h.fail(w, err, "load product")
+		return
+	}
+	if (before.ArchivedAt != nil) != (after.ArchivedAt != nil) {
+		changes := []models.AuditChange{{Field: "archived", From: yesNo(before.ArchivedAt != nil), To: yesNo(after.ArchivedAt != nil)}}
+		if before.IsActive != after.IsActive {
+			changes = append(changes, models.AuditChange{Field: "on_sale", From: yesNo(before.IsActive), To: yesNo(after.IsActive)})
+		}
+		h.audit.Record(r.Context(), actorFrom(r), service.AuditEntry{
+			Action: action, EntityType: "product", EntityID: id.String(), EntityLabel: before.Name, Changes: changes,
+		})
+	}
+	response.Success(w, http.StatusOK, after, nil)
+}
+
+// DeleteProduct godoc
+//
+//	@Summary		Delete a product permanently
+//	@Description	Removes a product that has never been ordered, with its variants, bag lines, wishlist hearts, stock alerts, stock history, reviews and bundle links. A product on any order or checkout hold answers 409 PRODUCT_HAS_ORDERS: archive it instead. Images stay in storage. Written to the audit log.
+//	@Tags			Admin · Products
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"Product ID"	Format(uuid)
+//	@Success		200	{object}	response.Envelope{data=object{deleted=bool}}
+//	@Failure		400	{object}	response.Envelope	"Invalid id"
+//	@Failure		401	{object}	response.Envelope	"UNAUTHORIZED: not signed in"
+//	@Failure		403	{object}	response.Envelope	"FORBIDDEN: signed in without the admin role"
+//	@Failure		404	{object}	response.Envelope	"Product not found"
+//	@Failure		409	{object}	response.Envelope	"PRODUCT_HAS_ORDERS"
+//	@Failure		500	{object}	response.Envelope
+//	@Router			/admin/products/{id} [delete]
+func (h *ProductAdminHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r, "id")
+	if !ok {
+		return
+	}
+	before, err := h.service.GetProduct(r.Context(), id)
+	if err != nil {
+		h.fail(w, err, "load product")
+		return
+	}
+	if err := h.service.DeleteProduct(r.Context(), id); err != nil {
+		h.fail(w, err, "delete product")
+		return
+	}
+	skus := make([]string, 0, len(before.Variants))
+	for _, v := range before.Variants {
+		skus = append(skus, v.SKU)
+	}
+	h.audit.Record(r.Context(), actorFrom(r), service.AuditEntry{
+		Action: "product.delete", EntityType: "product", EntityID: id.String(), EntityLabel: before.Name,
+		Changes: []models.AuditChange{
+			{Field: "slug", From: before.Slug, To: ""},
+			{Field: "skus", From: strings.Join(skus, ", "), To: ""},
+		},
+	})
+	response.Success(w, http.StatusOK, map[string]bool{"deleted": true}, nil)
 }
 
 // AdjustStock godoc
@@ -379,6 +498,10 @@ func (h *ProductAdminHandler) fail(w http.ResponseWriter, err error, action stri
 		response.NotFound(w, err.Error())
 	case errors.Is(err, repository.ErrVariantInUse):
 		response.Error(w, http.StatusConflict, "VARIANT_IN_USE", strings.TrimPrefix(err.Error(), repository.ErrVariantInUse.Error()+": "))
+	case errors.Is(err, repository.ErrProductArchived):
+		response.Error(w, http.StatusConflict, "PRODUCT_ARCHIVED", "This product is archived. Restore it before putting it on sale.")
+	case errors.Is(err, repository.ErrProductHasOrders):
+		response.Error(w, http.StatusConflict, "PRODUCT_HAS_ORDERS", "This product is on past orders, so it can't be deleted. Archive it instead: it leaves the store and this list, and your order history stays complete.")
 	case errors.Is(err, repository.ErrStockChanged):
 		response.Error(w, http.StatusConflict, "STOCK_CHANGED", "Stock changed since you opened this. Reload and try again.")
 	case errors.Is(err, repository.ErrInvalidStock):

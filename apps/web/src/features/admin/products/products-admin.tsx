@@ -1,14 +1,15 @@
 import { isFlagSet } from "@/lib/search-params";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { AlertTriangle, FileSpreadsheet, ImageOff, Loader2, Pencil, Plus, Search } from "lucide-react";
+import { AlertTriangle, Archive, ArchiveRestore, FileSpreadsheet, ImageOff, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { formatTHB } from "@/lib/currency";
 import type { AdminProductSummary, Category } from "@/types/api";
 import { ProductEditor } from "./product-editor";
 import { ProductImport } from "./product-import";
+import { ProductLifecycleDialog, restoreProduct, type LifecycleAction } from "./product-lifecycle";
 
-type StatusFilter = "" | "active" | "inactive";
+type StatusFilter = "" | "active" | "inactive" | "archived";
 const PAGE_SIZE = 20;
 
 /** Admin › Products: the list, the editor (?edit=<id|new>) or the CSV import (?import=1). */
@@ -33,6 +34,8 @@ function ProductList() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ action: LifecycleAction; row: AdminProductSummary } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const latest = useRef(0);
 
   useEffect(() => {
@@ -87,6 +90,31 @@ function ProductList() {
     } finally {
       setTogglingId(null);
     }
+  };
+
+  const restore = async (row: AdminProductSummary) => {
+    setTogglingId(row.id);
+    setNotice(null);
+    try {
+      await restoreProduct(row.id);
+      setNotice(`Restored “${row.name}”. It is back in the product list, hidden from the store until you put it on sale.`);
+      load();
+    } catch (err) {
+      setError((err as Error).message || "Could not restore the product");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const lifecycleDone = (result: LifecycleAction) => {
+    if (!pending) return;
+    setNotice(
+      result === "delete"
+        ? `Deleted “${pending.row.name}”.`
+        : `Archived “${pending.row.name}”. Find it under the Archived tab to restore it.`,
+    );
+    setPending(null);
+    load();
   };
 
   const open = (id: string) => navigate({ to: "/admin", search: { tab: "products", edit: id } });
@@ -171,9 +199,15 @@ function ProductList() {
           {statusTab("", "All")}
           {statusTab("active", "On sale")}
           {statusTab("inactive", "Hidden")}
+          {statusTab("archived", "Archived")}
         </div>
       </div>
 
+      {notice && (
+        <p role="status" className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+          {notice}
+        </p>
+      )}
       {error && (
         <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">
           {error}
@@ -204,7 +238,11 @@ function ProductList() {
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-14 text-center text-zinc-500">
-                    {debounced || category || status ? "No products match these filters." : "No products yet. Create the first one."}
+                    {status === "archived" && !debounced && !category
+                      ? "No archived products."
+                      : debounced || category || status
+                        ? "No products match these filters."
+                        : "No products yet. Create the first one."}
                   </td>
                 </tr>
               ) : (
@@ -243,6 +281,11 @@ function ProductList() {
                     </td>
                     <td className="px-4 py-3 font-semibold text-zinc-900 dark:text-white">{formatTHB(row.min_price)}</td>
                     <td className="px-4 py-3">
+                      {row.archived_at ? (
+                        <span className="inline-flex px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-[10px] font-bold uppercase tracking-wider">
+                          Archived
+                        </span>
+                      ) : (
                       <button
                         type="button"
                         role="switch"
@@ -256,16 +299,55 @@ function ProductList() {
                       >
                         <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${row.is_active ? "left-[18px]" : "left-0.5"}`} />
                       </button>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => open(row.id)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-semibold cursor-pointer"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        Edit
-                      </button>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => open(row.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-semibold cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          Edit
+                        </button>
+                        {row.archived_at ? (
+                          <button
+                            type="button"
+                            onClick={() => restore(row)}
+                            disabled={togglingId === row.id}
+                            title="Restore to the product list"
+                            aria-label={`Restore ${row.name}`}
+                            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 cursor-pointer"
+                          >
+                            <ArchiveRestore className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setPending({ action: "archive", row })}
+                            title="Archive: hide from the store and this list"
+                            aria-label={`Archive ${row.name}`}
+                            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                          >
+                            <Archive className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPending({ action: "delete", row })}
+                          disabled={row.order_count > 0}
+                          title={
+                            row.order_count > 0
+                              ? `On ${row.order_count} order${row.order_count === 1 ? "" : "s"}, so it can't be deleted. Archive it instead.`
+                              : "Delete permanently"
+                          }
+                          aria-label={`Delete ${row.name}`}
+                          className="p-2 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-500 cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -287,6 +369,9 @@ function ProductList() {
           </div>
         )}
       </div>
+      {pending && (
+        <ProductLifecycleDialog action={pending.action} product={pending.row} onClose={() => setPending(null)} onDone={lifecycleDone} />
+      )}
     </div>
   );
 }

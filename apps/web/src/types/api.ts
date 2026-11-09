@@ -165,6 +165,7 @@ export interface Product {
   ports_diagram: PortsDiagramData;
   full_spec_matrix: SpecCategoryGroup[];
   is_active: boolean;
+  archived_at?: string | null;
   variants: ProductVariant[];
   accessory_bundles?: ProductAccessoryBundle[];
   created_at: string;
@@ -366,6 +367,9 @@ export interface AdminProductSummary {
   category_name: string;
   brand_name: string;
   is_active: boolean;
+  archived_at: string | null;
+  /** Orders that include the product; a product that has been ordered can be archived but not deleted. */
+  order_count: number;
   variant_count: number;
   stock_total: number;
   reserved_total: number;

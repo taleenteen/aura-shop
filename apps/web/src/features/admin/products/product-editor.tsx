@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
+  Archive,
+  ArchiveRestore,
   ArrowDown,
   ArrowLeft,
   ArrowUp,
@@ -31,6 +33,7 @@ import type {
   VariantInput,
 } from "@/types/api";
 import { StockDialog } from "./stock-dialog";
+import { ProductLifecycleDialog, restoreProduct, type LifecycleAction } from "./product-lifecycle";
 
 /** A variant in the form: the input fields plus read-only stock for saved variants. */
 type VariantDraft = VariantInput & { key: string; stock_quantity?: number; reserved_stock?: number };
@@ -194,6 +197,9 @@ export function ProductEditor({ productId }: { productId: string | null }) {
   const [banner, setBanner] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [stockFor, setStockFor] = useState<VariantDraft | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [archivedAt, setArchivedAt] = useState<string | null>(null);
+  const [lifecycle, setLifecycle] = useState<LifecycleAction | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -218,6 +224,7 @@ export function ProductEditor({ productId }: { productId: string | null }) {
         setDraft(d);
         setSaved(JSON.stringify(toInput(d)));
         setSlugTouched(true);
+        setArchivedAt(r.data.archived_at ?? null);
       })
       .catch((err) => !cancelled && setLoadError((err as Error).message || "Could not load the product"))
       .finally(() => !cancelled && setIsLoading(false));
@@ -274,6 +281,34 @@ export function ProductEditor({ productId }: { productId: string | null }) {
     }
   };
 
+  const restore = async () => {
+    if (!productId) return;
+    setIsRestoring(true);
+    setBanner(null);
+    try {
+      await restoreProduct(productId);
+      setArchivedAt(null);
+      setBanner({ kind: "ok", text: "Restored. The product is back in the list, hidden from the store until you put it on sale." });
+    } catch (e) {
+      setBanner({ kind: "error", text: (e as Error).message || "Could not restore the product." });
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const lifecycleDone = (result: LifecycleAction) => {
+    setLifecycle(null);
+    if (result === "delete") {
+      navigate({ to: "/admin", search: { tab: "products" } });
+      return;
+    }
+    // Archiving also takes the product off sale.
+    setArchivedAt(new Date().toISOString());
+    setDraft((d) => ({ ...d, is_active: false }));
+    setSaved((prev) => JSON.stringify({ ...JSON.parse(prev), is_active: false }));
+    setBanner({ kind: "ok", text: "Archived. It is hidden from the store and listed under Archived." });
+  };
+
   if (isLoading) {
     return (
       <div className="py-24 flex justify-center text-zinc-400">
@@ -303,7 +338,7 @@ export function ProductEditor({ productId }: { productId: string | null }) {
           </button>
           <div>
             <h2 className="text-xl font-bold text-zinc-950 dark:text-white">{productId ? draft.name || "Edit product" : "New product"}</h2>
-            <p className="text-xs text-zinc-500">{draft.is_active ? "On sale" : "Hidden from the store"}</p>
+            <p className="text-xs text-zinc-500">{archivedAt ? "Archived" : draft.is_active ? "On sale" : "Hidden from the store"}</p>
           </div>
         </div>
         {productId && draft.slug && (
@@ -312,6 +347,19 @@ export function ProductEditor({ productId }: { productId: string | null }) {
           </Link>
         )}
       </div>
+
+      {archivedAt && (
+        <div role="status" className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-700 dark:text-zinc-300 flex flex-wrap items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-2">
+            <Archive className="w-4 h-4 text-zinc-500" />
+            This product is archived: hidden from the store and the product list. Orders and reports still include it.
+          </span>
+          <button type="button" onClick={restore} disabled={isRestoring} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold disabled:opacity-50 cursor-pointer">
+            <ArchiveRestore className="w-3.5 h-3.5" />
+            {isRestoring ? "Restoring…" : "Restore"}
+          </button>
+        </div>
+      )}
 
       {confirmLeave && (
         <div role="alert" className="p-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-xs text-amber-900 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2">
@@ -394,10 +442,10 @@ export function ProductEditor({ productId }: { productId: string | null }) {
             </Field>
           </div>
           <label className="md:col-span-2 flex items-center gap-3 text-sm cursor-pointer select-none">
-            <input type="checkbox" checked={draft.is_active} onChange={(e) => set("is_active", e.target.checked)} className="w-4 h-4" />
+            <input type="checkbox" checked={draft.is_active} disabled={!!archivedAt} onChange={(e) => set("is_active", e.target.checked)} className="w-4 h-4" />
             <span>
               <strong className="text-zinc-900 dark:text-white">On sale</strong>
-              <span className="text-zinc-500"> — visible in the store and searchable</span>
+              <span className="text-zinc-500">{archivedAt ? " — restore the product first" : " — visible in the store and searchable"}</span>
             </span>
           </label>
         </div>
@@ -523,6 +571,28 @@ export function ProductEditor({ productId }: { productId: string | null }) {
         />
       </Section>
 
+      {productId && (
+        <Section title="Archive or delete" description="Archive keeps the product for order history and reports and can be undone. Delete is for products created by mistake that were never ordered.">
+          <div className="flex flex-wrap gap-2">
+            {archivedAt ? (
+              <button type="button" onClick={restore} disabled={isRestoring} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 cursor-pointer">
+                <ArchiveRestore className="w-4 h-4" />
+                Restore product
+              </button>
+            ) : (
+              <button type="button" onClick={() => setLifecycle("archive")} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer">
+                <Archive className="w-4 h-4" />
+                Archive product
+              </button>
+            )}
+            <button type="button" onClick={() => setLifecycle("delete")} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-600 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer">
+              <Trash2 className="w-4 h-4" />
+              Delete permanently
+            </button>
+          </div>
+        </Section>
+      )}
+
       {/* Save bar */}
       <div className="fixed bottom-0 inset-x-0 z-30 border-t border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
@@ -537,6 +607,10 @@ export function ProductEditor({ productId }: { productId: string | null }) {
           </div>
         </div>
       </div>
+
+      {lifecycle && productId && (
+        <ProductLifecycleDialog action={lifecycle} product={{ id: productId, name: (JSON.parse(saved) as ProductInput).name }} onClose={() => setLifecycle(null)} onDone={lifecycleDone} />
+      )}
 
       {stockFor?.id && (
         <StockDialog

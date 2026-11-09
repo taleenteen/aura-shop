@@ -42,7 +42,7 @@ type VariantInput struct {
 type AdminProductListFilter struct {
 	Search   string
 	Category string // slug
-	Status   string // "active", "inactive" or "" for all
+	Status   string // "active", "inactive", "archived", or "" for every product not archived
 	Page     int
 	Limit    int
 }
@@ -54,6 +54,8 @@ type AdminProductSummary struct {
 	CategoryName  string    `json:"category_name"`
 	BrandName     string    `json:"brand_name"`
 	IsActive      bool      `json:"is_active"`
+	ArchivedAt    *time.Time `json:"archived_at"`
+	OrderCount    int       `json:"order_count"` // orders that include the product; > 0 means it cannot be deleted
 	VariantCount  int       `json:"variant_count"`
 	StockTotal    int       `json:"stock_total"`
 	ReservedTotal int       `json:"reserved_total"`

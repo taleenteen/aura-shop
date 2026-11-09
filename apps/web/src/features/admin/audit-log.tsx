@@ -23,6 +23,9 @@ const ACTIONS: Record<string, string> = {
   "product.update": "edited product",
   "product.hide": "took product off sale",
   "product.show": "put product on sale",
+  "product.archive": "archived product",
+  "product.restore": "restored product",
+  "product.delete": "deleted product",
   "stock.adjust": "adjusted stock",
   "order.status": "updated order",
   "banner.create": "created banner",
@@ -163,7 +166,7 @@ export function AuditLogPanel() {
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {rows.map((e) => {
               const expanded = open.has(e.id);
-              const canOpen = ["product", "order", "banner", "category", "brand", "review"].includes(e.entity_type);
+              const canOpen = ["product", "order", "banner", "category", "brand", "review"].includes(e.entity_type) && e.action !== "product.delete";
               return (
                 <li key={e.id} className="text-xs">
                   <div className="px-4 py-3 flex flex-wrap items-start gap-x-3 gap-y-1">

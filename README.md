@@ -62,6 +62,7 @@ make dev-web                  # หน้าเว็บที่ http://localho
 **หลังบ้าน (`/admin`)**
 - ภาพรวม: รายได้ แนวโน้ม 30 วัน ยอดรายวัน 7 วัน ยอดตามหมวด และสต็อกใกล้หมด
 - สินค้าและสต็อก: เพิ่ม/แก้สินค้า variant รูป และปรับสต็อกพร้อมบันทึกประวัติทุกครั้ง
+- เก็บเข้าคลัง (Archive) ซ่อนสินค้าจากหน้าร้านและรายการ แต่ order และรายงานยังครบ กู้คืนได้; ลบถาวรได้เฉพาะสินค้าที่ไม่เคยมีคนสั่ง (ต้องพิมพ์ชื่อยืนยัน)
 - นำเข้า / ส่งออกสินค้าด้วย CSV: ดาวน์โหลด template และคู่มือส่งให้คนอื่นกรอกได้ ระบบจับคู่สินค้าด้วย slug และตัวเลือกด้วย SKU ถ้าชื่อซ้ำแต่ slug ต่างจะถามว่าเป็นสินค้าเดียวกันหรือไม่ และเลือกได้ทีละช่องว่าจะใช้ค่าจากไฟล์หรือค่าเดิม ก่อนบันทึกจริง
 - บันทึกการแก้ไข (Activity): ทุกการแก้ไขของ admin ต่อสินค้า สต็อก order แบนเนอร์ หมวดหมู่ แบรนด์ รีวิว และการนำเข้า CSV พร้อมค่าก่อน/หลัง ค้นหาและกรองได้
 - รายงานยอดขาย: ช่วงวันที่และจัดกลุ่มรายวัน/สัปดาห์/เดือน เทียบช่วงก่อนหน้า สินค้าขายดี ยอดตามหมวดและวิธีชำระเงิน ดาวน์โหลด CSV ได้
@@ -157,6 +158,7 @@ On first start against an empty database the API creates the tables and loads sa
 **Backoffice (`/admin`)**
 - Overview: revenue, 30-day trend, last 7 days, revenue by category, low stock
 - Products & stock: create/edit products, variants and images; every stock change is recorded
+- Archive hides a product from the store and the list while orders and reports keep it, and can be undone; permanent delete is only for never-ordered products (type the name to confirm)
 - Product CSV import / export: downloadable template and guide to hand to others; products match by slug and options by SKU; a same-name product with a different slug asks whether it is the same product; every changed field can keep its current value before anything is saved
 - Activity log: every admin change to products, stock, orders, banners, categories, brands, reviews and CSV imports, with before/after values; searchable and filterable
 - Sales report: any date range by day/week/month, compared with the previous period, top products, revenue by category and payment method, CSV downloads

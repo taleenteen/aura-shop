@@ -37,6 +37,9 @@ type ProductAdminRepository interface {
 	CreateProduct(ctx context.Context, product *models.Product, initialStock []int, actor Actor) error
 	UpdateProduct(ctx context.Context, product *models.Product, initialStock []int, actor Actor) error
 	SetActive(ctx context.Context, id uuid.UUID, active bool) error
+	ArchiveProduct(ctx context.Context, id uuid.UUID) error
+	RestoreProduct(ctx context.Context, id uuid.UUID) error
+	DeleteProduct(ctx context.Context, id uuid.UUID) error
 	AdjustStock(ctx context.Context, variantID uuid.UUID, req dto.StockAdjustmentRequest, actor Actor) (*dto.StockAdjustmentResponse, error)
 	ListMovements(ctx context.Context, variantID uuid.UUID, limit int) ([]models.StockMovement, error)
 }
@@ -70,10 +73,14 @@ func (r *productAdminRepository) ListProducts(ctx context.Context, f dto.AdminPr
 			q = q.Where("c.slug = ?", strings.ToLower(f.Category))
 		}
 		switch f.Status {
+		case "archived":
+			q = q.Where("p.archived_at IS NOT NULL")
 		case "active":
-			q = q.Where("p.is_active = true")
+			q = q.Where("p.archived_at IS NULL AND p.is_active = true")
 		case "inactive":
-			q = q.Where("p.is_active = false")
+			q = q.Where("p.archived_at IS NULL AND p.is_active = false")
+		default:
+			q = q.Where("p.archived_at IS NULL")
 		}
 		return q
 	}
@@ -86,7 +93,9 @@ func (r *productAdminRepository) ListProducts(ctx context.Context, f dto.AdminPr
 	var rows []dto.AdminProductSummary
 	err := scope().
 		Joins("LEFT JOIN product_variants v ON v.product_id = p.id").
-		Select(`p.id, p.slug, p.name, c.name AS category_name, b.name AS brand_name, p.is_active,
+		Select(`p.id, p.slug, p.name, c.name AS category_name, b.name AS brand_name, p.is_active, p.archived_at,
+			(SELECT COUNT(DISTINCT oi.order_id) FROM order_items oi
+				JOIN product_variants ov ON ov.id = oi.variant_id WHERE ov.product_id = p.id) AS order_count,
 			p.base_price AS min_price, p.updated_at,
 			COUNT(v.id) AS variant_count,
 			COALESCE(SUM(v.stock_quantity), 0) AS stock_total,
@@ -206,6 +215,9 @@ func (r *productAdminRepository) UpdateProduct(ctx context.Context, p *models.Pr
 			}
 			return err
 		}
+		if current.ArchivedAt != nil && p.IsActive {
+			return ErrProductArchived // editing is fine; going on sale needs a restore first
+		}
 		var existing []models.ProductVariant
 		if err := tx.Where("product_id = ?", p.ID).Find(&existing).Error; err != nil {
 			return err
@@ -295,12 +307,23 @@ func (r *productAdminRepository) UpdateProduct(ctx context.Context, p *models.Pr
 
 func (r *productAdminRepository) SetActive(ctx context.Context, id uuid.UUID, active bool) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		res := tx.Model(&models.Product{}).Where("id = ?", id).Update("is_active", active)
+		q := tx.Model(&models.Product{}).Where("id = ?", id)
+		if active {
+			q = q.Where("archived_at IS NULL") // an archived product must be restored first
+		}
+		res := q.Update("is_active", active)
 		if res.Error != nil {
 			return fmt.Errorf("failed to update product status: %w", res.Error)
 		}
 		if res.RowsAffected == 0 {
-			return ErrProductNotFound
+			var n int64
+			if err := tx.Model(&models.Product{}).Where("id = ?", id).Count(&n).Error; err != nil {
+				return err
+			}
+			if n == 0 {
+				return ErrProductNotFound
+			}
+			return ErrProductArchived
 		}
 		if !active {
 			return nil
