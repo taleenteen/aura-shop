@@ -34,6 +34,9 @@ type ProductAdminService interface {
 	CreateProduct(ctx context.Context, in dto.ProductInput, actor repository.Actor) (*models.Product, error)
 	UpdateProduct(ctx context.Context, id uuid.UUID, in dto.ProductInput, actor repository.Actor) (*models.Product, error)
 	SetActive(ctx context.Context, id uuid.UUID, active bool) error
+	ArchiveProduct(ctx context.Context, id uuid.UUID) error
+	RestoreProduct(ctx context.Context, id uuid.UUID) error
+	DeleteProduct(ctx context.Context, id uuid.UUID) error
 	AdjustStock(ctx context.Context, variantID uuid.UUID, req dto.StockAdjustmentRequest, actor repository.Actor) (*dto.StockAdjustmentResponse, error)
 	ListMovements(ctx context.Context, variantID uuid.UUID) ([]models.StockMovement, error)
 }
@@ -109,6 +112,18 @@ func (s *productAdminService) UpdateProduct(ctx context.Context, id uuid.UUID, i
 
 func (s *productAdminService) SetActive(ctx context.Context, id uuid.UUID, active bool) error {
 	return s.repo.SetActive(ctx, id, active)
+}
+
+func (s *productAdminService) ArchiveProduct(ctx context.Context, id uuid.UUID) error {
+	return s.repo.ArchiveProduct(ctx, id)
+}
+
+func (s *productAdminService) RestoreProduct(ctx context.Context, id uuid.UUID) error {
+	return s.repo.RestoreProduct(ctx, id)
+}
+
+func (s *productAdminService) DeleteProduct(ctx context.Context, id uuid.UUID) error {
+	return s.repo.DeleteProduct(ctx, id)
 }
 
 func (s *productAdminService) AdjustStock(ctx context.Context, variantID uuid.UUID, req dto.StockAdjustmentRequest, actor repository.Actor) (*dto.StockAdjustmentResponse, error) {

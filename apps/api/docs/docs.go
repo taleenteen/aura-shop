@@ -1994,10 +1994,11 @@ const docTemplate = `{
                     {
                         "enum": [
                             "active",
-                            "inactive"
+                            "inactive",
+                            "archived"
                         ],
                         "type": "string",
-                        "description": "On sale or hidden; anything else lists all",
+                        "description": "active (on sale), inactive (hidden) or archived; anything else lists every product that is not archived",
                         "name": "status",
                         "in": "query"
                     },
@@ -2313,6 +2314,246 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes a product that has never been ordered, with its variants, bag lines, wishlist hearts, stock alerts, stock history, reviews and bundle links. A product on any order or checkout hold answers 409 PRODUCT_HAS_ORDERS: archive it instead. Images stay in storage. Written to the audit log.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin · Products"
+                ],
+                "summary": "Delete a product permanently",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Product ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "deleted": {
+                                                    "type": "boolean"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHORIZED: not signed in",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "FORBIDDEN: signed in without the admin role",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Product not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "PRODUCT_HAS_ORDERS",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/products/{id}/archive": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Takes the product off sale and out of the default product list (list it with status=archived). Orders, sales reports and stock history keep pointing at it, and it can be restored. Archiving an archived product does nothing. Written to the audit log.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin · Products"
+                ],
+                "summary": "Archive a product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Product ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Product"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHORIZED: not signed in",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "FORBIDDEN: signed in without the admin role",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Product not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/products/{id}/restore": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Brings the product back to the product list. It stays hidden from the store until it is put on sale again. Written to the audit log.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin · Products"
+                ],
+                "summary": "Restore an archived product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Product ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Product"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHORIZED: not signed in",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "FORBIDDEN: signed in without the admin role",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Product not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    }
+                }
             }
         },
         "/admin/products/{id}/status": {
@@ -2396,6 +2637,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Product not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "PRODUCT_ARCHIVED: restore the product before putting it on sale",
                         "schema": {
                             "$ref": "#/definitions/response.Envelope"
                         }
@@ -5288,6 +5535,9 @@ const docTemplate = `{
         "dto.AdminProductSummary": {
             "type": "object",
             "properties": {
+                "archived_at": {
+                    "type": "string"
+                },
                 "brand_name": {
                     "type": "string"
                 },
@@ -5309,6 +5559,10 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "order_count": {
+                    "description": "orders that include the product; \u003e 0 means it cannot be deleted",
+                    "type": "integer"
                 },
                 "reserved_total": {
                     "type": "integer"
@@ -6907,6 +7161,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.ProductAccessoryBundle"
                     }
+                },
+                "archived_at": {
+                    "description": "ArchivedAt hides the product from the admin list (and from sale) without losing the\norders and reports that refer to it. Nil for live products.",
+                    "type": "string"
                 },
                 "base_price": {
                     "description": "Lowest variant price in Satang",

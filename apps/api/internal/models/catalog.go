@@ -40,6 +40,9 @@ type Product struct {
 	PortsDiagram     datatypes.JSON           `gorm:"type:jsonb" json:"ports_diagram"`
 	FullSpecMatrix   datatypes.JSON           `gorm:"type:jsonb" json:"full_spec_matrix"`
 	IsActive         bool                     `gorm:"default:true" json:"is_active"`
+	// ArchivedAt hides the product from the admin list (and from sale) without losing the
+	// orders and reports that refer to it. Nil for live products.
+	ArchivedAt *time.Time `gorm:"index" json:"archived_at"`
 	Variants         []ProductVariant         `gorm:"foreignKey:ProductID" json:"variants"`
 	AccessoryBundles []ProductAccessoryBundle `gorm:"foreignKey:MainProductID" json:"accessory_bundles,omitempty"`
 	CreatedAt        time.Time                `json:"created_at"`
